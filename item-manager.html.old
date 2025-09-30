@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ניהול פריטים</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      color: #333;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+      display: flex;
+      flex-direction: column;
+    }
+    label {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    input, select, button {
+      font-size: 16px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h1>ניהול פריטים 🛠️</h1>
+
+  <div class="form-group">
+    <label for="searchInput">🔍 חיפוש פריט</label>
+    <input type="text" id="searchInput" placeholder="הקלד שם לחיפוש">
+  </div>
+
+  <div class="form-group">
+   <button onclick="showAddPanel()">➕ הוסף פריט חדש</button>
+
+    <input type="text" id="newItemName" placeholder="שם הפריט">
+  </div>
+
+  <div class="form-group">
+    <label for="newItemCategory">📂 קטגוריה</label>
+    <select id="newItemCategory">
+      <option>ירקות</option>
+      <option>פירות</option>
+      <option>מוצרי חלב</option>
+      <option>מאפים</option>
+      <option>בשר ודגים</option>
+      <option>מצרכים יבשים</option>
+      <option>שתייה</option>
+      <option selected>אחר</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="newItemIcon">🎯 אייקון</label>
+    <input type="text" id="newItemIcon" placeholder="למשל 🥒">
+  </div>
+
+  <button id="addItemBtn">✔ הוסף לרשימה</button>
+
+  <script>
+    document.getElementById('addItemBtn').onclick = () => {
+      const name = document.getElementById('newItemName').value.trim();
+      const category = document.getElementById('newItemCategory').value;
+      const icon = document.getElementById('newItemIcon').value.trim();
+      if (!name) return alert("יש להזין שם פריט");
+
+      const newItem = { name, category, icon };
+      const existing = JSON.parse(localStorage.getItem('customItems') || '[]');
+      existing.push(newItem);
+      localStorage.setItem('customItems', JSON.stringify(existing));
+
+      alert("הפריט נוסף בהצלחה!");
+      document.getElementById('newItemName').value = '';
+      document.getElementById('newItemIcon').value = '';
+    };
+  </script>
+</body>
+</html>

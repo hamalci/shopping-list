@@ -1,0 +1,306 @@
+/* ====== בסיס שורת פריט ====== */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  direction: rtl;
+  padding: 0.4rem 0.5rem;
+  box-sizing: border-box;
+}
+
+/* אייקון פריט (קבוע) */
+.item .icon {
+  flex: 0 0 auto;
+  width: 2rem;
+  text-align: center;
+  font-size: 1.05rem;
+}
+
+/* שם פריט: תופס את המקום הנותר, ellipsis עובד בתוך flex */
+.item .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: #222;
+}
+
+/* כמות: רוחב קבוע, מיושר שמאלה בפנים כדי שלא ידרוס את השם */
+.item .qty {
+  flex: 0 0 auto;
+  min-width: 4.2rem;
+  text-align: left;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+/* ====== עמודת מחיר — רוחב קבוע, currency משמאל, amount מימין ====== */
+.item .price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  flex: 0 0 5.2rem;       /* כוונן לפי רוחב נדרש */
+  margin-left: auto;      /* דוחף את העמודה לקצה השמאלי של השורה */
+  box-sizing: border-box;
+  padding: 0 0.15rem;
+  direction: ltr;         /* מבנה פנימי LTR: currency ואז amount באופן יציב */
+  cursor: pointer;
+  user-select: none;
+}
+
+/* סימן מטבע — קבוע רוחב כדי ליישר את כל הסימנים בעמודה */
+.item .price .currency {
+  order: 0;
+  font-size: 0.9rem;
+  opacity: 0.95;
+  flex: 0 0 1.1rem;
+  text-align: left;
+  color: #1b7a2b;
+}
+
+/* סכום המספר — מימין בתוך העמודה */
+.item .price .amount {
+  order: 1;
+  font-size: 0.98rem;
+  font-weight: 700;
+  flex: 1 1 auto;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* ====== כפתורי פעולה — החזרת גודל קריא ====== */
+.btn-action {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.98rem;
+  border-radius: 8px;
+  background: #2b7a2b;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.btn-action:active { transform: translateY(1px); }
+
+/* גיבוי ליישום על סלקטורים נפוצים */
+button#btnClearList, button#btnClearChecked, .controls .btn {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.98rem;
+  border-radius: 8px;
+}
+
+/* ====== פוטר ורנדר סה״כ ====== */
+.list-footer {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+  direction: rtl;
+}
+.total-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 700;
+}
+.total-label { color: #333; font-size: 0.95rem; }
+.total-amount {
+  color: #1b7a2b;
+  font-size: 1rem;
+  min-width: 4.5rem;
+  text-align: left;
+  direction: ltr;
+}
+
+/* ====== מצב לילה - שיפור ניגודיות וקריאות ====== */
+body.dark-mode {
+  --bg: #0f1115;
+  --panel: #111317;
+  --muted: #b4b6b8;
+  --text: #ececec;
+}
+body.dark-mode .item { background: transparent; }
+body.dark-mode .item .name {
+  color: #f5f5f5;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  font-weight: 600;
+}
+body.dark-mode .item .qty { color: var(--muted); }
+body.dark-mode .item .price .currency { color: #cfead6; }
+body.dark-mode .item .price .amount { color: #eaffea; font-weight:700; }
+body.dark-mode .list-footer .total-label { color: #eeeeee; font-weight: 600; }
+body.dark-mode .list-footer .total-amount { color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.28); }
+
+/* ====== התאמות מובייל ====== */
+@media (max-width: 480px) {
+  .item { gap: 0.35rem; padding: 0.35rem; }
+  .item .icon { width: 1.8rem; font-size: 0.98rem; }
+  .item .name { font-size: 0.96rem; }
+  .item .qty { min-width: 3.4rem; font-size: 0.88rem; }
+  .item .price { flex: 0 0 4.2rem; gap: 0.14rem; padding: 0 0.1rem; }
+  .item .price .currency { flex: 0 0 0.95rem; font-size: 0.86rem; }
+  .item .price .amount { font-size: 0.92rem; }
+  .total-amount { min-width: 3.6rem; font-size: 0.96rem; }
+  .btn-action { padding: 0.36rem 0.7rem; font-size: 0.92rem; border-radius: 7px; }
+}
+
+/* ====== עוד כללים שימושיים ====== */
+/* ודא שהאלמנט name יכול להתכווץ בתוך flex */
+.item .name { min-width: 0; }
+
+/* אם מחירי המחיר מוסתרים על ידי כלל חיצוני ניתן להסיר !important אחרי בדיקה */
+#listGrid .item .price { display: inline-flex !important; }
+/* ====== Dark mode: הרחבה לאזורים נוספים ====== */
+
+/* כלל בסיסי לכל תיבה/כרטיס בתוך הממשק במצב לילה */
+body.dark-mode .panel,
+body.dark-mode .card,
+body.dark-mode .choose-item,
+body.dark-mode .list-footer,
+body.dark-mode #chooseSection,
+body.dark-mode #categoriesList,
+body.dark-mode #settingsSection {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text, #e6e6e6);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+}
+
+/* תיבות בחירת פריטים: הופך את הריבוע לבהיר-כהה קריא כמו הרשימה */
+body.dark-mode .choose-item {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.04);
+  color: #f5f5f5;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.22);
+}
+
+/* כאשר פריט בחר: רקע מעט מודגש ורקע המספר האדום נשמר */
+body.dark-mode .choose-item.selected {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+  border-color: rgba(255,255,255,0.06);
+}
+
+/* שדות הכותרת ותוויות מעל ה״בחר פריטים״ */
+body.dark-mode .choose-section-title,
+body.dark-mode .section-title,
+body.dark-mode .app-header h2,
+body.dark-mode .app-header .subtitle {
+  color: #f1f1f1;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.22);
+}
+
+/* כפתורים באזור הבחירה (איפוס, הוספה) */
+body.dark-mode .controls button,
+body.dark-mode .btn-action,
+body.dark-mode button#btnAddCustom,
+body.dark-mode button#btnResetChoices {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.06));
+  border: 1px solid rgba(255,255,255,0.04);
+  color: #f7f7f7;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+}
+
+/* רשימת הקטגוריות / סקשן סדר קטגוריות - התאמה למראה הרשימה */
+body.dark-mode #categoriesList,
+body.dark-mode #settingsSection {
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.03);
+  color: #eee;
+}
+
+/* פריטי categories כ‑li: צבע טקסט ושוליים עדינים */
+body.dark-mode #categoriesList li {
+  color: #efefef;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  padding: 0.45rem 0.5rem;
+}
+
+/* קונטרסט לניקוד/באנרים אדומים (badges) בתוך מצב לילה */
+body.dark-mode .choose-item .badge {
+  background: #e05555;
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+}
+
+/* פריטים ברשימה (חיבור לסגנונות קיימים) */
+body.dark-mode .item {
+  background: transparent;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+}
+
+/* הדגשה לפוקוס/העברה בעכבר כדי להרגיש נגיש במצב לילה */
+body.dark-mode .item:hover,
+body.dark-mode .choose-item:hover,
+body.dark-mode #categoriesList li:hover {
+  background: rgba(255,255,255,0.02);
+}
+
+/* טקסט עזר קטן/תווים משניים (unit, qty) שיהיו פחות דומיננטיים אך קריאים */
+body.dark-mode .item .qty,
+body.dark-mode .item .unit,
+body.dark-mode .item .meta {
+  color: #bdbfc1;
+}
+
+/* כוונון מיוחד לפאנל הבחירה (קצר ורחב) */
+body.dark-mode #chooseSection {
+  padding: 0.6rem;
+  border-radius: 10px;
+}
+
+/* אם יש מודל של כפתור במשבצת קטגוריות - הדגש גבול תחתון */
+body.dark-mode .category-controls button {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.03);
+  color: #eee;
+}
+
+/* וידוא שאין קונפליקט עם צבעי רקע מקומיים מדי */
+body.dark-mode .panel[style*="background"],
+body.dark-mode .card[style*="background"] {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) !important;
+}
+
+/* וידוא שאין קונפליקט עם צבעי רקע מקומיים מדי */
+body.dark-mode .panel[style*="background"],
+body.dark-mode .card[style*="background"] {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)) !important;
+}
+/* ברירת מחדל - סקשן סגור */
+#settingsSection, #categoriesList {
+  transition: max-height 240ms ease, opacity 180ms ease, transform 180ms ease;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+
+/* hover בדסקטופ - מאפשר לראות קודם */
+@media (hover: hover) and (pointer: fine) {
+  .categories-container:hover #settingsSection,
+  .categories-container:hover #categoriesList {
+    max-height: 1000px; /* גדול מספיק להכיל את התוכן */
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+}
+
+/* class פתוח (כשהמשתמש לחץ) - יחול גם על מובייל */
+#settingsSection.open, #categoriesList.open {
+  max-height: 1000px;
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* עיצוב קל למצב פתוח */
+#settingsSection.open { box-shadow: 0 6px 18px rgba(0,0,0,0.12); border-radius: 8px; }
+
+/* וודא שכפתור הפתיחה ברור ונגיש */
+.btn-toggle-categories { cursor: pointer; user-select: none; }

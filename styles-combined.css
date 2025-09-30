@@ -1,0 +1,259 @@
+/* Global box-sizing reset */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ====== בסיס שורת פריט ====== */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  direction: rtl;
+  padding: 0.4rem 0.5rem;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  transition: background-color 140ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.item .icon { flex: 0 0 auto; width: 2rem; text-align: center; font-size: 1.05rem; }
+
+/* List container layout */
+#listGrid { display: grid; grid-auto-rows: minmax(2.4rem, auto); gap: 0.4rem; align-content: start; }
+
+/* Item hover and checked states */
+.item:hover { background: #f9fbf9; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+.item.checked { background: #f6f7f6; opacity: 0.85; }
+.item.checked .name { color: #888; text-decoration: line-through; text-decoration-thickness: 2px; text-decoration-color: rgba(0,0,0,0.35); }
+.item.checked .price { opacity: 0.6; }
+
+/* שם פריט */
+.item .name {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: #222;
+}
+
+/* כמות */
+.item .qty {
+  flex: 0 0 auto;
+  min-width: 4.2rem;
+  text-align: end;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+/* Quantity internals */
+.item .qty .q-amount { font-weight: 700; margin-left: 0.25rem; }
+.item .qty .q-unit { color: #666; font-size: 0.9rem; }
+
+/* ====== עמודת מחיר קבועה ====== */
+.item .price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  flex: 0 1 5.2rem;
+  margin-left: auto;
+  box-sizing: border-box;
+  padding: 0 0.15rem;
+  direction: ltr;
+  cursor: pointer;
+  user-select: text;
+}
+.item .price .currency {
+  font-size: 0.9rem;
+  opacity: 0.95;
+  flex: 0 0 1.1rem;
+  text-align: left;
+  color: #1b7a2b;
+}
+.item .price .amount {
+  order: 1;
+  font-size: 0.98rem;
+  font-weight: 700;
+  flex: 1 1 auto;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Price hover affordance */
+.item .price:hover { background: rgba(27,122,43,0.06); border-radius: 8px; }
+
+/* ====== כפתורים ====== */
+.btn-action {
+  padding: 0.45rem 0.9rem;
+  font-size: 0.98rem;
+  border-radius: 8px;
+  background: #2b7a2b;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+}
+.btn-action:active { transform: translateY(1px); }
+
+/* בסי�� לכפתורים באמצעות מחלקה */
+.btn { padding: 0.45rem 0.9rem; font-size: 0.98rem; border-radius: 8px; }
+
+/* שמירה על תאימות לאחור עם סלקטורים מבוססי מזהה */
+button#btnClearList, button#btnClearChecked, .controls .btn { padding: 0.45rem 0.9rem; font-size: 0.98rem; border-radius: 8px; }
+
+/* ניראות פוקוס נגישה */
+.btn-action:focus-visible,
+.controls button:focus-visible,
+.item .price:focus-visible {
+  outline: 2px solid #2b7a2b;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* Motion */
+.fade-in { animation: fadeIn 220ms ease-out both; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
+.item.moving { transform: translateZ(0); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+
+/* ====== פוטר / סה"כ ====== */
+.list-footer { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #eee; display: flex; justify-content: flex-end; direction: rtl; }
+.total-row { display: flex; gap: 0.5rem; align-items: center; font-weight: 700; }
+.total-label { color: #333; font-size: 0.95rem; }
+.total-amount { color: #1b7a2b; font-size: 1rem; min-width: 4.5rem; text-align: left; direction: ltr; }
+
+/* ====== מצב לילה מורחב ====== */
+body.dark-mode { --bg:#0f1115; --panel:#111317; --muted:#b4b6b8; --text:#ececec; --btn-bg:#265f26; --btn-text:#ffffff; --panel-border:rgba(255,255,255,0.04); }
+body.dark-mode .item { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); }
+body.dark-mode .item .name { color: #f5f5f5; text-shadow: 0 1px 0 rgba(0,0,0,0.25); font-weight: 600; }
+body.dark-mode .item .qty { color: var(--muted); }
+body.dark-mode .item .price .currency { color: #cfead6; }
+body.dark-mode .item .price .amount { color: #eaffea; font-weight:700; }
+body.dark-mode .list-footer .total-label { color:#eeeeee; font-weight:600; }
+body.dark-mode .list-footer .total-amount { color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.28); }
+
+/* הרחבה לאזור 'בחר פריטים', כפתורים וריבועים */
+body.dark-mode .panel, body.dark-mode .card, body.dark-mode .choose-item, body.dark-mode .list-footer, body.dark-mode #chooseSection, body.dark-mode #categoriesList, body.dark-mode #settingsSection {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text,#e6e6e6);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+}
+body.dark-mode .choose-item { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:#f5f5f5; }
+body.dark-mode .choose-item.selected { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)); border-color: rgba(255,255,255,0.06); }
+body.dark-mode .choose-section-title, body.dark-mode .section-title, body.dark-mode .app-header h2, body.dark-mode .app-header .subtitle { color:#f1f1f1; text-shadow:0 1px 0 rgba(0,0,0,0.22); }
+body.dark-mode .controls button, body.dark-mode .btn-action, body.dark-mode button#btnAddCustom, body.dark-mode button#btnResetChoices { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.06)); border:1px solid rgba(255,255,255,0.04); color:#f7f7f7; }
+
+/* חיזוק ניגודיות לכפתור פעולה במצב לילה ומשתני צבע לשימוש חוזר */
+body.dark-mode .btn-action { background: var(--btn-bg); color: var(--btn-text); border: 1px solid var(--panel-border); }
+
+/* קטגוריות */
+body.dark-mode #categoriesList, body.dark-mode #settingsSection { background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); color:#eee; }
+body.dark-mode #categoriesList li { color:#efefef; border-bottom:1px solid rgba(255,255,255,0.02); padding:0.45rem 0.5rem; }
+body.dark-mode .choose-item .badge { background:#e05555; color:#fff; box-shadow:0 1px 0 rgba(0,0,0,0.35); }
+body.dark-mode .item:hover, body.dark-mode .choose-item:hover, body.dark-mode #categoriesList li:hover { background: rgba(255,255,255,0.02); }
+body.dark-mode .item .qty, body.dark-mode .item .unit, body.dark-mode .item .meta { color:#bdbfc1; }
+body.dark-mode #chooseSection { padding:0.6rem; border-radius:10px; }
+body.dark-mode .category-controls button { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#eee; }
+
+/* Dark mode list enhancements */
+body.dark-mode #listGrid { gap: 0.45rem; }
+body.dark-mode .item:hover { background: rgba(255,255,255,0.06); box-shadow: 0 1px 8px rgba(0,0,0,0.4); }
+body.dark-mode .item.checked { background: rgba(255,255,255,0.03); }
+body.dark-mode .item.checked .name { color: #a5a7aa; text-decoration-color: rgba(255,255,255,0.35); }
+body.dark-mode .item .qty .q-unit { color: #bdbfc1; }
+body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
+
+/* ====== התאמות מובייל ====== */
+@media (max-width:480px) {
+  .item { gap:0.35rem; padding:0.35rem; }
+  .item .icon { width:1.8rem; font-size:0.98rem; }
+  .item .name { font-size:0.96rem; }
+  .item .qty { min-width:3.4rem; font-size:0.88rem; }
+  .item .price { flex:0 1 4.2rem; gap:0.14rem; padding:0 0.1rem; }
+  .item .price .currency { flex:0 0 0.95rem; font-size:0.86rem; }
+  .item .price .amount { font-size:0.92rem; }
+  .total-amount { min-width:3.6rem; font-size:0.96rem; }
+  .btn-action { padding:0.36rem 0.7rem; font-size:0.92rem; border-radius:7px; }
+}
+
+/* fallback במקרה של כלל חיצוני שמסתיר price */
+#listGrid .item .price { display:inline-flex; }
+
+/* Specific: smaller font for 'שמור בחירה' button */
+.menu-dropdown #btnSaveStore,
+.store-controls #btnSaveStore,
+#btnSaveStore {
+  font-size: 0.82rem !important;
+  padding: 0.32rem 0.6rem !important;
+  line-height: 1.1;
+  border-radius: 6px;
+}
+
+/* Emphasize store labels and price toggle */
+.store-group label,
+.price-toggle .toggle-label {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* Move amount closer to currency in price column */
+.item .price {
+  gap: 0.08rem;
+  padding: 0 0.05rem;
+}
+.item .price .currency {
+  flex: 0 0 auto;
+  margin-right: 0;
+}
+.item .price .amount {
+  margin-left: 0;
+}
+
+/* Swap unit and number order inside quantity */
+.item .qty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.18rem;
+  direction: ltr; /* show unit then amount visually */
+}
+.item .qty .q-unit { order: 0; }
+.item .qty .q-amount { order: 1; }
+
+/* Mobile emphasis for list items and labels */
+@media (max-width:480px) {
+  .item .name { font-size: 1.04rem; font-weight: 700; }
+  .item .qty { font-size: 0.96rem; }
+  .item .price .amount { font-size: 0.98rem; }
+  .item { padding: 0.4rem 0.45rem; }
+  .store-group label, .price-toggle .toggle-label { font-size: 1.02rem; }
+}
+
+/* Tighten spacing to prevent mobile overflow and bring numbers closer */
+.item .qty { flex: 0 1 auto; min-width: auto; white-space: nowrap; gap: 0.04rem; }
+.item .qty .q-unit, .item .qty .q-amount { margin: 0; padding: 0; }
+
+.item .price { justify-content: flex-start; gap: 0; padding: 0 0.02rem; }
+.item .price .currency { flex: 0 0 auto; margin: 0; }
+.item .price .amount { flex: 0 0 auto; margin: 0; }
+
+/* Force LTR ordering for total value and currency */
+.total-amount { direction: ltr !important; unicode-bidi: isolate; text-align: left; white-space: nowrap; }
+
+/* Mobile layout: robust single-line grid (name | qty | price) */
+@media (max-width:480px) {
+  /* Switch item row to grid to avoid overlap and keep strict order */
+  #listGrid .item {
+    display: grid;
+    grid-template-columns: 1fr auto auto; /* name grows, qty and price are compact */
+    align-items: center;
+    column-gap: 0.28rem;
+  }
+  #listGrid .item .name { grid-column: 1; min-width: 0; }
+  #listGrid .item .qty  { grid-column: 2; justify-self: end; direction: ltr; display: inline-flex; gap: 0.06rem; }
+  #listGrid .item .price{ grid-column: 3; justify-self: end; direction: ltr; gap: 0; padding: 0; }
+  #listGrid .item .price .currency { margin: 0; }
+  #listGrid .item .price .amount   { margin: 0; }
+}

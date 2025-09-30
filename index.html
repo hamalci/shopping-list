@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>רשימת קניות</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles-updates.css">
+  <link rel="stylesheet" href="styles-final.css">
+  <link rel="stylesheet" href="styles-combined.css"> 
+  <script src="script.js" defer></script>
+  <link rel="icon" href="favicon.ico" type="ico">
+  <style>
+    /* Force compact size for the Save Store selection button */
+    #btnSaveStore {
+      font-size: 0.82rem !important;
+      padding: 0.32rem 0.6rem !important;
+      line-height: 1.1;
+      border-radius: 6px;
+    }
+    /* Stack price toggle above Save button */
+    .store-controls { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+  </style>
+
+</head>
+<body>
+  <header class="app-header">
+    <h1>רשימת קניות</h1>
+    <div class="menu-container">
+      <button id="menuButton" class="menu-icon">≡</button>
+      <div id="menuDropdown" class="menu-dropdown">
+        <button id="btnViewMode">🖥 מצב תצוגה</button>
+        <button id="btnCategoriesSettings">⚙️ סדר קטגוריות</button>
+        <!-- Store selector and price toggle (הדבק בתוך ה-header או settings) -->
+<div id="storeSelector" class="store-selector">
+  <div class="store-group">
+    <label for="networkSelect">רשת</label>
+    <select id="networkSelect">
+      <option value="">(לא נבחר)</option>
+      <option value="yohananof">יוחננוף</option>
+      <option value="shufersal">שופרסל</option>
+      <option value="rami">רמי לוי</option>
+    </select>
+  </div>
+
+  <div class="store-group">
+    <label for="branchSelect">סניף</label>
+    <select id="branchSelect">
+      <option value="">(לא נבחר)</option>
+    </select>
+  </div>
+
+  <div class="store-controls">
+    <label class="price-toggle">
+      <input type="checkbox" id="togglePrices">
+      <span class="toggle-label">הצג מחירים</span>
+    </label>
+    <button id="btnSaveStore" class="btn">שמור בחירה</button>
+  </div>
+</div>
+      </div>
+    </div>
+    <div class="menu-container font-menu-container">
+      <button id="fontMenuButton" class="menu-icon" title="גודל טקסט">A±</button>
+      <div id="fontDropdown" class="menu-dropdown">
+        <button id="btnFontIncrease">🔎 הגדל פונט</button>
+        <button id="btnFontDecrease">🔍 הקטן פונט</button>
+        <button id="btnFontReset">↩️ פונט ברירת מחדל</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-content">
+    <div class="choose-header">
+      <h2>בחר פריטים</h2>
+      <button id="toggleChoose" class="toggle-btn">הסתר</button>
+    </div>
+
+    <section id="chooseSection">
+      <div id="chooseGrid"></div>
+      <div class="choose-buttons">
+        <button id="btnResetChoices">🔄 איפוס בחירות</button>
+        <button id="btnAddCustom">➕ הוסף פריט</button>
+      </div>
+    </section>
+
+    <section id="listSection">
+      <h2>📃 הרשימה שלי</h2>
+      <div id="listGrid"></div>
+      <div id="listFooter" class="list-footer">
+        <div class="total-row">
+          <span class="total-label">סה"כ:</span>
+          <span id="totalAmount" class="total-amount">₪ 0</span>
+        </div>
+      </div>
+      <div class="clean-buttons">
+        <button id="btnClearList" class="btn-action">🧹 נקה רשימה</button>
+        <button id="btnClearChecked" class="btn-action">✔️ נקה סימונים</button>
+      </div>
+    </section>
+
+    <section id="settingsSection" style="display:none; padding:0.625rem;">
+      <div class="settings-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2>⚙️ הגדרות קטגוריות</h2>
+        <button id="closeSettings" class="toggle-btn">סגור</button>
+      </div>
+
+      <p>סדר את הקטגוריות לפי סדר ההליכה בסופר:</p>
+      <ul id="categoriesList"></ul>
+
+      <div class="settings-controls">
+        <button id="btnAddCategory" class="btn-settings add">➕ קטגוריה חדשה</button>
+        <button id="btnCloseCategories" class="toggle-btn">סגור</button>
+      </div>
+
+      <div class="settings-actions">
+        <button id="btnAssignItem" class="btn-settings assign">📌 שייך פריט לקטגוריה</button>
+        <button id="btnSaveCategories" class="btn-settings save">שמור</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      const btn = document.getElementById('fontMenuButton');
+      const dd = document.getElementById('fontDropdown');
+      if (btn && dd) {
+        btn.addEventListener('click', function(e){
+          e.stopPropagation();
+          dd.style.display = (dd.style.display === 'block') ? 'none' : 'block';
+        });
+      }
+      document.addEventListener('click', function(e){
+        if (!e.target.closest('.font-menu-container')) {
+          if (dd) dd.style.display = 'none';
+        }
+      });
+    })();
+  </script>
+  </body>
+</html>

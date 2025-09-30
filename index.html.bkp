@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head> 
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4CAF50">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>רשימת קניות חכמה</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="dark">
+
+  <!-- כותרת -->
+  <header class="app-header">
+    <h1>רשימת קניות חכמה 🛒</h1>
+  </header>
+
+  <!-- פס הכפתורים -->
+  <nav class="controls-bar">
+    <div class="controls-inner">
+      <button id="fontPlus">A➕</button>
+      <button id="fontMinus">A➖</button>
+      <button id="fontReset">A↩️</button>
+      <button id="toggleMode">🌗</button>
+    </div>
+  </nav>
+
+  <!-- פאנל הוספת פריט -->
+  <div id="addItemPanel" style="display:none;">
+    <h3>הוספת פריט חדש</h3>
+    <div class="form-group">
+      <label>שם הפריט:</label>
+      <input type="text" id="newItemName">
+    </div>
+    <div class="form-group">
+      <label>קטגוריה:</label>
+      <select id="newItemCategory">
+        <option>ירקות</option>
+        <option>פירות</option>
+        <option>מוצרי חלב</option>
+        <option>מאפים</option>
+        <option>בשר ודגים</option>
+        <option>מצרכים יבשים</option>
+        <option>שתייה</option>
+        <option selected>אחר</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>אייקון:</label>
+      <input type="text" id="newItemIcon" placeholder="למשל 🥒">
+    </div>
+    <div class="form-group">
+      <label>כמות:</label>
+      <input type="number" id="newItemQuantity" min="1" value="1">
+    </div>
+    <div class="form-group">
+      <label>יחידת מידה:</label>
+      <select id="newItemUnit">
+        <option>ק"ג</option>
+        <option>ליטר</option>
+        <option>יח'</option>
+        <option>אריזה</option>
+        <option selected>אחר</option>
+      </select>
+    </div>
+    <button onclick="saveNewItem()">✔ שמור</button>
+    <button onclick="hideAddPanel()">❌ ביטול</button>
+  </div>
+
+  <!-- אזור בחירת פריטים ורשימה -->
+  <div id="mainGrid">
+    <div id="chooseSection">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <h2 style="margin: 0;">בחר פריטים</h2>
+        <button onclick="toggleAddPanel()" title="הוסף פריט חדש" class="icon-button">
+          📋➕ הוסף פריט
+        </button>
+      </div>
+
+      <!-- שורת חיפוש -->
+      <input type="text" id="searchInput" placeholder="חפש פריט..." oninput="filterItems()">
+
+      <div id="chooseGrid"></div>
+      <div style="text-align: center; margin-top: 8px;">
+        <button onclick="clearCustomItems()" class="icon-button">❌ נקה מותאמים</button>
+      </div>
+    </div>
+
+    <div id="listSection">
+      <h2>הרשימה שלי</h2>
+      <div id="listGrid"></div>
+      <div class="clean-buttons">
+        <button onclick="clearList()">🧹 נקה רשימה</button>
+        <button onclick="clearChecked()">✔️ נקה סימונים</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
