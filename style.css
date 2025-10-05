@@ -1,4 +1,20 @@
-:root { font-size: 19px; } /* הבסיס גדל ב+3px (מ-16 ל-19) */
+@media (max-width: 600px) {
+  #btnSaveAsPreset {
+    margin-right: 1rem
+  }
+}
+/*
+  === שליטה על מיקום הכמות והיחידה (qty) יחסית למחיר ===
+  אפשר לשנות margin-right ו-margin-left כדי להזיז את הכמות והיחידה שמאלה/ימינה לפי הצורך, כולל במובייל.
+  דוגמה: margin-right: 0.5rem (קרוב למחיר), margin-left: 0.2rem (מרחיק מהמחיר)
+  שנה ערכים לפי מה שנוח לך.
+*/
+/* קרב את הכמות והיחידה לכיוון המחיר ע"י הגדלת margin-right */
+.item .qty {
+  margin-right: 0rem; /* ערך גבוה מקרב את הכמות/יחידה לכיוון המחיר */
+  margin-left: 0rem;    /* ערך גבוה מקרב את הכמות/יחידה לכיוון השם */
+}
+    :root { font-size: 19px; } /* הבסיס גדל ב+3px (מ-16 ל-19) */
 
 /* כללי */
 body {
@@ -46,17 +62,77 @@ body.dark-mode .app-header { background:#333; }
   max-height: 2000px; opacity:1; padding:0.5rem 0;
 }
 #chooseSection.hidden { max-height:0; opacity:0; padding:0; margin:0; }
-.choose-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; }
+.choose-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
+.list-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
 
-/* כפתור toggle */
+/* קבוצות כפתורים - מיושרות לצדדים */
+.choose-buttons, .clean-buttons { 
+  display: flex; 
+  flex-wrap: wrap; 
+  justify-content: center; 
+  align-items: center; 
+  gap: 0.25rem; 
+  margin: 0.5rem 0; 
+}
+
+/* כפתורים בכותרות - קטנים יותר */
+.choose-header .btn-action, .list-header .btn-action {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 5px;
+  margin: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* כפתור toggle הצג/הסתר */
 .toggle-btn {
   font-size:1rem; padding:0.25rem 0.625rem; border:none; border-radius:0.25rem;
-  background:#888; color:white; cursor:pointer; font-weight:700;
+  background:#607D8B; color:white; cursor:pointer; font-weight:700;
 }
-.toggle-btn:hover { background:#666; }
+.toggle-btn:hover { background:#2196F3; }
+#toggleChoose {
+  margin: 0.75rem 0;
+  font-size: 0.875rem;         /* Bigger text */
+  font-weight: 700;           /* Extra bold */
+  padding: 0.15rem 0.4rem;   /* More space inside */
+  border: 2px solid rgb(255, 255, 255);  /* Thicker border */
+  border-radius: 0.5rem;
+  background:#607D8B;  /* Softer gray */
+  color: white;           /* Dark green text */
+  cursor: pointer;
+  transition: background 0.25s, color 0.25s, transform 0.2s ease;
+}
+
+#toggleChoose:hover {
+  background: #607D8B;
+  transform: scale(1.03);
+}
+
+
+#toggleChoose.active {
+  background: #eaf7f1;
+  color: #2b7a2b;
+  border-color: #2b7a2b;
+}
+body.dark-mode #toggleChoose {
+  background: #444;
+  color: #eee;
+  border-color: #666;
+}
+body.dark-mode #toggleChoose:hover {
+  background: #555;
+  color: #fff;
+}
+body.dark-mode #toggleChoose.active {
+  background: #2b7a2b;
+  color: #fff;
+  border-color: #1b5e1b;
+}
 
 /* גריד בחר פריטים */
 #chooseGrid { display:grid; grid-template-columns:repeat(2,1fr); gap:0.5rem; }
+
 
 /* רשימה */
 #listGrid { display:flex; flex-direction:column; gap:0.375rem; }
@@ -66,20 +142,45 @@ body.dark-mode .app-header { background:#333; }
 }
 .item { display:flex; justify-content:space-between; align-items:center; transition:transform 0.35s, opacity 0.35s; }
 .item .name { flex:1; text-align:right; font-size:1.25rem; }
-.item .qty { min-width:5.625rem; text-align:left; font-size:1.125rem; }
+.item .qty { min-width:1rem; text-align:left; font-size:1.125rem; }
 .item.checked { text-decoration:line-through; opacity:0.65; }
 
 /* badge */
 .badge { background:red; color:white; border-radius:999px; padding:0.125rem 0.375rem; font-size:0.75rem; margin-right:0.375rem; }
 
-/* כפתורים עיקריים */
-.choose-buttons button, .clean-buttons button {
-  font-size:1rem; font-weight:700; padding:0.625rem 0.875rem; border-radius:0.375rem; margin:0.25rem; border:none; cursor:pointer;
+/* כפתורים עיקריים - גודל וסגנון אחיד */
+.choose-buttons button, .clean-buttons button, .btn-action {
+  font-size: 0.92rem; 
+  font-weight: 600; 
+  padding: 0.36rem 0.7rem; 
+  border-radius: 7px; 
+  margin: 0.25rem; 
+  border: none; 
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-block;
 }
 #btnResetChoices { background:#ff9800; color:white; }
 #btnAddCustom { background:#2196F3; color:white; }
+#btnLoadPreset {
+  background: #4CAF50;
+  color: white;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.36rem 0.7rem;
+  border-radius: 7px;
+  margin: 0.25rem;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-block;
+}
+}
+}
+#btnLoadChooseItems { background:#607D8B; color:white; }
 #btnClearList { background:#f44336; color:white; }
 #btnClearChecked { background:#9C27B0; color:white; }
+#btnSaveAsPreset { background:#FF9800; color:white; }
 
 /* בחירה חזותית לפריטי 'בחר פריטים' */
 .choose-item.selected { background:#eaf7f1; border-color:#9fe0c9; transition:background 0.25s, transform 0.18s; }
@@ -95,10 +196,56 @@ body.dark-mode .app-header { background:#333; }
   border-radius:999px; background:red; color:white; pointer-events:none;
   box-shadow:0 2px 6px rgba(0,0,0,0.12); margin:0;
 }
-#listGrid .item { display:flex; align-items:center; gap:0.75rem; }
-#listGrid .item .name { flex:1 1 auto; min-width:0; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-#listGrid .item .qty { width:6.25rem; flex:0 0 auto; text-align:left; font-variant-numeric:tabular-nums; white-space:nowrap; }
-@media (max-width:420px){ .choose-item{padding-top:0.95rem;} .choose-item .badge{top:0.25rem;left:0.25rem;width:1rem;height:1rem;font-size:0.7rem;} #listGrid .item .qty{width:4.5rem;font-size:0.95rem;} }
+
+/* פריט ברשימה - קומפקטי */
+#listGrid .item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.6rem;
+}
+#listGrid .item .main-col {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+#listGrid .item .name {
+  min-width: 0;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.08rem;
+}
+#listGrid .item .qty {
+  min-width: 3.2rem;
+  text-align: left;
+  font-size: 1.08rem;
+  margin-right: 0.5rem;
+}
+#listGrid .item .price {
+  min-width: 2.8rem;
+  text-align: left;
+  font-weight: 700;
+  color: #1b7a2b;
+  justify-self: end;
+  padding-left: 0.2rem;
+}
+
+/* remove compact qty/price variants; use standard .qty and .price */
+
+@media (max-width: 420px) {
+  #listGrid .item {
+    gap: 0.18rem;
+    padding: 0.38rem 0.3rem;
+  }
+  #listGrid .item .name {
+    font-size: 0.97rem;
+  }
+  /* no compact variants on mobile */
+}
 
 
 
@@ -143,8 +290,8 @@ body.dark-mode .app-header { background:#333; }
 .price-toggle input { width:1.05rem; height:1.05rem; }
 .toggle-label { font-size:0.95rem; color:var(--muted,#444); }
 
-/* Price span inside list items */
-.item .price { margin-left:0.6rem; color:#2b7a2b; font-weight:600; display:none; min-width:6rem; text-align:left; }
+/* Price span inside list items: leave space from name/qty, avoid overlapping edit box */
+.item .price { margin-left:0.6rem; color:#2b7a2b; font-weight:600; display:none; min-width:4.6rem; text-align:left; direction:ltr; }
 
 /* Responsive tweaks */
 @media (max-width:480px){
@@ -152,6 +299,20 @@ body.dark-mode .app-header { background:#333; }
   .store-group select { font-size:0.9rem; }
   .btn { padding:0.25rem 0.5rem; font-size:0.9rem; }
   .item .price { min-width:4.5rem; font-size:0.95rem; }
+  /* כותרת 'הרשימה שלי' */
+  .list-header h2 {
+    font-size: 2.1rem;
+    font-weight: 900;
+  }
+  /* כל הפריטים ברשימה שלי */
+  #listGrid .item {
+    font-size: 1.35rem;
+  }
+  /* כותרת 'בחר פריטים' בלבד */
+  .choose-header h2 {
+    font-size: 2.1rem;
+    font-weight: 900;
+  }
 }
 /* שורה כללית */
 .item {
@@ -178,23 +339,32 @@ body.dark-mode .app-header { background:#333; }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
+  font-size: 3rem;
+  font-weight: 950;
+  text-align: left;
   margin-inline-start: 0.25rem; /* ריווח שמאלי קטן לעיצוב RTL */
+  padding-left: 0.5rem; /* ריווח שמאלי קטן לעיצוב RTL */
+  border-left: 2px solid #eee; /* גבול שמאלי קטן */
+  box-shadow: 1px 0 0 rgba(0,0,0,0.1);
+
 }
 
 /* כמות - רוחב קבוע (לא יתכווץ עד כדי דריסה) */
 .item .qty {
   flex: 0 0 auto;
-  min-width: 4.2rem;        /* כוונן לפי התוכן הנפוץ */
+  min-width: 5rem;        /* כוונן לפי פורמט הכמות (לדוגמה: 999.9 kg) */
   text-align: left;
   font-size: 0.95rem;
   color: #444;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem; /* מקרב את הכמות ליחידה */
 }
 
 /* מחיר - רוחב קבוע, בולט */
 .item .price {
   flex: 0 0 auto;
-  min-width: 5.2rem;        /* כוונן לפי פורמט הש"ח (ש״ח XXX) */
+  min-width: 5rem;       /* כוונן לפי פורמט הש"ח (ש״ח XXX) */
   text-align: left;
   font-weight: 700;
   color: #1b7a2b;
@@ -207,59 +377,52 @@ body.dark-mode .app-header { background:#333; }
   .item .name { font-size: 0.95rem; }
 }
 
-/* אם יש כפתורי עריכה קטנים בתוך השורה - ודא שהם לא משפיעים על הזרימה */
-.item button, .item .btn-edit-price {
-  flex: 0 0 auto;
-  margin-inline-start: 0.25rem;
-}
-/* price container - מספר ראשון, סימן מטבע אחרי */
+
+/* price container: LTR internally so invisible input (if any) sits safely; visual order via CSS */
+/* צמצום אגרסיבי של price: מינימום רווחים */
 .item .price {
   display: inline-flex;
   align-items: center;
-  gap: 0.22rem;
+  gap: 0.03rem;
   flex: 0 0 auto;
-  min-width: 4.6rem;        /* כוונן לפי רוחב מובייל */
+  min-width: 0.1rem;
+  padding: 0;
   text-align: left;
   font-weight: 700;
   color: #1b7a2b;
-  cursor: pointer;
-  direction: rtl;           /* וודא שהמספר יופיע לפני הסימן גם ב-RTL */
+  cursor: default;
+  direction: ltr;
 }
 
 /* מספר נקי */
 .item .price .amount {
   order: 0;
-  font-size: 0.98rem;
+  font-size: 0.3rem;
   white-space: nowrap;
 }
 
 /* סימן המטבע קטן יחסית לחסכון מקום */
-.item .price .currency {
-  order: 1;
-  font-size: 0.92rem;
-  opacity: 0.95;
-}
+.item .price .currency { order: 0; font-size: 0.92rem; opacity: 0.95; }
 
 /* התאמה לנייד */
 @media (max-width:480px) {
   .item .price { min-width: 3.8rem; font-size: 0.96rem; gap:0.18rem; }
   .item .price .currency { font-size:0.9rem; }
 }
-/* ensure number first then currency sign, compact on mobile */
-.item .price {
-  display:inline-flex;
-  align-items:center;
-  gap:0.18rem;
-  min-width:3.8rem;
-  direction: rtl; /* number then currency */
-  font-weight:700;
-  color:#1b7a2b;
-  cursor:pointer;
-}
-.item .price .amount { font-size:0.98rem; white-space:nowrap; }
-.item .price .currency { font-size:0.9rem; opacity:0.95; }
+/* ensure compact spacing */
+.item .price { gap:0.18rem; }
+.item .price .amount { font-size:0.98rem; white-space:nowrap; order: 1; }
+.item .price .currency { font-size:0.9rem; opacity:0.95; order: 0; }
 
-.list-footer { margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid #eee; display:flex; justify-content:flex-end; direction:rtl; }
+.list-footer { 
+  margin-top:0.5rem; 
+  padding-top:0.5rem; 
+  border-top:1px solid #eee; 
+  display:flex; 
+  justify-content:flex-end; 
+  direction:rtl; 
+  padding-left: 1rem; /* מוסיף ריווח לשמאל */
+}
 .total-row { display:flex; gap:0.5rem; align-items:center; font-weight:700; }
 .total-label { color:#333; font-size:0.95rem; }
 .total-amount { color:#1b7a2b; font-size:1rem; min-width:4.5rem; text-align:left; direction:rtl; }
@@ -280,6 +443,10 @@ body.dark-mode #togglePrices {
   background: #2b7a2b;
   color: #fff;
   border: none;
+  margin-right: auto;
+  margin-left: 0;
+  display: block;
+  align-self: flex-start;
 }
 body.dark-mode #btnSaveStore {
   background: transparent;
@@ -287,29 +454,295 @@ body.dark-mode #btnSaveStore {
   border: 1px solid rgba(255,255,255,0.06);
 }
 
-/* --- צמצום רווח בתוך עמודת המחיר כדי לקרב מספר ל-₪ --- */
-.item .price { gap: 0.10rem; padding: 0 0.06rem; }
-.item .price .currency { flex: 0 0 0.95rem; font-size:0.92rem; }
+/* --- צמצום רווח מתון שלא ידחוף אלמנטים אחרים --- */
+.item .price { gap: 0.16rem; padding: 0 0.06rem; }
+.item .price .currency { flex: 0 0 auto; font-size:0.92rem; }
 .item .price .amount { padding-right: 0.04rem; }
 
 /* --- עקיפה קלה ל־qty ללא שינוי HTML רציני --- */
+/*
+  === שליטה על ריווח בין כמות ליחידה (ללא space-between) ===
+  justify-content הוסר כדי שה-gap יעבוד תמיד, גם בכמות 1.
+*/
 .item .qty {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.14rem;
+  gap: 0.05rem; /* ריווח בין כמות ליחידה */
   flex: 0 0 5.0rem;
   padding: 0 0.06rem;
   box-sizing: border-box;
   direction: rtl; /* מבנה פנימי: amount מימין, unit משמאל */
   font-size: 0.95rem;
 }
-.item .qty .q-amount { text-align: right; font-weight:600; min-width:1.0rem; }
-.item .qty .q-unit   { text-align: left; opacity:0.85; margin-left:0.18rem; }
+/*
+  === שליטה על רוחב מינימלי של המספר (q-amount) ===
+  אם רוצים שהמספר תמיד יתפוס מקום קבוע (גם ב-1), אפשר להחזיר min-width.
+  ברירת מחדל: אין min-width, gap שולט על הריווח.
+*/
+.item .qty .q-amount { text-align: right; font-weight:600; /* אין min-width, gap בלבד */ }
+/*
+  === שליטה על ריווח בין כמות ליחידה ===
+  כדי לקרב או להרחיק את הכמות מהיחידה, שלטו רק ב-gap של .item .qty
+  דוגמה: .item .qty { gap: 0.05rem; } // צמוד מאוד
+         .item .qty { gap: 0.3rem; }  // רווח גדול
+  אין מרג'ין ליחידה, כל הריווח נשלט ע"י gap בלבד!
+*/
+.item .qty .q-unit   { text-align: left; opacity:0.85; /* אין מרג'ין, כל הריווח ב-gap של .qty */ }
 
 /* מובייל */
 @media (max-width:480px) {
   .item .price { flex:0 0 4.2rem; gap:0.08rem; }
   .item .qty   { flex:0 0 4.2rem; }
   .item .qty .q-amount { min-width:0.9rem; }
+}
+/* ===== Dark mode improvements (contrast + readability) ===== */
+body.dark-mode {
+  --bg: #0f1115;
+  --panel: #111317;
+  --muted: #b4b6b8;
+  --text: #ececec;
+  --btn-bg: #265f26;      /* darker for better contrast */
+  --btn-text: #ffffff;
+  --panel-border: rgba(255,255,255,0.04);
+}
+body.dark-mode .item { background: transparent; }
+body.dark-mode .item .name {
+  color: #f5f5f5;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.25);
+  font-weight: 600;
+}
+body.dark-mode .item .qty { color: var(--muted); }
+body.dark-mode .item .price { color: #b6f0c9; }
+body.dark-mode .list-footer .total-label { color: #eeeeee; font-weight: 600; }
+body.dark-mode .list-footer .total-amount { color: #fff; text-shadow: 0 1px 0 rgba(0,0,0,0.28); }
+
+/* Stronger contrast for action button in dark mode */
+body.dark-mode .btn-action { background: var(--btn-bg); color: var(--btn-text); border: 1px solid var(--panel-border); }
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 480px) {
+  .item { gap: 0.35rem; padding: 0.35rem; }
+  .item .icon { width: 1.8rem; font-size: 0.98rem; }
+  .item .name { font-size: 0.96rem; }
+  .item .qty { min-width: 3.4rem; font-size: 0.88rem; }
+  .item .price { flex: 0 1 4.2rem; font-size: 0.96rem; gap: 0.14rem; }
+  .item .price .currency { font-size: 0.88rem; }
+  .total-amount { min-width: 3.6rem; font-size: 0.96rem; }
+  
+  /* כפתורים במובייל - אותו גודל לכל הכפתורים */
+  .choose-buttons button, .clean-buttons button, .btn-action {
+    padding: 0.32rem 0.6rem; 
+    font-size: 0.86rem; 
+    border-radius: 6px;
+    margin: 0.15rem;
+    flex: 0 1 auto;
+    min-width: fit-content;
+  }
+  
+  /* הבטחה שהכפתורים יסודרו יפה */
+  .choose-buttons, .clean-buttons { 
+    justify-content: space-around;
+    gap: 0.2rem;
+  }
+  
+  /* כותרות עם כפתורים במובייל */
+  .choose-header, .list-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap; /* מניעת שבירה לשורות */
+  }
+  
+  .choose-header h2, .list-header h2 {
+    flex: 1;
+    margin: 0;
+    font-size: 1rem; /* הקטנת הכותרת מעט */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* כפתורים בכותרות - קטנים מאוד במובייל */
+  .choose-header .btn-action, .list-header .btn-action {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    margin: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* מסכים קטנים מאוד */
+@media (max-width: 360px) {
+  .choose-buttons button, .clean-buttons button, .btn-action {
+    padding: 0.28rem 0.5rem; 
+    font-size: 0.82rem; 
+    margin: 0.1rem;
+  }
+  
+  .choose-buttons, .clean-buttons {
+    gap: 0.15rem;
+  }
+  
+  /* כפתורים בכותרות - קטנים עוד יותר */
+  .choose-header .btn-action, .list-header .btn-action {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.3rem;
+  }
+  
+  .choose-header h2, .list-header h2 {
+    font-size: 0.95rem;
+  }
+}
+
+/* מסכים קטנים במיוחד - 320px ומטה */
+@media (max-width: 320px) {
+  .choose-header .btn-action, .list-header .btn-action {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.25rem;
+  }
+  
+  .choose-header h2, .list-header h2 {
+    font-size: 0.9rem;
+  }
+  
+  .choose-header, .list-header {
+    gap: 0.3rem;
+  }
+}
+/* ====== מצב לילה מורחב ====== */
+body.dark-mode { --bg:#0f1115; --panel:#111317; --muted:#b4b6b8; --text:#ececec; --btn-bg:#265f26; --btn-text:#ffffff; --panel-border:rgba(255,255,255,0.04); }
+body.dark-mode .item { background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); }
+body.dark-mode .item .name { color: #f5f5f5; text-shadow: 0 1px 0 rgba(0,0,0,0.25); font-weight: 600; }
+body.dark-mode .item .qty { color: var(--muted); }
+body.dark-mode .item .price .currency { color: #cfead6; }
+body.dark-mode .item .price .amount { color: #eaffea; font-weight:700; }
+body.dark-mode .list-footer .total-label { color:#eeeeee; font-weight:600; }
+body.dark-mode .list-footer .total-amount { color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.28); }
+
+/* הרחבה לאזור 'בחר פריטים', כפתורים וריבועים */
+body.dark-mode .panel, body.dark-mode .card, body.dark-mode .choose-item, body.dark-mode .list-footer, body.dark-mode #chooseSection, body.dark-mode #categoriesList, body.dark-mode #settingsSection {
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(255,255,255,0.04);
+  color: var(--text,#e6e6e6);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35);
+}
+body.dark-mode .choose-item { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:#f5f5f5; }
+body.dark-mode .choose-item.selected { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)); border-color: rgba(255,255,255,0.06); }
+body.dark-mode .choose-section-title, body.dark-mode .section-title, body.dark-mode .app-header h2, body.dark-mode .app-header .subtitle { color:#f1f1f1; text-shadow:0 1px 0 rgba(0,0,0,0.22); }
+body.dark-mode .controls button, body.dark-mode .btn-action, body.dark-mode .choose-buttons button, body.dark-mode .clean-buttons button,
+body.dark-mode button#btnAddCustom, body.dark-mode button#btnResetChoices, body.dark-mode button#btnLoadPreset, 
+body.dark-mode button#btnLoadChooseItems, body.dark-mode button#btnClearList, body.dark-mode button#btnClearChecked, body.dark-mode button#btnSaveAsPreset { 
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.06)); 
+  border: 1px solid rgba(255,255,255,0.04); 
+  color: #f7f7f7; 
+}
+
+/* חיזוק ניגודיות לכפתור פעולה במצב לילה ומשתני צבע לשימוש חוזר */
+body.dark-mode .btn-action { background: var(--btn-bg); color: var(--btn-text); border: 1px solid var(--panel-border); }
+
+/* קטגוריות */
+body.dark-mode #categoriesList, body.dark-mode #settingsSection { background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); color:#eee; }
+body.dark-mode #categoriesList li { color:#efefef; border-bottom:1px solid rgba(255,255,255,0.02); padding:0.45rem 0.5rem; }
+body.dark-mode .choose-item .badge { background:#e05555; color:#fff; box-shadow:0 1px 0 rgba(0,0,0,0.35); }
+body.dark-mode .item:hover, body.dark-mode .choose-item:hover, body.dark-mode #categoriesList li:hover { background: rgba(255,255,255,0.02); }
+body.dark-mode .item .qty, body.dark-mode .item .unit, body.dark-mode .item .meta { color:#bdbfc1; }
+body.dark-mode #chooseSection { padding:0.6rem; border-radius:10px; }
+body.dark-mode .category-controls button { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#eee; }
+
+/* Dark mode list enhancements */
+body.dark-mode #listGrid { gap: 0.45rem; }
+body.dark-mode .item:hover { background: rgba(255,255,255,0.06); box-shadow: 0 1px 8px rgba(0,0,0,0.4); }
+body.dark-mode .item.checked { background: rgba(255,255,255,0.03); }
+body.dark-mode .item.checked .name { color: #a5a7aa; text-decoration-color: rgba(255,255,255,0.35); }
+body.dark-mode .item .qty .q-unit { color: #bdbfc1; }
+body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
+
+@media (max-width: 480px) {
+  .list-header h2 { font-size: 1.5rem !important; font-weight: 700 !important; }
+  #listGrid .item { font-size: 1.35rem !important; }
+  #listGrid .item .name { font-size: 1.35rem !important; }
+  #listGrid .item .price { font-size: 1.35rem !important; }
+  .choose-header h2 { font-size: 1.5rem !important; font-weight: 700 !important; }
+}
+
+/* הזזת btnSaveAsPreset לימין מוחלט בתוך .total-row */
+.total-row {
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  font-weight: 700;
+}
+#btnSaveAsPreset {
+  margin-right: auto;
+  order: -1;
+}
+
+/* בוטל: שינוי גודל כפתור טען פריטים במובייל */
+
+/* ===== Modal בחירת רשימה לטעינה ===== */
+.modal {
+  display: none; /* מוסתר כברירת מחדל */
+  position: fixed;
+  z-index: 9999;
+  left: 0; top: 0; width: 100vw; height: 100vh;
+  overflow: auto;
+  background: rgba(0,0,0,0.45);
+  justify-content: center; align-items: center;
+}
+.modal-content {
+  background: #fff;
+  margin: 8vh auto;
+  padding: 2rem 1.2rem 1.2rem 1.2rem;
+  border-radius: 12px;
+  max-width: 95vw;
+  width: 400px;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.18);
+  position: relative;
+  text-align: center;
+}
+.close-modal {
+  position: absolute; left: 1rem; top: 1rem;
+  font-size: 2.2rem; color: #e53935; cursor: pointer;
+  z-index: 2;
+  background: #fff;
+  border-radius: 50%;
+  width: 2.5rem; height: 2.5rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid #eee;
+  transition: background 0.18s, color 0.18s;
+}
+.close-modal:hover { background: #ffeaea; color: #b71c1c; }
+.modal-title {
+  font-size: 1.45rem; font-weight: 800; margin-bottom: 1.2rem;
+}
+.modal-list {
+  list-style: none; padding: 0; margin: 0;
+}
+.modal-list li {
+  font-size: 1.25rem;
+  padding: 0.7rem 0.5rem;
+  margin-bottom: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  font-weight: 700;
+}
+.modal-list li:hover {
+  background: #e0f7fa;
+  color: #00796b;
+}
+@media (max-width: 600px) {
+  .modal-content {
+    width: 90vw;
+    max-height: 65vh;
+    overflow-y: auto;
+    padding: 0.9rem 0.2rem;
+  }
+  .modal-title { font-size: 1.15rem; }
+  .modal-list li { font-size: 1rem; padding: 0.6rem 0.1rem; }
 }

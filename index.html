@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>רשימת קניות</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="styles-updates.css">
-  <link rel="stylesheet" href="styles-final.css">
-  <link rel="stylesheet" href="styles-combined.css"> 
+
   <script src="script.js" defer></script>
-  <link rel="icon" href="favicon.ico" type="ico">
+  <!-- Favicon and description for better install/app experience and SEO -->
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<meta name="description" content="אפליקציית רשימת קניות חכמה, מהירה ונוחה בעברית מלאה. ניהול רשימות, מחירים, חנויות ועוד!">
+<link rel="manifest" href="manifest.json">
+
   <style>
     /* Force compact size for the Save Store selection button */
     #btnSaveStore {
@@ -72,23 +74,34 @@
 
   <main class="app-content">
     <div class="choose-header">
-      <h2>בחר פריטים</h2>
-      <button id="toggleChoose" class="toggle-btn">הסתר</button>
+     <h2>בחר פריטים</h2>
+     <button id="btnLoadChooseItems" class="btn-action">📥 טען פריטים</button>
+    <button id="toggleChoose" class="btn-action">הסתר</button>
+
     </div>
 
     <section id="chooseSection">
       <div id="chooseGrid"></div>
       <div class="choose-buttons">
+
         <button id="btnResetChoices">🔄 ניקוי בחירות</button>
         <button id="btnAddCustom">➕ הוספת פריט</button>
+
+        <button id="btnResetChoices" class="btn-action">🔄 איפוס</button>
+        <button id="btnAddCustom" class="btn-action">➕ הוספת פריט</button>
+
       </div>
     </section>
 
     <section id="listSection">
-      <h2>📃 הרשימה שלי</h2>
+      <div class="list-header">
+        <h2>📃 הרשימה שלי</h2>
+        <button id="btnLoadPreset" class="btn-action">📋 רשימות</button>
+      </div>
       <div id="listGrid"></div>
       <div id="listFooter" class="list-footer">
         <div class="total-row">
+          <button id="btnSaveAsPreset" class="btn-action">💾שמור רשימה</button>
           <span class="total-label">סה"כ:</span>
           <span id="totalAmount" class="total-amount">₪ 0</span>
         </div>
@@ -96,6 +109,7 @@
       <div class="clean-buttons">
         <button id="btnClearList" class="btn-action">🧹 נקה רשימה</button>
         <button id="btnClearChecked" class="btn-action">✔️ נקה סימונים</button>
+        
       </div>
     </section>
 
@@ -118,6 +132,15 @@
         <button id="btnSaveCategories" class="btn-settings save">שמור</button>
       </div>
     </section>
+
+    <!-- Modal לבחירת רשימה לטעינה -->
+<div id="chooseListModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <span class="close-modal" id="closeChooseListModal">&times;</span>
+    <h2 class="modal-title">בחר רשימה לטעינה</h2>
+    <ul id="chooseListOptions" class="modal-list"></ul>
+  </div>
+</div>
   </main>
 
   <script>
@@ -136,6 +159,10 @@
         }
       });
     })();
+
+    if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
   </script>
   </body>
 </html>
