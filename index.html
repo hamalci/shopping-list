@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>רשימת קניות</title>
+  <title> רשימת קניות פשוטה</title>
   <link rel="stylesheet" href="style.css" />
 
   <script src="script.js" defer></script>
@@ -28,9 +28,16 @@
 <body>
   <header class="app-header">
     <h1>רשימת קניות</h1>
-    <div class="menu-container">
+    <div class="header-controls">
+      <div class="header-actions">
+        <button id="btnHdrLoadChoose" class="header-btn" title="טען פריטים" aria-label="טען פריטים">📥</button>
+        <button id="btnHdrResetChoices" class="header-btn" title="איפוס פריטים לבחירה" aria-label="איפוס פריטים">🔄</button>
+        <button id="btnHdrAddCustom" class="header-btn" title="הוסף פריט" aria-label="הוסף פריט">➕</button>
+      </div>
+      <div class="menu-container">
       <button id="menuButton" class="menu-icon">≡</button>
       <div id="menuDropdown" class="menu-dropdown">
+        <button class="dropdown-close" aria-label="סגור">×</button>
         <button id="btnViewMode">🖥 מצב תצוגה</button>
         <button id="btnCategoriesSettings">⚙️ סדר קטגוריות</button>
         <!-- Store selector and price toggle (הדבק בתוך ה-header או settings) -->
@@ -61,53 +68,42 @@
   </div>
 </div>
       </div>
-    </div>
-    <div class="menu-container font-menu-container">
+      </div>
+      <div class="menu-container font-menu-container">
       <button id="fontMenuButton" class="menu-icon" title="גודל טקסט">A±</button>
       <div id="fontDropdown" class="menu-dropdown">
+        <button class="dropdown-close" aria-label="סגור">×</button>
         <button id="btnFontIncrease">🔎 הגדל פונט</button>
         <button id="btnFontDecrease">🔍 הקטן פונט</button>
         <button id="btnFontReset">↩️ פונט ברירת מחדל</button>
+      </div>
       </div>
     </div>
   </header>
 
   <main class="app-content">
-    <div class="choose-header">
-     <h2>בחר פריטים</h2>
-     <button id="btnLoadChooseItems" class="btn-action">📥 טען פריטים</button>
-    <button id="toggleChoose" class="btn-action">הסתר</button>
-
-    </div>
+  <div class="choose-header">
+   <h2>תפריט לבחירה</h2>
+   <button id="toggleChoose" class="btn-action">הסתר</button>
+  </div>
 
     <section id="chooseSection">
       <div id="chooseGrid"></div>
-      <div class="choose-buttons">
-
-        <button id="btnResetChoices" class="btn-action">🔄 איפוס</button>
-        <button id="btnAddCustom" class="btn-action">➕ הוספת פריט</button>
-
-      </div>
+      
     </section>
 
     <section id="listSection">
       <div class="list-header">
         <h2>📃 הרשימה שלי</h2>
-        <button id="btnLoadPreset" class="btn-action">📋 רשימות</button>
       </div>
       <div id="listGrid"></div>
       <div id="listFooter" class="list-footer">
         <div class="total-row">
-          <button id="btnSaveAsPreset" class="btn-action">💾שמור רשימה</button>
           <span class="total-label">סה"כ:</span>
           <span id="totalAmount" class="total-amount">₪ 0</span>
         </div>
       </div>
-      <div class="clean-buttons">
-        <button id="btnClearList" class="btn-action">🧹 נקה רשימה</button>
-        <button id="btnClearChecked" class="btn-action">✔️ נקה סימונים</button>
-        
-      </div>
+      
     </section>
 
     <section id="settingsSection" style="display:none; padding:0.625rem;">
@@ -134,7 +130,7 @@
 <div id="chooseListModal" class="modal" style="display:none;">
   <div class="modal-content">
     <span class="close-modal" id="closeChooseListModal">&times;</span>
-    <h2 class="modal-title">בחר רשימה לטעינה</h2>
+    <h2 class="modal-title">טעינת רשימות</h2>
     <ul id="chooseListOptions" class="modal-list"></ul>
   </div>
 </div>
@@ -148,6 +144,16 @@
   </div>
 </div>
   </main>
+
+  <!-- Footer actions (icon-only) -->
+  <footer class="app-footer" role="contentinfo">
+    <button id="btnFooterSave" class="footer-btn" title="שמור רשימה" aria-label="שמור רשימה">💾</button>
+  <button id="btnFooterClear" class="footer-btn" title="נקה רשימה" aria-label="נקה רשימה">🗑️</button>
+  <button id="btnFooterClearChecked" class="footer-btn" title="נקה סימונים" aria-label="נקה סימונים">🔄</button>
+  <button id="btnFooterShare" class="footer-btn" title="שתף רשימה" aria-label="שתף רשימה">&#x1F4E4;</button>
+  <button id="btnFooterShareWA" class="footer-btn" title="שתף ב-WhatsApp" aria-label="שתף ב-WhatsApp">&#x1F4AC;</button>
+  <button id="btnFooterShareSMS" class="footer-btn" title="שתף ב-SMS" aria-label="שתף ב-SMS">✉️</button>
+  </footer>
 
   <script>
     (function(){

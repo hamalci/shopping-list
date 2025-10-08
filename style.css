@@ -1,3 +1,100 @@
+.footer-btn[aria-label="נקה רשימה"] {
+  background: #f87171 !important;
+  color: #fff !important;
+}
+.footer-btn[aria-label="שמור רשימה"] {
+  background: #10b981 !important;
+  color: #fff !important;
+}
+.footer-btn[aria-label="נקה סימונים"] {
+  background: #f59e42 !important;
+  color: #fff !important;
+}
+@media (max-width: 600px) {
+  .footer-btn[aria-label="שתף רשימה"] {
+    display: none !important;
+  }
+}
+.footer-btn[aria-label="שתף ב-SMS"] {
+  background: #3b82f6 !important;
+  color: #fff !important;
+}
+.footer-btn[aria-label="שתף ב-WhatsApp"] {
+  background: #25d366 !important;
+  color: #fff !important;
+}
+.footer-btn[aria-label="שתף ב-Telegram"] {
+  background: #229ED9 !important;
+  color: #fff !important;
+}
+#listGrid .item .main-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.08rem;
+  min-width: 0;
+}
+#listGrid .item .name-qty-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+}
+.item-note-row {
+  margin-top: 0.18rem;
+  display: flex;
+  align-items: center;
+}
+.item-note {
+  width: 100%;
+  max-width: 100%;
+  font-size: 1.08rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f5f6fa;
+  color: #222;
+  outline: none;
+  transition: border-color 0.18s;
+  box-sizing: border-box;
+}
+.item-note:focus {
+  border-color: #6c757d;
+}
+body.dark-mode .item-note {
+  background: #23272b;
+  color: #eee;
+  border-color: #444;
+}
+/* Force white circular background for 'הוסף' button in header and footer */
+#btnHdrAddCustom,
+.header-btn[aria-label="הוסף פריט"],
+.footer-btn[aria-label="הוסף פריט"] {
+  background: #fff !important;
+  color: #111 !important;
+}
+body.dark-mode #btnHdrAddCustom,
+body.dark-mode .header-btn[aria-label="הוסף פריט"],
+body.dark-mode .footer-btn[aria-label="הוסף פריט"] {
+  background: #fff !important;
+  color: #111 !important;
+}
+.header-btn.add, .footer-btn.add {
+  background: #fff !important;
+  color: #111 !important;
+}
+body.dark-mode .header-btn.add, body.dark-mode .footer-btn.add {
+  background: #fff !important;
+  color: #111 !important;
+}
+.header-btn, .footer-btn {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border: 1px solid #d1d5db;
+}
+body.dark-mode .header-btn, body.dark-mode .footer-btn {
+  border-color: rgba(255,255,255,0.18);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
 @media (max-width: 600px) {
   #btnSaveAsPreset {
     margin-right: 1rem
@@ -21,21 +118,83 @@ body {
   font-family: Arial, sans-serif;
   font-size: 1rem;
   margin: 0;
-  background: #f9f9f9;
+  background: #ececec;
   color: #222;
   transition: background 0.25s, color 0.25s;
 }
 
 /* כותרת עליונה */
 .app-header {
-  background: #4CAF50;
+  background: #6c757d; /* neutral gray for better contrast */
   color: white;
   padding: 0.375rem 0.625rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap; /* allow wrapping to second row on small screens */
 }
 .app-header h1 { font-size: 1.625rem; font-weight: 800; margin: 0; }
+
+/* Header controls */
+.header-controls { display:flex; gap:0.4rem; align-items:center; }
+.header-controls { flex-wrap: wrap; }
+.header-actions { display:flex; gap:0.35rem; align-items:center; margin-inline-end: 0.35rem; }
+.header-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 999px;
+  border: none;
+  background: #fff;
+  color: #111;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, color 0.18s;
+}
+.header-btn:active { transform: translateY(1px); }
+.header-btn:hover { background: #f2f2f2; }
+body.dark-mode .header-btn {
+  background: transparent;
+  color: #fff;
+}
+body.dark-mode .header-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* Stack header on small screens: title on first row, controls on second */
+@media (max-width: 600px) {
+  .app-header { align-items: flex-start; }
+  .app-header h1 {
+    flex: 1 1 100%;
+    text-align: center;
+    margin-bottom: 0.25rem;
+  }
+  .header-controls {
+    width: calc(100% + 1.25rem); /* stretch to edges under header padding */
+    margin-inline: -0.625rem;
+    justify-content: space-between;
+    row-gap: 0.25rem;
+    background: #3e024f; /* כאן שולט בצבע הרקע */
+    padding: 0.35rem 0.625rem;
+    border-top: 1px solid rgba(9, 149, 173, 0.15);
+  }
+}
+
+@media (max-width: 380px) {
+  .header-actions { gap: 0.25rem; }
+  .header-btn { width: 1.9rem; height: 1.9rem; font-size: 1rem; }
+  .app-header h1 { font-size: 1.4rem; }
+}
+
+/* Dark mode variant for the mobile sub-row */
+@media (max-width: 600px) {
+  body.dark-mode .header-controls {
+    background: #3e024f; /* כאן שולט בצבע הרקע במצב כהה */
+    border-top-color: rgba(255,255,255,0.08);
+  }
+}
 
 /* תפריט */
 .menu-icon { font-size: 1.625rem; padding: 0.375rem 0.625rem; background: none; border: none; color: white; cursor: pointer; }
@@ -44,13 +203,48 @@ body {
   display: none; position: absolute; top: 2.125rem; left: 0;
   background: white; border: 1px solid #ccc; border-radius: 0.375rem;
   min-width: 11.25rem; box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.15); z-index:1000;
+  padding-top: 1.8rem; /* room for the close button */
 }
+.menu-dropdown .dropdown-close {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.25rem; /* RTL: close on the top-right */
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1.6rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #666;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0;
+}
+.menu-dropdown .dropdown-close:hover { background: rgba(0,0,0,0.06); }
 .menu-dropdown button { width:100%; padding:0.625rem; border:none; background:white; text-align:right; cursor:pointer; font-size:1rem; font-weight:700;}
 .menu-dropdown button:hover { background:#f0f0f0; }
 
+/* Ensure the close button is not affected by the generic dropdown button styles */
+.menu-dropdown .dropdown-close { width: 1.6rem !important; padding: 0 !important; background: transparent !important; }
+
 /* מצב כהה */
 body.dark-mode { background:#222; color:#eee; }
-body.dark-mode .app-header { background:#333; }
+body.dark-mode .app-header { background:#2e3236; }
+/* תפריטים במצב לילה */
+body.dark-mode .menu-dropdown {
+  background: #1b1d22;
+  border-color: rgba(255,255,255,0.08);
+}
+body.dark-mode .menu-dropdown .dropdown-close { color: #aaa; }
+body.dark-mode .menu-dropdown .dropdown-close:hover { background: rgba(255,255,255,0.08); }
+body.dark-mode .menu-dropdown button { color: #e6e6e6; background: transparent; }
+body.dark-mode .menu-dropdown button:hover { background: rgba(255,255,255,0.06); }
+
+/* מודאלים במצב לילה */
+body.dark-mode .modal { background: rgba(0,0,0,0.6); }
+body.dark-mode .modal-content { background: #111317; color: #e6e6e6; border: 1px solid rgba(255,255,255,0.06); }
+body.dark-mode .modal-list li { background: #171a1f; color: #e6e6e6; }
+body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
 
 /* כותרות סקשנים */
 .app-content h2 { font-size: 1.125rem; font-weight:700; margin:0.5rem 0; }
@@ -137,12 +331,24 @@ body.dark-mode #toggleChoose.active {
 /* רשימה */
 #listGrid { display:flex; flex-direction:column; gap:0.375rem; }
 .choose-item, .item {
-  border:1px solid #ccc; border-radius:0.375rem; padding:0.625rem 0.75rem; background:#fff;
+  border:1px solid #ccc; border-radius:0.375rem; padding:0.625rem 0.75rem; background:#f7f7fa;
   font-size:1.125rem; font-weight:700; cursor:pointer;
 }
-.item { display:flex; justify-content:space-between; align-items:center; transition:transform 0.35s, opacity 0.35s; }
-.item .name { flex:1; text-align:right; font-size:1.25rem; }
-.item .qty { min-width:1rem; text-align:left; font-size:1.125rem; }
+/* פריט ברשימה – שתי עמודות (שם+כמות) | מחיר */
+#listGrid .item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.2rem;
+}
+#listGrid .item .main-col {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+#listGrid .item .name { min-width:0; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#listGrid .item .qty  { min-width:3.2rem; text-align:left; }
 .item.checked { text-decoration:line-through; opacity:0.65; }
 
 /* badge */
@@ -179,6 +385,13 @@ body.dark-mode #toggleChoose.active {
 #btnClearList { background:#f44336; color:white; }
 #btnClearChecked { background:#9C27B0; color:white; }
 #btnSaveAsPreset { background:#FF9800; color:white; }
+#btnHdrAddCustom {
+  color: #111;
+  background: transparent;
+}
+body.dark-mode #btnHdrAddCustom {
+  color: #fff;
+}
 
 /* בחירה חזותית לפריטי 'בחר פריטים' */
 .choose-item.selected { background:#eaf7f1; border-color:#9fe0c9; transition:background 0.25s, transform 0.18s; }
@@ -205,8 +418,9 @@ body.dark-mode #toggleChoose.active {
 }
 #listGrid .item .main-col {
   display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
   min-width: 0;
 }
 #listGrid .item .name {
@@ -312,52 +526,78 @@ body.dark-mode #toggleChoose.active {
     font-weight: 900;
   }
 }
-/* שורה כללית */
-.item {
+
+/* ===== Fixed footer actions ===== */
+.app-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
+  justify-content: space-around;
   align-items: center;
-  gap: 0.5rem;              /* ריווח בין אלמנטים */
-  direction: rtl;           /* RTL עבור עברית */
-  padding: 0.4rem 0.5rem;
-  box-sizing: border-box;
+  gap: 0.25rem;
+  padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom));
+  background: #f3f4f6; /* light gray for contrast */
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(0,0,0,0.08);
+  z-index: 1000;
 }
-
-/* אייקון - לא מתכווץ */
-.item .icon {
-  flex: 0 0 auto;
-  width: 2rem;
-  text-align: center;
-  font-size: 1.05rem;
-}
-
-/* שם הפריט - תופס את המרחב שנותר, מאפשר חיתוך עם אליפסיס */
-.item .name {
-  flex: 1 1 auto;           /* תופס שטח זמין */
-  min-width: 0;             /* חשוב כדי שהellipsis יעבוד בתוך flex */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 3rem;
-  font-weight: 950;
-  text-align: left;
-  margin-inline-start: 0rem; /* ריווח שמאלי קטן לעיצוב RTL */
-  padding-left: 0rem; /* ריווח שמאלי קטן לעיצוב RTL */
-  border-left: 2px solid #eee; /* גבול שמאלי קטן */
-  box-shadow: 1px 0 0 rgba(0,0,0,0.1);
-
-}
-
-/* כמות - רוחב קבוע (לא יתכווץ עד כדי דריסה) */
-.item .qty {
-  flex: 0 0 auto;
-  min-width: 5rem;        /* כוונן לפי פורמט הכמות (לדוגמה: 999.9 kg) */
-  text-align: left;
-  font-size: 0.95rem;
-  color: #444;
+/* Footer buttons: black on white in light mode, white on transparent in dark mode */
+.footer-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  border: none;
+  background: #fff;
+  color: #111;
+  font-size: 1.25rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.2rem; /* מקרב את הכמות ליחידה */
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
 }
+.footer-btn:hover { background: #f2f2f2; }
+.footer-btn:active { transform: translateY(1px); }
+body.dark-mode .footer-btn {
+  background: transparent;
+  color: #fff;
+}
+body.dark-mode .footer-btn:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* Add bottom padding to main content so footer doesn't cover content */
+main.app-content { padding-bottom: 4.2rem; }
+
+/* Dark mode footer */
+body.dark-mode .app-footer {
+  background: #23272b;
+  border-top-color: rgba(255,255,255,0.06);
+}
+body.dark-mode .footer-btn {
+  border-color: rgba(255,255,255,0.22);
+  color: #e6e6e6;
+}
+body.dark-mode .footer-btn:hover { background: rgba(255,255,255,0.08); }
+/* שורה כללית */
+#toggleChoose {
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid rgba(0,0,0,0.25);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+#toggleChoose:hover { background: rgba(0,0,0,0.05); transform: scale(1.02); }
+body.dark-mode #toggleChoose { border-color: rgba(255,255,255,0.28); }
+body.dark-mode #toggleChoose:hover { background: rgba(255,255,255,0.1); }
+
 
 /* מחיר - רוחב קבוע, בולט */
 .item .price {

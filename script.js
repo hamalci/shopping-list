@@ -181,7 +181,7 @@ function makeChooseButton(item) {
 }
 
 /* ====== createListItem (price as currency left, amount right inside fixed column) ====== */
-function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipSave = false, price = null) {
+function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipSave = false, price = null, note = "") {
   const cleanName = String(name || "").trim();
   const cleanIcon = String(icon || "🛒").trim();
   const num = parseFloat(quantity) || 1;
@@ -199,6 +199,19 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   qty.className = "qty";
   qty.textContent = `${num} ${cleanUnit}`.trim();
 
+  // הערה קצרה
+  const noteDiv = document.createElement("div");
+  noteDiv.className = "item-note-row";
+  const noteInput = document.createElement("input");
+  noteInput.className = "item-note";
+  noteInput.type = "text";
+  noteInput.placeholder = "הוסף הערה...";
+  noteInput.value = note || "";
+  noteInput.setAttribute("aria-label", "הערה לפריט");
+  noteInput.addEventListener("change", () => {
+    saveListToStorage();
+  });
+  noteDiv.appendChild(noteInput);
 
   // price element: amount and currency, compact
   const priceSpan = document.createElement("span");
@@ -219,31 +232,40 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     const current = amountSpan.textContent || "";
     const p = prompt("הכנס מחיר בפריטים בשקלים (ללא סימן):", current);
     if (p === null) return;
-    const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
+  const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
     amountSpan.textContent = cleaned;
     savePriceForItem(cleanName, cleaned);
     renderAllPrices();
     renderTotal();
   });
 
-  // plus/minus quantity handlers (אם קיימים ככפתורים בתבנית שלך, עדכן אותם להפעיל שינוי זה)
-  // דוגמה: שינוי קליק על השורה מגדיר checked
-  row.appendChild(nameSpan);
-  row.appendChild(qty);
+  // ארוז שם+כמות בעמודה ראשונה; מחיר בעמודה שנייה (תואם CSS grid)
+  const mainCol = document.createElement("div");
+  mainCol.className = "main-col";
+  // wrap name+qty in a flex row
+  const nameQtyRow = document.createElement("div");
+  nameQtyRow.className = "name-qty-row";
+  nameQtyRow.style.display = "flex";
+  nameQtyRow.style.alignItems = "center";
+  nameQtyRow.style.gap = "0.4rem";
+  nameQtyRow.appendChild(nameSpan);
+  nameQtyRow.appendChild(qty);
+  mainCol.appendChild(nameQtyRow);
+  mainCol.appendChild(noteDiv);
+
+  row.appendChild(mainCol);
   row.appendChild(priceSpan);
 
   // שמירת נתונים ותוספות אירועים
   row.addEventListener("click", (e) => {
     // אם לחצת על ה priceSpan או על כפתורי qty, אל תטפל ב־toggle של השורה
-    if (e.target.closest('.price') || e.target.closest('.qty')) return;
+    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) return;
     row.classList.toggle("checked");
     const listGrid = document.getElementById("listGrid");
     row.classList.add("moving");
     setTimeout(() => { listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
   });
 
-  // אם יש פונקציות כפתורי + / - בהדרכה שלך, גם הן צריכות לעדכן qAmount.textContent ולקרוא saveListToStorage(), renderTotal()
-  // Append to DOM
   document.getElementById("listGrid").appendChild(row);
   if (!skipSave) saveListToStorage();
   renderAllPrices();
@@ -323,8 +345,9 @@ function saveListToStorage() {
     const qty = qtyParts.join(" ");
 
     const priceText = (el.querySelector(".price .amount")?.textContent || "").trim();
+    const noteText = (el.querySelector(".item-note")?.value || "").trim();
 
-    items.push({ icon, name: pureName, qty, price: priceText, checked: el.classList.contains("checked") });
+    items.push({ icon, name: pureName, qty, price: priceText, checked: el.classList.contains("checked"), note: noteText });
   });
 
   localStorage.setItem("shoppingList", JSON.stringify(items));
@@ -339,8 +362,9 @@ function loadListFromStorage(){
   items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
-    const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
-    const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null);
+  const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
+    const note = item.note || "";
+    const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
     if (item.checked) row.classList.add("checked");
   });
   if (typeof sortListByCategories === "function") sortListByCategories();
@@ -462,6 +486,9 @@ function saveStoreSelection() {
   });
   renderAllPrices();
   renderTotal();
+  // Close the dropdown after saving
+  const dd = document.getElementById('menuDropdown');
+  if (dd) dd.style.display = 'none';
 }
 
 function togglePriceDisplay(show) {
@@ -925,6 +952,15 @@ function loadChooseItems() {
 /* ====== init ====== */
 document.addEventListener("DOMContentLoaded", () => {
   loadDefaultChooseItems();
+  // Check for ?list= param in URL
+  const params = new URLSearchParams(window.location.search);
+  const sharedList = params.get('list');
+  if (sharedList) {
+    try {
+      localStorage.setItem("shoppingList", decodeURIComponent(sharedList));
+      alert("הרשימה שותפה בהצלחה!");
+    } catch (e) { alert("קישור הרשימה לא תקין."); }
+  }
   loadListFromStorage();
 
   const visible = localStorage.getItem("chooseSectionVisible");
@@ -932,13 +968,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnToggle = document.getElementById("toggleChoose");
   if (visible === "false" && section) { section.classList.add("hidden"); if (btnToggle) btnToggle.textContent = "הצג"; }
 
-  document.getElementById("btnResetChoices")?.addEventListener("click", resetChoices);
-  document.getElementById("btnAddCustom")?.addEventListener("click", addCustomItem);
-  document.getElementById("btnLoadChooseItems")?.addEventListener("click", loadChooseItems);
-  document.getElementById("btnLoadPreset")?.addEventListener("click", loadPresetList);
-  document.getElementById("btnClearList")?.addEventListener("click", () => { if (confirm("האם למחוק את כל הרשימה?")) clearList(); });
-  document.getElementById("btnClearChecked")?.addEventListener("click", clearChecked);
-  document.getElementById("btnSaveAsPreset")?.addEventListener("click", saveCurrentListAsPreset);
+  // New header icon buttons replacing choose-section actions
+  document.getElementById("btnHdrResetChoices")?.addEventListener("click", resetChoices);
+  document.getElementById("btnHdrAddCustom")?.addEventListener("click", addCustomItem);
+  document.getElementById("btnHdrLoadChoose")?.addEventListener("click", loadChooseItems);
+  // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
 
   document.getElementById("btnSaveCategories")?.addEventListener("click", () => {
     localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
@@ -1001,6 +1035,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!menu) return;
     menu.style.display = menu.style.display === "block" ? "none" : "block";
   });
+  // Close button inside view menu
+  document.querySelector('#menuDropdown .dropdown-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById('menuDropdown');
+    if (menu) menu.style.display = 'none';
+  });
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".menu-container")) {
       const menu = document.getElementById("menuDropdown");
@@ -1008,20 +1048,50 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Close dropdowns on Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const v = document.getElementById('menuDropdown');
+      const f = document.getElementById('fontDropdown');
+      if (v) v.style.display = 'none';
+      if (f) f.style.display = 'none';
+    }
+  });
+
+  // Auto-close the view menu after actions inside it
+  document.getElementById('btnViewMode')?.addEventListener('click', () => {
+    const dd = document.getElementById('menuDropdown');
+    if (dd) dd.style.display = 'none';
+  });
+  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
+    const dd = document.getElementById('menuDropdown');
+    if (dd) dd.style.display = 'none';
+  });
+
   document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
     rootFontPx = Math.min(rootFontPx + 1, 30);
     document.documentElement.style.fontSize = rootFontPx + "px";
     localStorage.setItem("rootFontPx", rootFontPx);
+    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
   });
   document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
     rootFontPx = Math.max(rootFontPx - 1, 12);
     document.documentElement.style.fontSize = rootFontPx + "px";
     localStorage.setItem("rootFontPx", rootFontPx);
+    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
   });
   document.getElementById("btnFontReset")?.addEventListener("click", () => {
     rootFontPx = 19;
     document.documentElement.style.fontSize = rootFontPx + "px";
     localStorage.setItem("rootFontPx", rootFontPx);
+    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
+  });
+
+  // Close button for font menu
+  document.querySelector('#fontDropdown .dropdown-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const dd = document.getElementById('fontDropdown');
+    if (dd) dd.style.display = 'none';
   });
 
   document.getElementById("btnViewMode")?.addEventListener("click", () => {
@@ -1039,6 +1109,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById('networkSelect')?.addEventListener('change', (e) => populateBranches(e.target.value));
   document.getElementById('btnSaveStore')?.addEventListener('click', saveStoreSelection);
   document.getElementById('togglePrices')?.addEventListener('change', (e) => togglePriceDisplay(e.target.checked));
+  // Also close the view dropdown when toggling the price switch
+  document.getElementById('togglePrices')?.addEventListener('change', () => {
+    const dd = document.getElementById('menuDropdown');
+    if (dd) dd.style.display = 'none';
+  });
 
   /* init store UI */
   (function initStoreUI(){
@@ -1094,4 +1169,65 @@ document.addEventListener("DOMContentLoaded", () => {
   // Initial UI render calls if functions exist
   if (typeof renderAllPrices === 'function') renderAllPrices();
   if (typeof renderTotal === 'function') renderTotal();
+
+  // ===== Footer actions wiring =====
+  document.getElementById('btnFooterSave')?.addEventListener('click', () => {
+    // Call directly
+    if (typeof saveCurrentListAsPreset === 'function') saveCurrentListAsPreset();
+  });
+  document.getElementById('btnFooterClear')?.addEventListener('click', () => {
+    if (confirm('האם למחוק את כל הרשימה?')) clearList();
+  });
+  document.getElementById('btnFooterClearChecked')?.addEventListener('click', () => {
+    clearChecked();
+  });
+  document.getElementById('btnFooterShare')?.addEventListener('click', shareCurrentList);
+  document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+    window.open(waUrl, '_blank');
+  });
+  document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
+    window.open(smsUrl, '_blank');
+  });
 });
+
+// ===== Share current list (Web Share API + clipboard fallback) =====
+async function shareCurrentList() {
+  // Get current list as JSON
+  const data = localStorage.getItem("shoppingList") || "";
+  if (!data) { alert("הרשימה ריקה."); return; }
+  // Encode as URI component
+  const encoded = encodeURIComponent(data);
+  const url = `${location.origin}${location.pathname}?list=${encoded}`;
+
+  // Try Web Share API
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: 'רשימת קניות', url });
+      return;
+    }
+  } catch (e) {}
+
+  // Fallback: copy link to clipboard
+  try {
+    await navigator.clipboard.writeText(url);
+    alert('קישור הרשימה הועתק ללוח! אפשר לשלוח אותו לכל אחד.');
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = url;
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); alert('הקישור הועתק ללוח!'); }
+    catch { alert(url); }
+    document.body.removeChild(ta);
+  }
+}
