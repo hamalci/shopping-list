@@ -190,46 +190,46 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   const row = document.createElement("div");
   row.className = "item fade-in";
 
-  // wrapper for name+qty (first column, flex row)
-  const mainCol = document.createElement("div");
-  mainCol.className = "main-col";
-  mainCol.style.display = "flex";
-  mainCol.style.alignItems = "center";
-  mainCol.style.gap = "0.4rem";
-
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
   nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
 
-  // qty container with amount and unit
+  // qty+unit as a single span for compactness
   const qty = document.createElement("span");
   qty.className = "qty";
-  const qAmount = document.createElement("span");
-  qAmount.className = "q-amount";
-  qAmount.textContent = String(num);
-  const qUnit = document.createElement("span");
-  qUnit.className = "q-unit";
-  qUnit.textContent = ` ${cleanUnit}`;
-  qty.appendChild(qAmount);
-  qty.appendChild(qUnit);
+  qty.textContent = `${num} ${cleanUnit}`.trim();
 
-  mainCol.appendChild(nameSpan);
-  mainCol.appendChild(qty);
 
-  // price element (second column)
+  // price element: amount and currency, compact
   const priceSpan = document.createElement("span");
   priceSpan.className = "price";
-  const currencySpan = document.createElement("span");
-  currencySpan.className = "currency";
-  currencySpan.textContent = "₪";
   const amountSpan = document.createElement("span");
   amountSpan.className = "amount";
   amountSpan.textContent = (price != null && price !== "") ? String(price) : "";
-  priceSpan.appendChild(currencySpan);
+  const currencySpan = document.createElement("span");
+  currencySpan.className = "currency";
+  currencySpan.textContent = "₪";
   priceSpan.appendChild(amountSpan);
-  priceSpan.style.cursor = "default";
+  priceSpan.appendChild(currencySpan);
 
-  row.appendChild(mainCol);
+  // edit on click for amount
+  priceSpan.style.cursor = "pointer";
+  priceSpan.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const current = amountSpan.textContent || "";
+    const p = prompt("הכנס מחיר בפריטים בשקלים (ללא סימן):", current);
+    if (p === null) return;
+    const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
+    amountSpan.textContent = cleaned;
+    savePriceForItem(cleanName, cleaned);
+    renderAllPrices();
+    renderTotal();
+  });
+
+  // plus/minus quantity handlers (אם קיימים ככפתורים בתבנית שלך, עדכן אותם להפעיל שינוי זה)
+  // דוגמה: שינוי קליק על השורה מגדיר checked
+  row.appendChild(nameSpan);
+  row.appendChild(qty);
   row.appendChild(priceSpan);
 
   // שמירת נתונים ותוספות אירועים
@@ -363,7 +363,6 @@ function renderAllPrices() {
   document.querySelectorAll('#listGrid .item').forEach(el => {
     const name = el.querySelector('.name')?.textContent.split(' ').slice(1).join(' ') || '';
     const priceSpan = el.querySelector('.price');
-    if (!priceSpan) return; // safety if legacy nodes exist
     const stored = getPriceForItem(name);
     const amountEl = priceSpan?.querySelector('.amount');
     if (stored !== null && stored !== undefined) {
@@ -637,6 +636,112 @@ const presetLists = {
   ]
 };
 
+// פונקציה לפתיחת modal עבור רשימות מוכנות
+function openPresetListModal(listNames, allLists, customLists) {
+  const modal = document.getElementById('presetListModal');
+  const listEl = document.getElementById('presetListOptions');
+  const closeBtn = document.getElementById('closePresetListModal');
+  if (!modal || !listEl) return;
+  
+  // נקה תוכן קודם
+  listEl.innerHTML = '';
+  
+  // צור אפשרות לכל רשימה
+  listNames.forEach((name, idx) => {
+    const li = document.createElement('li');
+    const isCustom = customLists[name] ? ' (מותאם אישית)' : '';
+    li.textContent = `${name} (${allLists[name].length} פריטים)${isCustom}`;
+    li.tabIndex = 0;
+    
+    li.addEventListener('click', () => {
+      modal.style.display = 'none';
+      handlePresetListSelection(name, allLists[name], name);
+    });
+    
+    listEl.appendChild(li);
+  });
+  
+  // הוסף אפשרות לניהול רשימות מותאמות אישית אם יש כאלה
+  const hasCustomLists = Object.keys(customLists).length > 0;
+  if (hasCustomLists) {
+    const li = document.createElement('li');
+    li.textContent = '⚙️ נהל רשימות מותאמות אישית';
+    li.style.backgroundColor = '#f0f0f0';
+    li.style.borderTop = '1px solid #ddd';
+    li.tabIndex = 0;
+    
+    li.addEventListener('click', () => {
+      modal.style.display = 'none';
+      manageCustomLists();
+    });
+    
+    listEl.appendChild(li);
+  }
+  
+  // סגירה
+  closeBtn.onclick = () => { modal.style.display = 'none'; };
+  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  modal.style.display = 'flex';
+}
+
+// פונקציה לטיפול בבחירת רשימה מוכנה עם אופציית החלפה/הוספה
+function handlePresetListSelection(selectedName, selectedList, displayName) {
+  // בדיקה אם הרשימה הנוכחית ריקה או לא
+  const currentItems = document.querySelectorAll("#listGrid .item").length;
+  
+  let actionChoice = '1'; // ברירת מחדל: החלפה
+  
+  if (currentItems > 0) {
+    // יש פריטים קיימים - תן אופציה להחליף או להוסיף
+    const userChoice = confirm(`יש כבר פריטים ברשימה שלי.\n\nלחץ "אישור" להחליף את הרשימה הקיימת\nלחץ "ביטול" להוסיף לרשימה הקיימת`);
+    
+    if (userChoice) {
+      // החלפה - נקה את הרשימה
+      clearList();
+      actionChoice = '1';
+    } else {
+      // הוספה - השאר את הפריטים הקיימים
+      actionChoice = '2';
+    }
+  }
+  
+  // הוסף את הפריטים מהרשימה המוכנה
+  selectedList.forEach(item => {
+    // בדוק אם הפריט כבר קיים ברשימה (רק אם מוסיפים)
+    if (actionChoice === '2') {
+      const existing = Array.from(document.querySelectorAll("#listGrid .item")).find(el => {
+        const rawName = (el.querySelector(".name")?.textContent || "").trim();
+        const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
+        const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+        return pureName.toLowerCase() === item.name.toLowerCase();
+      });
+      
+      if (existing) {
+        // הגדל כמות במקום ליצור פריט חדש
+        const qtyEl = existing.querySelector(".qty");
+        if (qtyEl) {
+          const qtyText = qtyEl.textContent || "1 יח'";
+          const qtyParts = qtyText.split(" ");
+          const currentQty = parseInt(qtyParts[0]) || 1;
+          const unit = qtyParts.slice(1).join(" ") || "יח'";
+          qtyEl.textContent = `${currentQty + 1} ${unit}`;
+        }
+        return; // דלג על יצירת פריט חדש - רק עבור הפריט הנוכחי
+      }
+    }
+    
+    // צור פריט חדש (אם לא קיים או אם החלפנו את הרשימה)
+    createListItem(item.name, item.icon, 1, item.unit);
+  });
+  
+  saveListToStorage();
+  renderAllPrices();
+  renderTotal();
+  
+  const actionText = actionChoice === '1' ? 'נטענה' : 'נוספה לרשימה';
+  alert(`רשימת "${displayName}" ${actionText} בהצלחה עם ${selectedList.length} פריטים!`);
+}
+
 function loadPresetList() {
   // טעינת רשימות מותאמות אישית
   const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
@@ -649,105 +754,8 @@ function loadPresetList() {
     return;
   }
   
-  let optionsText = "בחר רשימת קניה מוכנה:\n\n";
-  listNames.forEach((name, index) => {
-    const isCustom = customLists[name] ? " (מותאם אישית)" : "";
-    optionsText += `${index + 1}. ${name} (${allLists[name].length} פריטים)${isCustom}\n`;
-  });
-  
-  const hasCustomLists = Object.keys(customLists).length > 0;
-  if (hasCustomLists) {
-    optionsText += `\n${listNames.length + 1}. ⚙️ נהל רשימות מותאמות אישית\n`;
-  }
-  
-  optionsText += "\nהכנס מספר הרשימה או שם הרשימה:";
-  
-  const choice = prompt(optionsText);
-  
-  if (!choice) return;
-  
-  // בדיקה אם בחר "נהל רשימות מותאמות אישית"
-  const choiceNum = parseInt(choice.trim());
-  if (!isNaN(choiceNum) && choiceNum === listNames.length + 1 && hasCustomLists) {
-    manageCustomLists();
-    return;
-  }
-  
-  let selectedList = null;
-  let selectedName = "";
-  
-  // בדיקה אם הקלט הוא מספר
-  if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= listNames.length) {
-    selectedName = listNames[choiceNum - 1];
-    selectedList = allLists[selectedName];
-  } else {
-    // בדיקה אם הקלט הוא שם רשימה
-    selectedName = choice.trim();
-    selectedList = allLists[selectedName];
-  }
-  
-  if (!selectedList) {
-    alert('רשימה לא נמצאה. אנא בחר מהרשימות הזמינות.');
-    return;
-  }
-  
-  // הצגת תצוגה מקדימה של הרשימה
-  const preview = selectedList.map(item => `${item.icon} ${item.name}`).join('\n');
-  
-  // בדיקה אם הרשימה הנוכחית ריקה או לא
-  const currentItems = document.querySelectorAll("#listGrid .item").length;
-  let actionChoice;
-  
-  if (currentItems > 0) {
-    actionChoice = prompt(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nמה תרצה לעשות?\n1. להחליף את הרשימה הקיימת\n2. להוסיף לרשימה הקיימת\n3. לבטל\n\nהכנס 1, 2 או 3:`);
-    
-    if (!actionChoice || actionChoice.trim() === '3') return;
-    
-    if (actionChoice.trim() === '1') {
-      clearList();
-    } else if (actionChoice.trim() !== '2') {
-      alert('בחירה לא תקינה.');
-      return;
-    }
-  } else {
-    if (confirm(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nהאם לטעון את הרשימה?`)) {
-      actionChoice = '1';
-    } else {
-      return;
-    }
-  }
-  
-  // הוסף את הפריטים מהרשימה המוכנה
-  selectedList.forEach(item => {
-    // בדוק אם הפריט כבר קיים ברשימה (רק אם מוסיפים)
-    if (actionChoice.trim() === '2') {
-      const existing = Array.from(document.querySelectorAll("#listGrid .item")).find(el => {
-        const rawName = (el.querySelector(".name")?.textContent || "").trim();
-        const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-        const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-        return pureName.toLowerCase() === item.name.toLowerCase();
-      });
-      
-      if (existing) {
-        // הגדל כמות במקום ליצור פריט חדש
-        const qtyEl = existing.querySelector(".qty .q-amount");
-        if (qtyEl) {
-          const currentQty = parseInt(qtyEl.textContent || "1");
-          qtyEl.textContent = String(currentQty + 1);
-        }
-        return; // דלג על יצירת פריט חדש
-      }
-    }
-    
-    createListItem(item.name, item.icon, 1, item.unit);
-  });
-  
-  saveListToStorage();
-  renderAllPrices();
-  renderTotal();
-  
-  const actionText = actionChoice.trim() === '1' ? 'נטענה' : 'נוספה לרשימה';
-  alert(`רשימת "${selectedName}" ${actionText} בהצלחה עם ${selectedList.length} פריטים!`);
+  // פתיחת modal במקום prompt
+  openPresetListModal(listNames, allLists, customLists);
 }
 
 function manageCustomLists() {
@@ -834,57 +842,84 @@ function saveCurrentListAsPreset() {
   alert(`רשימת "${cleanName}" נשמרה בהצלחה עם ${currentItems.length} פריטים!`);
 }
 
-function loadChooseItems() {
-  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
-  const allLists = { ...presetLists, ...customLists };
-  const listNames = Object.keys(allLists);
-  if (listNames.length === 0) {
-    alert('אין רשימות מוכנות זמינות.');
-    return;
-  }
-  openChooseListModal(listNames, allLists, customLists);
-}
-
+// פונקציה לפתיחת modal עם אופציות החלפה/הוספה
 function openChooseListModal(listNames, allLists, customLists) {
   const modal = document.getElementById('chooseListModal');
   const listEl = document.getElementById('chooseListOptions');
   const closeBtn = document.getElementById('closeChooseListModal');
   if (!modal || !listEl) return;
+  
   // נקה תוכן קודם
   listEl.innerHTML = '';
+  
   // צור אפשרות לכל רשימה
   listNames.forEach((name, idx) => {
     const li = document.createElement('li');
     const isCustom = customLists[name] ? ' (מותאם אישית)' : '';
     li.textContent = `${name} (${allLists[name].length} פריטים)${isCustom}`;
     li.tabIndex = 0;
+    
     li.addEventListener('click', () => {
       modal.style.display = 'none';
       handleChooseListSelection(name, allLists[name], name);
     });
+    
     listEl.appendChild(li);
   });
+  
   // סגירה
   closeBtn.onclick = () => { modal.style.display = 'none'; };
+  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
   modal.style.display = 'flex';
 }
 
+// פונקציה לטיפול בבחירת רשימה עם אופציית החלפה/הוספה
 function handleChooseListSelection(selectedName, selectedList, displayName) {
   // בדיקה אם יש פריטים בטבלת הבחירה
   const chooseGrid = document.getElementById('chooseGrid');
   const hasExistingItems = chooseGrid && chooseGrid.children.length > 0;
-  let actionChoice = '1';
+  
+  let actionChoice = '1'; // ברירת מחדל: החלפה
+  
   if (hasExistingItems) {
-    if (!confirm(`האם להחליף את הפריטים הקיימים בפריטי הרשימה "${displayName}"?`)) return;
-    chooseGrid.innerHTML = '';
+    // יש פריטים קיימים - תן אופציה להחליף או להוסיף
+    const userChoice = confirm(`יש כבר פריטים בטבלת הבחירה.\n\nלחץ "אישור" להחליף את הפריטים הקיימים\nלחץ "ביטול" להוסיף לפריטים הקיימים`);
+    
+    if (userChoice) {
+      // החלפה - נקה את הטבלה
+      chooseGrid.innerHTML = '';
+      actionChoice = '1';
+    } else {
+      // הוספה - השאר את הפריטים הקיימים
+      actionChoice = '2';
+    }
   }
+  
   // הוסף את הפריטים לטבלת הבחירה
   selectedList.forEach(item => {
     if (chooseGrid) {
       chooseGrid.appendChild(makeChooseButton(item));
     }
   });
-  alert(`פריטי רשימת "${displayName}" נטענו בהצלחה לטבלת הבחירה!`);
+  
+  const actionText = actionChoice === '1' ? 'נטענו' : 'נוספו';
+  alert(`פריטי רשימת "${displayName}" ${actionText} בהצלחה לטבלת הבחירה!`);
+}
+
+function loadChooseItems() {
+  // טעינת רשימות מותאמות אישית
+  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
+  const allLists = { ...presetLists, ...customLists };
+  
+  // יצירת רשימת האפשרויות
+  const listNames = Object.keys(allLists);
+  if (listNames.length === 0) {
+    alert('אין רשימות מוכנות זמינות.');
+    return;
+  }
+  
+  // פתיחת modal במקום prompt
+  openChooseListModal(listNames, allLists, customLists);
 }
 
 /* ====== init ====== */
