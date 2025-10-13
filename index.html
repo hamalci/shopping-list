@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title> רשימת קניות פשוטה</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="icons.css" />
 
   <script src="script.js" defer></script>
   <!-- Favicon and description for better install/app experience and SEO -->
@@ -30,16 +31,16 @@
     <h1>רשימת קניות</h1>
     <div class="header-controls">
       <div class="header-actions">
-        <button id="btnHdrLoadChoose" class="header-btn" title="טען פריטים" aria-label="טען פריטים">📥</button>
-        <button id="btnHdrResetChoices" class="header-btn" title="איפוס פריטים לבחירה" aria-label="איפוס פריטים">🔄</button>
-        <button id="btnHdrAddCustom" class="header-btn" title="הוסף פריט" aria-label="הוסף פריט">➕</button>
+        <button id="btnViewMode" class="header-btn icon-view-mode" title="מצב תצוגה" aria-label="מצב תצוגה"></button>
+        <button id="btnHdrLoadChoose" class="header-btn icon-load" title="טען פריטים" aria-label="טען פריטים"></button>
+        <button id="btnHdrResetChoices" class="header-btn icon-reset" title="איפוס פריטים לבחירה" aria-label="איפוס פריטים"></button>
+        <button id="btnHdrAddCustom" class="header-btn icon-add" title="הוסף פריט" aria-label="הוסף פריט"></button>
       </div>
-      <div class="menu-container">
-      <button id="menuButton" class="menu-icon">≡</button>
+  <div class="menu-container">
+  <button id="menuButton" class="header-btn menu-icon icon-menu" title="תפריט" aria-label="תפריט"></button>
       <div id="menuDropdown" class="menu-dropdown">
-        <button class="dropdown-close" aria-label="סגור">×</button>
-        <button id="btnViewMode">🖥 מצב תצוגה</button>
-        <button id="btnCategoriesSettings">⚙️ סדר קטגוריות</button>
+        <button class="dropdown-close icon-close" aria-label="סגור"></button>
+        <button id="btnCategoriesSettings" class="icon-categories">סדר קטגוריות</button>
         <!-- Store selector and price toggle (הדבק בתוך ה-header או settings) -->
 <div id="storeSelector" class="store-selector">
   <div class="store-group">
@@ -69,13 +70,13 @@
 </div>
       </div>
       </div>
-      <div class="menu-container font-menu-container">
-      <button id="fontMenuButton" class="menu-icon" title="גודל טקסט">A±</button>
+  <div class="menu-container font-menu-container">
+  <button id="fontMenuButton" class="header-btn menu-icon icon-font-size" title="גודל טקסט" aria-label="גודל טקסט"></button>
       <div id="fontDropdown" class="menu-dropdown">
-        <button class="dropdown-close" aria-label="סגור">×</button>
-        <button id="btnFontIncrease">🔎 הגדל פונט</button>
-        <button id="btnFontDecrease">🔍 הקטן פונט</button>
-        <button id="btnFontReset">↩️ פונט ברירת מחדל</button>
+        <button class="dropdown-close icon-close" aria-label="סגור"></button>
+        <button id="btnFontIncrease" class="icon-font-increase">הגדל פונט</button>
+        <button id="btnFontDecrease" class="icon-font-decrease">הקטן פונט</button>
+        <button id="btnFontReset" class="icon-font-reset">פונט ברירת מחדל</button>
       </div>
       </div>
     </div>
@@ -147,12 +148,12 @@
 
   <!-- Footer actions (icon-only) -->
   <footer class="app-footer" role="contentinfo">
-    <button id="btnFooterSave" class="footer-btn" title="שמור רשימה" aria-label="שמור רשימה">💾</button>
-  <button id="btnFooterClear" class="footer-btn" title="נקה רשימה" aria-label="נקה רשימה">🗑️</button>
-  <button id="btnFooterClearChecked" class="footer-btn" title="נקה סימונים" aria-label="נקה סימונים">🔄</button>
-  <button id="btnFooterShare" class="footer-btn" title="שתף רשימה" aria-label="שתף רשימה">&#x1F4E4;</button>
-  <button id="btnFooterShareWA" class="footer-btn" title="שתף ב-WhatsApp" aria-label="שתף ב-WhatsApp">&#x1F4AC;</button>
-  <button id="btnFooterShareSMS" class="footer-btn" title="שתף ב-SMS" aria-label="שתף ב-SMS">✉️</button>
+    <button id="btnFooterSave" class="footer-btn icon-save" title="שמור רשימה" aria-label="שמור רשימה"></button>
+  <button id="btnFooterClear" class="footer-btn icon-clear" title="נקה רשימה" aria-label="נקה רשימה"></button>
+  <button id="btnFooterClearChecked" class="footer-btn icon-reset" title="נקה סימונים" aria-label="נקה סימונים"></button>
+  <button id="btnFooterShare" class="footer-btn icon-share" title="שתף רשימה" aria-label="שתף רשימה"></button>
+  <button id="btnFooterShareWA" class="footer-btn icon-whatsapp" title="שתף ב-WhatsApp" aria-label="שתף ב-WhatsApp"></button>
+  <button id="btnFooterShareSMS" class="footer-btn icon-sms" title="שתף ב-SMS" aria-label="שתף ב-SMS"></button>
   </footer>
 
   <script>
