@@ -177,6 +177,9 @@ function makeChooseButton(item) {
     renderTotal();
   });
 
+  // Attach long press handler for context menu on choose items
+  attachLongPressToChooseItem(btn, item);
+
   return btn;
 }
 
@@ -267,6 +270,10 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   });
 
   document.getElementById("listGrid").appendChild(row);
+  
+  // Attach long press handler for context menu
+  attachLongPressToItem(row);
+  
   if (!skipSave) saveListToStorage();
   renderAllPrices();
   renderTotal();
@@ -1230,4 +1237,406 @@ async function shareCurrentList() {
     catch { alert(url); }
     document.body.removeChild(ta);
   }
+}
+
+/* ====== Context Menu for List Items (Long Press) ====== */
+let longPressTimer = null;
+let longPressTarget = null;
+const contextMenu = document.getElementById('itemContextMenu');
+
+// Prevent default context menu on list items and choose items
+document.addEventListener('contextmenu', (e) => {
+  if (e.target.closest('.item') || e.target.closest('.choose-item')) {
+    e.preventDefault();
+    return false;
+  }
+});
+
+// Prevent text selection during long press
+document.addEventListener('selectstart', (e) => {
+  if (longPressTimer && (e.target.closest('.item') || e.target.closest('.choose-item'))) {
+    e.preventDefault();
+    return false;
+  }
+});
+
+// Add long press listeners to all list items
+function attachLongPressToItem(itemElement) {
+  let startX, startY;
+  const longPressDuration = 500; // 500ms for long press
+
+  itemElement.addEventListener('touchstart', (e) => {
+    // Ignore if touching price, qty, or note input
+    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) return;
+    
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    longPressTarget = itemElement;
+    
+    longPressTimer = setTimeout(() => {
+      showContextMenu(touch.clientX, touch.clientY, itemElement);
+    }, longPressDuration);
+  });
+
+  itemElement.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    const moveX = Math.abs(touch.clientX - startX);
+    const moveY = Math.abs(touch.clientY - startY);
+    
+    // Cancel long press if finger moves too much
+    if (moveX > 10 || moveY > 10) {
+      clearTimeout(longPressTimer);
+    }
+  });
+
+  itemElement.addEventListener('touchend', () => {
+    clearTimeout(longPressTimer);
+  });
+
+  itemElement.addEventListener('touchcancel', () => {
+    clearTimeout(longPressTimer);
+  });
+}
+
+// Show context menu at position
+function showContextMenu(x, y, itemElement) {
+  longPressTarget = itemElement;
+  contextMenu.style.display = 'block';
+  
+  // Position menu near touch point, but keep it on screen
+  const menuWidth = 150;
+  const menuHeight = 150;
+  let left = x - menuWidth / 2;
+  let top = y - menuHeight / 2;
+  
+  // Keep menu on screen
+  if (left < 10) left = 10;
+  if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
+  if (top < 10) top = 10;
+  if (top + menuHeight > window.innerHeight - 10) top = window.innerHeight - menuHeight - 10;
+  
+  contextMenu.style.left = left + 'px';
+  contextMenu.style.top = top + 'px';
+  
+  // Add highlight to selected item
+  itemElement.style.backgroundColor = 'rgba(33, 150, 243, 0.1)';
+}
+
+// Hide context menu
+function hideContextMenu() {
+  contextMenu.style.display = 'none';
+  if (longPressTarget) {
+    longPressTarget.style.backgroundColor = '';
+    longPressTarget = null;
+  }
+}
+
+// Context menu button handlers
+document.getElementById('contextEdit').addEventListener('click', () => {
+  if (!longPressTarget) return;
+  
+  const nameSpan = longPressTarget.querySelector('.name');
+  if (!nameSpan) return;
+  
+  const currentText = nameSpan.textContent.trim();
+  // Remove emoji icon if exists
+  const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
+  
+  const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
+  if (newName && newName.trim() !== '') {
+    // Keep the icon, update the name
+    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
+    nameSpan.textContent = `${icon} ${newName.trim()}`;
+    saveListToStorage();
+  }
+  
+  hideContextMenu();
+});
+
+document.getElementById('contextDelete').addEventListener('click', () => {
+  if (!longPressTarget) return;
+  
+  const nameSpan = longPressTarget.querySelector('.name');
+  const itemName = nameSpan ? nameSpan.textContent.trim() : 'פריט זה';
+  
+  if (confirm(`האם למחוק את "${itemName}"?`)) {
+    longPressTarget.remove();
+    saveListToStorage();
+  }
+  
+  hideContextMenu();
+});
+
+document.getElementById('contextCancel').addEventListener('click', () => {
+  hideContextMenu();
+});
+
+// Close context menu on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#itemContextMenu') && contextMenu.style.display === 'block') {
+    hideContextMenu();
+  }
+});
+
+// Close context menu on scroll
+document.addEventListener('scroll', () => {
+  if (contextMenu.style.display === 'block') {
+    hideContextMenu();
+  }
+});
+
+/* ====== Long Press for Choose Items (Edit/Delete from menu) ====== */
+let longPressChooseItem = null;
+
+function attachLongPressToChooseItem(chooseItemElement, itemData) {
+  let startX, startY;
+  const longPressDuration = 500;
+
+  chooseItemElement.addEventListener('touchstart', (e) => {
+    // Don't trigger if touching the badge
+    if (e.target.closest('.badge')) return;
+    
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+    longPressChooseItem = { element: chooseItemElement, data: itemData };
+    
+    longPressTimer = setTimeout(() => {
+      e.preventDefault();
+      e.stopPropagation();
+      showContextMenuForChooseItem(touch.clientX, touch.clientY, chooseItemElement, itemData);
+    }, longPressDuration);
+  });
+
+  chooseItemElement.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+    const moveX = Math.abs(touch.clientX - startX);
+    const moveY = Math.abs(touch.clientY - startY);
+    
+    if (moveX > 10 || moveY > 10) {
+      clearTimeout(longPressTimer);
+    }
+  });
+
+  chooseItemElement.addEventListener('touchend', () => {
+    clearTimeout(longPressTimer);
+  });
+
+  chooseItemElement.addEventListener('touchcancel', () => {
+    clearTimeout(longPressTimer);
+  });
+}
+
+function showContextMenuForChooseItem(x, y, element, itemData) {
+  longPressChooseItem = { element, data: itemData };
+  contextMenu.style.display = 'block';
+  
+  const menuWidth = 150;
+  const menuHeight = 150;
+  let left = x - menuWidth / 2;
+  let top = y - menuHeight / 2;
+  
+  if (left < 10) left = 10;
+  if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
+  if (top < 10) top = 10;
+  if (top + menuHeight > window.innerHeight - 10) top = window.innerHeight - menuHeight - 10;
+  
+  contextMenu.style.left = left + 'px';
+  contextMenu.style.top = top + 'px';
+  
+  element.style.backgroundColor = 'rgba(33, 150, 243, 0.15)';
+  element.style.transform = 'scale(1.02)';
+}
+
+// Update the context menu handlers to work with both list items and choose items
+const originalEditHandler = document.getElementById('contextEdit').onclick;
+const originalDeleteHandler = document.getElementById('contextDelete').onclick;
+
+document.getElementById('contextEdit').onclick = null;
+document.getElementById('contextDelete').onclick = null;
+
+document.getElementById('contextEdit').addEventListener('click', () => {
+  // Handle choose item edit
+  if (longPressChooseItem) {
+    const { element, data } = longPressChooseItem;
+    const currentText = element.textContent.trim().replace(/\d+$/, '').trim(); // Remove badge number
+    const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
+    
+    const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
+    if (newName && newName.trim() !== '') {
+      // Update the element
+      data.name = newName.trim();
+      const badge = element.querySelector('.badge');
+      const badgeHTML = badge ? badge.outerHTML : '';
+      element.innerHTML = `${data.icon} ${data.name}`;
+      if (badge) element.appendChild(badge);
+      
+      // Save to localStorage
+      saveChooseItemsToStorage();
+    }
+    
+    longPressChooseItem.element.style.backgroundColor = '';
+    longPressChooseItem.element.style.transform = '';
+    longPressChooseItem = null;
+    hideContextMenu();
+    return;
+  }
+  
+  // Handle list item edit (original logic)
+  if (!longPressTarget) return;
+  
+  const nameSpan = longPressTarget.querySelector('.name');
+  if (!nameSpan) return;
+  
+  const currentText = nameSpan.textContent.trim();
+  const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
+  
+  const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
+  if (newName && newName.trim() !== '') {
+    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
+    nameSpan.textContent = `${icon} ${newName.trim()}`;
+    saveListToStorage();
+  }
+  
+  hideContextMenu();
+});
+
+document.getElementById('contextDelete').addEventListener('click', () => {
+  // Handle choose item delete
+  if (longPressChooseItem) {
+    const { element, data } = longPressChooseItem;
+    const itemName = `${data.icon} ${data.name}`;
+    
+    if (confirm(`האם למחוק את "${itemName}" מתפריט הבחירה?`)) {
+      element.remove();
+      saveChooseItemsToStorage();
+    }
+    
+    longPressChooseItem.element.style.backgroundColor = '';
+    longPressChooseItem.element.style.transform = '';
+    longPressChooseItem = null;
+    hideContextMenu();
+    return;
+  }
+  
+  // Handle list item delete (original logic)
+  if (!longPressTarget) return;
+  
+  const nameSpan = longPressTarget.querySelector('.name');
+  const itemName = nameSpan ? nameSpan.textContent.trim() : 'פריט זה';
+  
+  if (confirm(`האם למחוק את "${itemName}"?`)) {
+    longPressTarget.remove();
+    saveListToStorage();
+  }
+  
+  hideContextMenu();
+});
+
+// Update hideContextMenu to handle both types
+const originalHideContextMenu = hideContextMenu;
+hideContextMenu = function() {
+  originalHideContextMenu();
+  if (longPressChooseItem) {
+    longPressChooseItem.element.style.backgroundColor = '';
+    longPressChooseItem.element.style.transform = '';
+    longPressChooseItem = null;
+  }
+};
+
+// Helper function to save choose items to localStorage
+function saveChooseItemsToStorage() {
+  const chooseGrid = document.getElementById('chooseGrid');
+  const items = Array.from(chooseGrid.querySelectorAll('.choose-item')).map(btn => {
+    const text = btn.textContent.trim().replace(/\d+$/, '').trim(); // Remove badge number
+    const iconMatch = text.match(/^([\u{1F300}-\u{1F9FF}])\s*(.+)/u);
+    if (iconMatch) {
+      return {
+        icon: iconMatch[1],
+        name: iconMatch[2],
+        unit: 'יח\''
+      };
+    }
+    return {
+      icon: '🛒',
+      name: text,
+      unit: 'יח\''
+    };
+  });
+  
+  localStorage.setItem('chooseItems', JSON.stringify(items));
+}
+
+/* ====== Inline Add Item Functionality ====== */
+// Add item to choose menu
+const addItemChooseInput = document.getElementById('addItemChooseInput');
+if (addItemChooseInput) {
+  addItemChooseInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && addItemChooseInput.value.trim() !== '') {
+      const itemName = addItemChooseInput.value.trim();
+      const newItem = {
+        name: itemName,
+        icon: '🛒',
+        unit: 'יח\''
+      };
+      
+      // Add to choose grid
+      const chooseGrid = document.getElementById('chooseGrid');
+      const newBtn = makeChooseButton(newItem);
+      chooseGrid.appendChild(newBtn);
+      
+      // Save to storage
+      saveChooseItemsToStorage();
+      
+      // Clear input
+      addItemChooseInput.value = '';
+      addItemChooseInput.blur();
+      
+      // Show feedback
+      newBtn.classList.add('pulse');
+      setTimeout(() => newBtn.classList.remove('pulse'), 420);
+    }
+  });
+  
+  // Also allow blur to add (optional)
+  addItemChooseInput.addEventListener('blur', () => {
+    if (addItemChooseInput.value.trim() !== '') {
+      // Trigger enter
+      const event = new KeyboardEvent('keydown', { key: 'Enter' });
+      addItemChooseInput.dispatchEvent(event);
+    }
+  });
+}
+
+// Add item to list
+const addItemListInput = document.getElementById('addItemListInput');
+if (addItemListInput) {
+  addItemListInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && addItemListInput.value.trim() !== '') {
+      const itemName = addItemListInput.value.trim();
+      
+      // Add to list
+      createListItem(itemName, '🛒', 1, 'יח\'');
+      
+      // Clear input
+      addItemListInput.value = '';
+      addItemListInput.blur();
+      
+      // Scroll to see the new item
+      const listGrid = document.getElementById('listGrid');
+      setTimeout(() => {
+        listGrid.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  });
+  
+  // Also allow blur to add (optional)
+  addItemListInput.addEventListener('blur', () => {
+    if (addItemListInput.value.trim() !== '') {
+      // Trigger enter
+      const event = new KeyboardEvent('keydown', { key: 'Enter' });
+      addItemListInput.dispatchEvent(event);
+    }
+  });
 }

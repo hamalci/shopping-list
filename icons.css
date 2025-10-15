@@ -154,50 +154,80 @@
 /* Dark mode adjustments - use dark mode PNG icons */
 body.dark-mode .icon-save {
   background-image: url('icons/save_icon_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-clear {
   background-image: url('icons/delete_dark-mode.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-reset {
   background-image: url('icons/reset_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-share {
   background-image: url('icons/share_icon_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-whatsapp {
   background-image: url('icons/chat_icon_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-sms {
   background-image: url('icons/share_sms_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-load {
   background-image: url('icons/load_dark.PNG');
+  background-size: 75%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-add {
   background-image: url('icons/add new item_dark.png');
+  background-size: 75%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .icon-view-mode {
   background-image: url('icons/day-night_dark.png');
+  background-size: 80%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }
 
 body.dark-mode .header-btn.icon-reset {
   background-image: url('icons/reset_header_dark.PNG');
+  background-size: 75%;
+  background-repeat: no-repeat;
+  background-position: center;
   filter: contrast(1.2) brightness(1.1);
 }

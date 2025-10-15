@@ -15,6 +15,8 @@
 }
 .item-note-row {
   margin-top: 0.18rem;
+  margin-right: 1rem;
+  margin-left: 1.5rem;
   display: flex;
   align-items: center;
 }
@@ -44,6 +46,10 @@ body.dark-mode .item-note {
   #btnSaveAsPreset {
     margin-right: 1rem
   }
+  .item-note-row {
+    margin-right: 4.5rem;
+    margin-left: 3rem;
+  }
 }
 /*
   === שליטה על מיקום הכמות והיחידה (qty) יחסית למחיר ===
@@ -70,7 +76,7 @@ body {
 
 /* כותרת עליונה */
 .app-header {
-  background: #a8a8a8; /* neutral gray for better contrast */
+  background: #01283cd9; /* neutral gray for better contrast */
   color: white;
   padding: 0.375rem 0.625rem;
   display: flex;
@@ -155,7 +161,7 @@ body {
 
 /* Dark mode */
 body.dark-mode .header-btn {
-  background: linear-gradient(160deg, rgba(31,41,55,0.96) 0%, rgba(15,23,42,0.88) 100%);
+  background: transparent;
   border-color: var(--accent, #475569);
   color: #fff;
   box-shadow: 0 10px 24px rgba(0,0,0,0.5);
@@ -184,9 +190,9 @@ body.dark-mode .header-btn::after {
     justify-content: flex-start;
     gap: 0.22rem;
     row-gap: 0.25rem;
-    background: #416d80; /* כאן שולט בצבע הרקע */
+    background: #074c55; /* כאן שולט בצבע הרקע */
     padding: 0.35rem 0.625rem;
-    border-top: 1px solid rgba(105, 225, 7, 0.15);
+    border-top: 1px solid rgb(255, 255, 255);
     overflow-x: auto;
     scrollbar-width: none;
   }
@@ -222,8 +228,8 @@ body.dark-mode .header-btn::after {
 /* Dark mode variant for the mobile sub-row */
 @media (max-width: 600px) {
   body.dark-mode .header-controls {
-    background: #3e024f; /* כאן שולט בצבע הרקע במצב כהה */
-    border-top-color: rgba(255,255,255,0.08);
+    background: #2c394d; /* כאן שולט בצבע הרקע במצב כהה */
+    border-top-color: rgb(112, 112, 112);
   }
 }
 
@@ -251,6 +257,7 @@ body.dark-mode .header-btn::after {
   background: white; border: 1px solid #ccc; border-radius: 0.375rem;
   min-width: 11.25rem; box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.15); z-index:1000;
   padding-top: 1.8rem; /* room for the close button */
+  text-align: center;
 }
 .menu-dropdown .dropdown-close {
   position: absolute;
@@ -339,7 +346,7 @@ body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
 #chooseSection {
   overflow: hidden;
   transition: max-height 0.45s ease, opacity 0.45s ease, padding 0.3s;
-  max-height: 2000px; opacity:1; padding:0.5rem 0;
+  max-height: 2000px; opacity:1; padding:0.5rem 0.6rem;
 }
 #chooseSection.hidden { max-height:0; opacity:0; padding:0; margin:0; }
 .choose-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
@@ -419,6 +426,11 @@ body.dark-mode #toggleChoose.active {
 .choose-item, .item {
   border:1px solid #ccc; border-radius:0.375rem; padding:0.625rem 0.75rem; background:#f7f7fa;
   font-size:1.125rem; font-weight:700; cursor:pointer;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 /* פריט ברשימה – שתי עמודות (שם+כמות) | מחיר */
 #listGrid .item {
@@ -554,6 +566,33 @@ body.dark-mode #toggleChoose.active {
 .btn-settings.assign:hover { background:#e68900; }
 .btn-settings.save:hover { background:#1976d2; }
 
+/* Settings header */
+.settings-header {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+  position: relative;
+}
+.settings-header h2 {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+.settings-header button {
+  position: absolute;
+  left: 0;
+}
+
+/* Settings controls and actions */
+.settings-controls, .settings-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
 /* קטגוריות */
 #categoriesList { list-style:none; padding:0; margin:0 0 0.625rem 0; }
 #categoriesList li { padding:0.5rem; margin-bottom:0.25rem; background:#eee; border:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
@@ -565,12 +604,15 @@ body.dark-mode #toggleChoose.active {
 .item.moving { opacity:0; transform:translateX(1.875rem); }
 
 /* גלילה לסקשן הגדרות */
-#settingsSection { scroll-margin-top:4.375rem; }
+#settingsSection { 
+  scroll-margin-top:4.375rem; 
+  text-align: center;
+}
 /* Store selector */
-.store-selector { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0.5rem 0; direction:rtl; }
+.store-selector { display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin:0.5rem 0; direction:rtl; justify-content: center; }
 .store-group { display:flex; gap:0.4rem; align-items:center; }
-.store-group label { font-size:0.95rem; color:var(--text-color,#222); }
-.store-group select { padding:0.25rem 0.5rem; font-size:0.95rem; border:1px solid #ddd; border-radius:6px; background:#fff; }
+.store-group label { font-size:1.1rem; color:var(--text-color,#222); font-weight: 500; }
+.store-group select { padding:0.3rem 0.6rem; font-size:1.05rem; border:1px solid #ddd; border-radius:6px; background:#fff; }
 
 /* Controls */
 .store-controls { display:flex; gap:0.5rem; align-items:center; margin-right:0.25rem; }
@@ -579,8 +621,8 @@ body.dark-mode #toggleChoose.active {
 
 /* Toggle */
 .price-toggle { display:flex; align-items:center; gap:0.4rem; cursor:pointer; user-select:none; }
-.price-toggle input { width:1.05rem; height:1.05rem; }
-.toggle-label { font-size:0.95rem; color:var(--muted,#444); }
+.price-toggle input { width:1.1rem; height:1.1rem; }
+.toggle-label { font-size:1.1rem; color:var(--muted,#444); font-weight: 500; }
 
 /* Price span inside list items: leave space from name/qty, avoid overlapping edit box */
 .item .price { margin-left:0.6rem; color:#2b7a2b; font-weight:600; display:none; min-width:4.6rem; text-align:left; direction:ltr; }
@@ -1055,6 +1097,11 @@ body.dark-mode .item .qty, body.dark-mode .item .unit, body.dark-mode .item .met
 body.dark-mode #chooseSection { padding:0.6rem; border-radius:10px; }
 body.dark-mode .category-controls button { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#eee; }
 
+/* Dark mode store selector and price toggle */
+body.dark-mode .store-group label { color:#f0f0f0; }
+body.dark-mode .store-group select { background:#2b2f33; color:#eee; border-color:#444; }
+body.dark-mode .toggle-label { color:#e0e0e0; }
+
 /* Dark mode list enhancements */
 body.dark-mode #listGrid { gap: 0.45rem; }
 body.dark-mode .item:hover { background: rgba(255,255,255,0.06); box-shadow: 0 1px 8px rgba(0,0,0,0.4); }
@@ -1150,4 +1197,156 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
   }
   .modal-title { font-size: 1.15rem; }
   .modal-list li { font-size: 1rem; padding: 0.6rem 0.1rem; }
+  
+  /* Fix for settingsSection visibility on mobile portrait */
+  #settingsSection {
+    position: relative;
+    z-index: 100;
+    width: 100%;
+    max-width: 100%;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 0.625rem;
+    box-sizing: border-box;
+    margin: 1rem 0;
+  }
+  
+  /* Fix dropdowns in mobile to be fixed instead of absolute */
+  .menu-dropdown,
+  .font-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 50%;
+    left: 50%;
+    transform: translate(-50%, 50%);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
 }
+
+/* ===== Context Menu for List Items ===== */
+.context-menu {
+  position: fixed;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10000;
+  padding: 0.5rem;
+  min-width: 150px;
+}
+
+.context-menu-btn {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin: 0.25rem 0;
+  border: none;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 1.05rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: right;
+  transition: background 0.2s;
+}
+
+.context-menu-btn:hover {
+  background: #e0e0e0;
+}
+
+.context-menu-btn.delete {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.context-menu-btn.delete:hover {
+  background: #ffcdd2;
+}
+
+/* Dark mode for context menu */
+body.dark-mode .context-menu {
+  background: #2b2f33;
+  border-color: #444;
+}
+
+body.dark-mode .context-menu-btn {
+  background: #3a3f44;
+  color: #eee;
+}
+
+body.dark-mode .context-menu-btn:hover {
+  background: #4a4f54;
+}
+
+body.dark-mode .context-menu-btn.delete {
+  background: #4a1f1f;
+  color: #ff6b6b;
+}
+
+body.dark-mode .context-menu-btn.delete:hover {
+  background: #5a2f2f;
+}
+
+/* ===== Inline Add Item (looks like a regular item) ===== */
+.add-item-inline {
+  border: 2px dashed #bbb;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  background: #fafafa;
+  margin: 0.5rem 0;
+  transition: all 0.3s ease;
+}
+
+.add-item-inline:hover {
+  border-color: #4CAF50;
+  background: #f0f9f0;
+}
+
+.add-item-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #666;
+  outline: none;
+  padding: 0.25rem;
+  text-align: right;
+  direction: rtl;
+}
+
+.add-item-input::placeholder {
+  color: #999;
+  font-weight: 500;
+}
+
+.add-item-input:focus {
+  color: #333;
+}
+
+/* Dark mode for inline add item */
+body.dark-mode .add-item-inline {
+  background: rgba(255,255,255,0.03);
+  border-color: #555;
+}
+
+body.dark-mode .add-item-inline:hover {
+  border-color: #4CAF50;
+  background: rgba(76,175,80,0.1);
+}
+
+body.dark-mode .add-item-input {
+  color: #ccc;
+}
+
+body.dark-mode .add-item-input::placeholder {
+  color: #888;
+}
+
+body.dark-mode .add-item-input:focus {
+  color: #eee;
+}
+

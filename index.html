@@ -90,12 +90,17 @@
 
     <section id="chooseSection">
       <div id="chooseGrid"></div>
-      
+      <div class="add-item-inline" id="addItemChoose">
+        <input type="text" placeholder="➕ הוסף פריט לתפריט..." class="add-item-input" id="addItemChooseInput">
+      </div>
     </section>
 
     <section id="listSection">
       <div class="list-header">
         <h2>📃 הרשימה שלי</h2>
+      </div>
+      <div class="add-item-inline" id="addItemList">
+        <input type="text" placeholder="➕ הוסף פריט לרשימה..." class="add-item-input" id="addItemListInput">
       </div>
       <div id="listGrid"></div>
       <div id="listFooter" class="list-footer">
@@ -144,6 +149,13 @@
     <ul id="presetListOptions" class="modal-list"></ul>
   </div>
 </div>
+
+    <!-- Context Menu for List Items -->
+    <div id="itemContextMenu" class="context-menu" style="display:none;">
+      <button id="contextEdit" class="context-menu-btn">✏️ ערוך</button>
+      <button id="contextDelete" class="context-menu-btn delete">🗑️ מחק</button>
+      <button id="contextCancel" class="context-menu-btn">❌ ביטול</button>
+    </div>
   </main>
 
   <!-- Footer actions (icon-only) -->
