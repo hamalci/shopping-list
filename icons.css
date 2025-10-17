@@ -103,11 +103,11 @@
 }
 
 .icon-font-increase::before {
-  content: "🔎";
+  content: "+A";
 }
 
 .icon-font-decrease::before {
-  content: "🔍";
+  content: "-A";
 }
 
 .icon-font-reset::before {
