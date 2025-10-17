@@ -342,14 +342,7 @@ body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
 /* כותרות סקשנים */
 .app-content h2 { font-size: 1.125rem; font-weight:700; margin:0.5rem 0; }
 
-/* chooseSection עם slide */
-#chooseSection {
-  overflow: hidden;
-  transition: max-height 0.45s ease, opacity 0.45s ease, padding 0.3s;
-  max-height: 2000px; opacity:1; padding:0.5rem 0.6rem;
-}
-#chooseSection.hidden { max-height:0; opacity:0; padding:0; margin:0; }
-.choose-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
+/* List header */
 .list-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; flex-wrap: wrap; gap: 0.25rem; }
 
 /* קבוצות כפתורים - מיושרות לצדדים */
@@ -417,21 +410,36 @@ body.dark-mode #toggleChoose.active {
   border-color: #1b5e1b;
 }
 
-/* גריד בחר פריטים */
-#chooseGrid { display:grid; grid-template-columns:repeat(2,1fr); gap:0.5rem; }
-
-
 /* רשימה */
 #listGrid { display:flex; flex-direction:column; gap:0.375rem; }
+
+/* Base styling for items */
 .choose-item, .item {
-  border:1px solid #ccc; border-radius:0.375rem; padding:0.625rem 0.75rem; background:#f7f7fa;
-  font-size:1.125rem; font-weight:700; cursor:pointer;
+  border:1px solid #ccc; 
+  border-radius:0.375rem; 
+  background:#f7f7fa;
+  cursor:pointer;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* List items (keep original styling) */
+.item {
+  padding:0.625rem 0.75rem;
+  font-size:1.125rem; 
+  font-weight:700;
+}
+
+/* Choose items default (will be overridden in modal) */
+.choose-item {
+  padding:0.625rem 0.75rem;
+  font-size:1.125rem; 
+  font-weight:700;
+}
+
 /* פריט ברשימה – שתי עמודות (שם+כמות) | מחיר */
 #listGrid .item {
   display: grid;
@@ -1068,7 +1076,7 @@ body.dark-mode .list-footer .total-label { color:#eeeeee; font-weight:600; }
 body.dark-mode .list-footer .total-amount { color:#fff; text-shadow:0 1px 0 rgba(0,0,0,0.28); }
 
 /* הרחבה לאזור 'בחר פריטים', כפתורים וריבועים */
-body.dark-mode .panel, body.dark-mode .card, body.dark-mode .choose-item, body.dark-mode .list-footer, body.dark-mode #chooseSection, body.dark-mode #categoriesList, body.dark-mode #settingsSection {
+body.dark-mode .panel, body.dark-mode .card, body.dark-mode .choose-item, body.dark-mode .list-footer, body.dark-mode #categoriesList, body.dark-mode #settingsSection {
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
   border: 1px solid rgba(255,255,255,0.04);
   color: var(--text,#e6e6e6);
@@ -1094,7 +1102,6 @@ body.dark-mode #categoriesList li { color:#efefef; border-bottom:1px solid rgba(
 body.dark-mode .choose-item .badge { background:#e05555; color:#fff; box-shadow:0 1px 0 rgba(0,0,0,0.35); }
 body.dark-mode .item:hover, body.dark-mode .choose-item:hover, body.dark-mode #categoriesList li:hover { background: rgba(255,255,255,0.02); }
 body.dark-mode .item .qty, body.dark-mode .item .unit, body.dark-mode .item .meta { color:#bdbfc1; }
-body.dark-mode #chooseSection { padding:0.6rem; border-radius:10px; }
 body.dark-mode .category-controls button { background:transparent; border:1px solid rgba(255,255,255,0.03); color:#eee; }
 
 /* Dark mode store selector and price toggle */
@@ -1351,9 +1358,13 @@ body.dark-mode .add-item-input:focus {
 }
 
 /* ===== Icon Picker Modal ===== */
+#iconPickerModal {
+  z-index: 10000; /* Higher than other modals */
+}
+
 .icon-picker-content {
-  max-width: 90vw;
-  width: 500px;
+  width: 85vw;
+  max-width: 450px;
 }
 
 .icon-search-container {
@@ -1362,19 +1373,20 @@ body.dark-mode .add-item-input:focus {
   top: 0;
   z-index: 10;
   background: white;
-  padding: 0.5rem 0;
+  padding: 0.75rem 1rem;
 }
 
 .icon-search-input {
   width: 100%;
-  padding: 0.75rem 1rem;
-  font-size: 1.05rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
   border: 2px solid #ddd;
   border-radius: 8px;
   outline: none;
   text-align: right;
   direction: rtl;
   transition: border-color 0.2s;
+  box-sizing: border-box;
 }
 
 .icon-search-input:focus {
@@ -1470,3 +1482,202 @@ body.dark-mode .icon-option:hover {
   }
 }
 
+/* ===== Choose Items Modal ===== */
+#chooseItemsModal {
+  z-index: 9999; /* Lower than icon picker but higher than other modals */
+}
+
+.choose-modal-trigger {
+  text-align: center;
+  padding: 1rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.btn-open-choose {
+  font-size: 1.2rem;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border: 2px solid #4CAF50;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-open-choose:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+}
+
+.btn-open-choose:active {
+  transform: translateY(0);
+}
+
+.choose-items-modal-content {
+  width: 85vw;
+  max-width: 550px;
+  max-height: 85vh;
+}
+
+.choose-search-container {
+  margin: 1rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: white;
+  padding: 0.75rem 1rem;
+}
+
+.choose-search-input {
+  width: 100%;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  outline: none;
+  text-align: right;
+  direction: rtl;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.choose-search-input:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.choose-search-input::placeholder {
+  color: #999;
+}
+
+.choose-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 0.5rem 0;
+}
+
+/* Choose item styling in modal - compact with large icons */
+.choose-grid .choose-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  font-size: 0.85rem;
+  min-height: 90px;
+  word-wrap: break-word;
+  position: relative;
+}
+
+.choose-grid .choose-item::before {
+  content: attr(data-icon);
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.3rem;
+  line-height: 1;
+}
+
+/* Badge positioning in grid layout */
+.choose-grid .choose-item .badge {
+  position: absolute;
+  top: 0.25rem;
+  left: 0.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  font-size: 0.7rem;
+}
+
+/* Category headers in choose modal */
+.choose-category-header {
+  grid-column: 1 / -1;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  margin-top: 0.75rem;
+  border-right: 4px solid var(--primary-color);
+  text-align: right;
+  border-radius: 4px;
+}
+
+.choose-category-header:first-child {
+  margin-top: 0;
+}
+
+body.dark-mode .choose-category-header {
+  background-color: var(--bg-tertiary);
+  border-right-color: var(--primary-light);
+}
+
+.add-item-inline-modal {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #eee;
+}
+
+/* Dark mode for choose modal */
+body.dark-mode .choose-items-modal-content {
+  background: #2b2f33;
+}
+
+body.dark-mode .choose-search-container {
+  background: #2b2f33;
+}
+
+body.dark-mode .choose-search-input {
+  background: #3a3f44;
+  border-color: #555;
+  color: #eee;
+}
+
+body.dark-mode .choose-search-input:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+}
+
+body.dark-mode .choose-search-input::placeholder {
+  color: #888;
+}
+
+body.dark-mode .add-item-inline-modal {
+  border-top-color: #444;
+}
+
+body.dark-mode .btn-open-choose {
+  background: linear-gradient(135deg, #2b7a2b 0%, #1e5e1e 100%);
+  border-color: #2b7a2b;
+}
+
+/* Mobile adjustments for choose modal */
+@media (max-width: 600px) {
+  .choose-items-modal-content {
+    width: 95vw;
+  }
+  
+  .choose-grid {
+    grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    gap: 0.4rem;
+  }
+  
+  .choose-grid .choose-item {
+    font-size: 0.75rem;
+    min-height: 80px;
+    padding: 0.5rem 0.3rem;
+  }
+  
+  .choose-grid .choose-item::before {
+    font-size: 2rem;
+  }
+  
+  .btn-open-choose {
+    font-size: 1.1rem;
+    padding: 0.65rem 1.2rem;
+  }
+}

@@ -83,17 +83,12 @@
   </header>
 
   <main class="app-content">
-  <div class="choose-header">
-   <h2>תפריט לבחירה</h2>
-   <button id="toggleChoose" class="btn-action">הסתר</button>
-  </div>
-
-    <section id="chooseSection">
-      <div id="chooseGrid"></div>
-      <div class="add-item-inline" id="addItemChoose">
-        <input type="text" placeholder="➕ הוסף פריט לתפריט..." class="add-item-input" id="addItemChooseInput">
-      </div>
-    </section>
+    <!-- Button to open choose modal -->
+    <div class="choose-modal-trigger">
+      <button id="btnOpenChooseModal" class="btn-open-choose">
+        🛒 בחר פריט מהרשימה
+      </button>
+    </div>
 
     <section id="listSection">
       <div class="list-header">
@@ -164,9 +159,24 @@
         <span class="close-modal" id="closeIconPicker">&times;</span>
         <h2 class="modal-title">בחר אייקון</h2>
         <div class="icon-search-container">
-          <input type="text" id="iconSearch" class="icon-search-input" placeholder="🔍 חפש אייקון לפי קטגוריה...">
+          <input type="text" id="iconSearch" class="icon-search-input" placeholder="🔍 חפש אייקון...">
         </div>
         <div id="iconGrid" class="icon-grid"></div>
+      </div>
+    </div>
+
+    <!-- Choose Items Modal -->
+    <div id="chooseItemsModal" class="modal" style="display:none;">
+      <div class="modal-content choose-items-modal-content">
+        <span class="close-modal" id="closeChooseModal">&times;</span>
+        <h2 class="modal-title">בחר פריט</h2>
+        <div class="choose-search-container">
+          <input type="text" id="chooseSearch" class="choose-search-input" placeholder="🔍 חפש פריט...">
+        </div>
+        <div id="chooseGrid" class="choose-grid"></div>
+        <div class="add-item-inline-modal">
+          <input type="text" placeholder="➕ הוסף פריט חדש..." class="add-item-input" id="addItemChooseInput">
+        </div>
       </div>
     </div>
   </main>

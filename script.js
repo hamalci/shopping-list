@@ -1,4 +1,4 @@
-/* script.js — גרסה מלאה משולבת
+﻿/* script.js — גרסה מלאה משולבת
    תומכת: choose grid, create items, localStorage, network/branch fetch,
    apiPrices + manualPrices, normalized matching (עברית), edit-on-click price,
    price layout currency+amount, total rendering, category toggle (mobile+desktop).
@@ -143,7 +143,8 @@ async function fetchPricesForBranch(network, branchId) {
 function makeChooseButton(item) {
   const btn = document.createElement("div");
   btn.className = "choose-item";
-  btn.textContent = `${item.icon} ${item.name}`;
+  btn.setAttribute('data-icon', item.icon);
+  btn.textContent = item.name;
 
   const badge = document.createElement("span");
   badge.className = "badge";
@@ -173,6 +174,9 @@ function makeChooseButton(item) {
     btn.classList.add("selected", "pulse");
     setTimeout(() => btn.classList.remove("pulse"), 420);
     saveListToStorage();
+    
+    // Don't close the modal - allow multiple selections
+    // closeChooseModal();
     renderAllPrices();
     renderTotal();
   });
@@ -317,25 +321,184 @@ function loadDefaultChooseItems() {
   if (!chooseGrid) return;
   chooseGrid.innerHTML = "";
 
-  const items = [
-    { name:"גזר",icon:"🥕",unit:"ק\"ג" },
-    { name:"מלפפונים",icon:"🥒",unit:"ק\"ג" },
-    { name:"עגבניות",icon:"🍅",unit:"ק\"ג" },
-    { name:"גבינה",icon:"🧀",unit:"אריזה" },
-    { name:"חלב",icon:"🥛",unit:"ליטר" },
-    { name:"לחם",icon:"🍞",unit:"יח'" },
-    { name:"עוף",icon:"🍗",unit:"ק\"ג" },
-    { name:"אורז",icon:"🍚",unit:"ק\"ג" },
-    { name:"קפה",icon:"☕",unit:"אריזה" }
-  ];
+  // Organized items by categories
+  const categorizedItems = {
+    'פירות וירקות': [
+      { name:"גזר",icon:"🥕",unit:"ק\"ג" },
+      { name:"מלפפונים",icon:"🥒",unit:"ק\"ג" },
+      { name:"עגבניות",icon:"🍅",unit:"ק\"ג" },
+      { name:"חסה",icon:"🥬",unit:"יח'" },
+      { name:"בצל",icon:"🧅",unit:"ק\"ג" },
+      { name:"שום",icon:"🧄",unit:"אריזה" },
+      { name:"תפוחי אדמה",icon:"🥔",unit:"ק\"ג" },
+      { name:"תפוחים",icon:"🍎",unit:"ק\"ג" },
+      { name:"בננות",icon:"🍌",unit:"ק\"ג" },
+      { name:"תפוזים",icon:"🍊",unit:"ק\"ג" },
+      { name:"לימונים",icon:"🍋",unit:"ק\"ג" },
+      { name:"אבוקדו",icon:"🥑",unit:"יח'" },
+      { name:"פלפלים",icon:"🫑",unit:"ק\"ג" },
+      { name:"ברוקולי",icon:"🥦",unit:"יח'" },
+      { name:"כרובית",icon:"🥦",unit:"יח'" },
+      { name:"תירס",icon:"🌽",unit:"יח'" },
+      { name:"חציל",icon:"🍆",unit:"ק\"ג" },
+      { name:"דלעת",icon:"🎃",unit:"ק\"ג" },
+      { name:"תותים",icon:"🍓",unit:"אריזה" },
+      { name:"ענבים",icon:"🍇",unit:"ק\"ג" },
+      { name:"אבטיח",icon:"🍉",unit:"יח'" },
+      { name:"מלון",icon:"🍈",unit:"יח'" }
+    ],
+    'מוצרי חלב': [
+      { name:"חלב",icon:"🥛",unit:"ליטר" },
+      { name:"גבינה צהובה",icon:"🧀",unit:"אריזה" },
+      { name:"גבינה לבנה",icon:"🧀",unit:"אריזה" },
+      { name:"קוטג'",icon:"🥛",unit:"אריזה" },
+      { name:"יוגורט",icon:"🥛",unit:"יח'" },
+      { name:"שמנת",icon:"🥛",unit:"אריזה" },
+      { name:"חמאה",icon:"🧈",unit:"אריזה" },
+      { name:"ביצים",icon:"🥚",unit:"יח'" },
+      { name:"חלב שקדים",icon:"🥛",unit:"ליטר" },
+      { name:"חלב סויה",icon:"🥛",unit:"ליטר" }
+    ],
+    'מאפים ולחמים': [
+      { name:"לחם",icon:"🍞",unit:"יח'" },
+      { name:"חלה",icon:"🍞",unit:"יח'" },
+      { name:"לחמניות",icon:"🥖",unit:"אריזה" },
+      { name:"פיתות",icon:"🥙",unit:"אריזה" },
+      { name:"טורטייה",icon:"🌯",unit:"אריזה" },
+      { name:"בייגל",icon:"🥯",unit:"אריזה" },
+      { name:"קרואסון",icon:"🥐",unit:"אריזה" },
+      { name:"עוגיות",icon:"🍪",unit:"אריזה" },
+      { name:"עוגה",icon:"🎂",unit:"יח'" },
+      { name:"בורקס",icon:"🥐",unit:"אריזה" }
+    ],
+    'בשר ועופות': [
+      { name:"חזה עוף",icon:"🍗",unit:"ק\"ג" },
+      { name:"שניצל",icon:"🍗",unit:"ק\"ג" },
+      { name:"כרעיים עוף",icon:"🍗",unit:"ק\"ג" },
+      { name:"עוף שלם",icon:"🍗",unit:"ק\"ג" },
+      { name:"בשר טחון",icon:"🥩",unit:"ק\"ג" },
+      { name:"אנטריקוט",icon:"🥩",unit:"ק\"ג" },
+      { name:"סטייק",icon:"🥩",unit:"ק\"ג" },
+      { name:"נקניקיות",icon:"🌭",unit:"אריזה" },
+      { name:"נקניק",icon:"🌭",unit:"ק\"ג" },
+      { name:"קבב",icon:"🥩",unit:"ק\"ג" }
+    ],
+    'דגים': [
+      { name:"סלמון",icon:"🐟",unit:"ק\"ג" },
+      { name:"טונה",icon:"🐟",unit:"קופסא" },
+      { name:"דניס",icon:"🐟",unit:"ק\"ג" },
+      { name:"בורי",icon:"🐟",unit:"ק\"ג" },
+      { name:"פילה דג",icon:"🐟",unit:"ק\"ג" },
+      { name:"שרימפס",icon:"🦐",unit:"ק\"ג" }
+    ],
+    'מזווה ויבשים': [
+      { name:"אורז",icon:"🍚",unit:"ק\"ג" },
+      { name:"פסטה",icon:"🍝",unit:"אריזה" },
+      { name:"קוסקוס",icon:"🍚",unit:"אריזה" },
+      { name:"בורגול",icon:"🍚",unit:"ק\"ג" },
+      { name:"קמח",icon:"🌾",unit:"ק\"ג" },
+      { name:"סוכר",icon:"🧂",unit:"ק\"ג" },
+      { name:"מלח",icon:"🧂",unit:"אריזה" },
+      { name:"שמן",icon:"🫒",unit:"ליטר" },
+      { name:"שמן זית",icon:"🫒",unit:"ליטר" },
+      { name:"קטשופ",icon:"🍅",unit:"בקבוק" },
+      { name:"מיונז",icon:"🥚",unit:"צנצנת" },
+      { name:"חומוס",icon:"🫘",unit:"אריזה" },
+      { name:"טחינה",icon:"🥫",unit:"צנצנת" },
+      { name:"ריבה",icon:"🫙",unit:"צנצנת" },
+      { name:"דבש",icon:"🍯",unit:"צנצנת" },
+      { name:"שוקולד ממרח",icon:"🍫",unit:"צנצנת" },
+      { name:"קפה",icon:"☕",unit:"אריזה" },
+      { name:"תה",icon:"🍵",unit:"אריזה" },
+      { name:"אבקת קקאו",icon:"☕",unit:"אריזה" }
+    ],
+    'משקאות': [
+      { name:"מים",icon:"💧",unit:"בקבוק" },
+      { name:"מיץ",icon:"🧃",unit:"ליטר" },
+      { name:"קולה",icon:"🥤",unit:"ליטר" },
+      { name:"פחית קולה",icon:"🥤",unit:"יח'" },
+      { name:"בירה",icon:"🍺",unit:"בקבוק" },
+      { name:"יין",icon:"🍷",unit:"בקבוק" },
+      { name:"אלכוהול",icon:"🥃",unit:"בקבוק" }
+    ],
+    'חטיפים וממתקים': [
+      { name:"שוקולד",icon:"🍫",unit:"יח'" },
+      { name:"ביסלי",icon:"🥔",unit:"שקית" },
+      { name:"במבה",icon:"🥜",unit:"שקית" },
+      { name:"דובונים",icon:"🍬",unit:"שקית" },
+      { name:"סוכריות",icon:"🍭",unit:"שקית" },
+      { name:"גלידה",icon:"🍦",unit:"יח'" },
+      { name:"עוגיות",icon:"🍪",unit:"אריזה" },
+      { name:"פופקורן",icon:"🍿",unit:"אריזה" },
+      { name:"חטיף אנרגיה",icon:"🍫",unit:"יח'" },
+      { name:"אגוזים",icon:"🥜",unit:"שקית" }
+    ],
+    'מוצרי ניקיון': [
+      { name:"נייר טואלט",icon:"🧻",unit:"אריזה" },
+      { name:"מגבות נייר",icon:"🧻",unit:"אריזה" },
+      { name:"סבון כלים",icon:"🧽",unit:"בקבוק" },
+      { name:"אבקת כביסה",icon:"📦",unit:"אריזה" },
+      { name:"מרכך כביסה",icon:"🧴",unit:"בקבוק" },
+      { name:"אקונומיקה",icon:"🧴",unit:"בקבוק" },
+      { name:"שקיות זבל",icon:"🗑️",unit:"אריזה" },
+      { name:"ספוג",icon:"🧽",unit:"אריזה" },
+      { name:"מטליות",icon:"🧽",unit:"אריזה" },
+      { name:"סבון רצפה",icon:"🧴",unit:"בקבוק" }
+    ],
+    'מוצרי טיפוח': [
+      { name:"סבון רחצה",icon:"🧼",unit:"יח'" },
+      { name:"שמפו",icon:"🧴",unit:"בקבוק" },
+      { name:"מרכך שיער",icon:"🧴",unit:"בקבוק" },
+      { name:"משחת שיניים",icon:"🪥",unit:"יח'" },
+      { name:"מברשת שיניים",icon:"🪥",unit:"יח'" },
+      { name:"דאודורנט",icon:"🧴",unit:"יח'" },
+      { name:"תער",icon:"🪒",unit:"אריזה" },
+      { name:"קרם לחות",icon:"🧴",unit:"יח'" },
+      { name:"טישו",icon:"🧻",unit:"אריזה" }
+    ],
+    'מוצרי תינוק': [
+      { name:"חיתולים",icon:"👶",unit:"אריזה" },
+      { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
+      { name:"מטליות לחות",icon:"🧻",unit:"אריזה" },
+      { name:"קרם לתינוק",icon:"🧴",unit:"יח'" },
+      { name:"שמפו לתינוק",icon:"🧴",unit:"בקבוק" }
+    ],
+    'קפואים': [
+      { name:"גלידה",icon:"🍦",unit:"יח'" },
+      { name:"ירקות קפואים",icon:"🧊",unit:"אריזה" },
+      { name:"פיצה קפואה",icon:"🍕",unit:"יח'" },
+      { name:"שניצל קפוא",icon:"🧊",unit:"אריזה" },
+      { name:"דגים קפואים",icon:"🧊",unit:"אריזה" }
+    ]
+  };
 
-  items.forEach(i => chooseGrid.appendChild(makeChooseButton(i)));
+  // Create categories with items
+  Object.entries(categorizedItems).forEach(([categoryName, items]) => {
+    // Create category header
+    const categoryHeader = document.createElement('div');
+    categoryHeader.className = 'choose-category-header';
+    categoryHeader.textContent = categoryName;
+    chooseGrid.appendChild(categoryHeader);
 
-  const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
-  savedCustom.forEach(c => {
-    const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
-    chooseGrid.appendChild(makeChooseButton(safe));
+    // Add items for this category
+    items.forEach(item => {
+      chooseGrid.appendChild(makeChooseButton(item));
+    });
   });
+
+  // Add custom items at the end
+  const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
+  if (savedCustom.length > 0) {
+    const customHeader = document.createElement('div');
+    customHeader.className = 'choose-category-header';
+    customHeader.textContent = 'פריטים מותאמים אישית';
+    chooseGrid.appendChild(customHeader);
+    
+    savedCustom.forEach(c => {
+      const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
+      chooseGrid.appendChild(makeChooseButton(safe));
+    });
+  }
 }
 
 /* ====== list persistence ====== */
@@ -970,10 +1133,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   loadListFromStorage();
 
-  const visible = localStorage.getItem("chooseSectionVisible");
-  const section = document.getElementById("chooseSection");
-  const btnToggle = document.getElementById("toggleChoose");
-  if (visible === "false" && section) { section.classList.add("hidden"); if (btnToggle) btnToggle.textContent = "הצג"; }
+  // Open choose modal button
+  document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
 
   // New header icon buttons replacing choose-section actions
   document.getElementById("btnHdrResetChoices")?.addEventListener("click", resetChoices);
@@ -1027,14 +1188,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!section) return;
     section.style.display = "none";
     document.querySelector('.app-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-
-  document.getElementById("toggleChoose")?.addEventListener("click", () => {
-    const sec = document.getElementById("chooseSection");
-    const btn = document.getElementById("toggleChoose");
-    if (!sec || !btn) return;
-    if (sec.classList.contains("hidden")) { sec.classList.remove("hidden"); btn.textContent = "הסתר"; localStorage.setItem("chooseSectionVisible","true"); }
-    else { sec.classList.add("hidden"); btn.textContent = "הצג"; localStorage.setItem("chooseSectionVisible","false"); }
   });
 
   document.getElementById("menuButton")?.addEventListener("click", () => {
@@ -2032,3 +2185,60 @@ document.getElementById('contextIcon').addEventListener('click', () => {
 
 // Initialize on page load
 initIconPicker();
+
+/* ====== Choose Items Modal Functionality ====== */
+function openChooseModal() {
+  const modal = document.getElementById('chooseItemsModal');
+  if (!modal) return;
+  
+  modal.style.display = 'flex';
+  
+  // Clear search
+  const searchInput = document.getElementById('chooseSearch');
+  if (searchInput) {
+    searchInput.value = '';
+    filterChooseItems('');
+    // Focus search input for easy typing
+    setTimeout(() => searchInput.focus(), 100);
+  }
+}
+
+function closeChooseModal() {
+  const modal = document.getElementById('chooseItemsModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+}
+
+// Close choose modal listeners
+document.getElementById('closeChooseModal')?.addEventListener('click', closeChooseModal);
+
+document.getElementById('chooseItemsModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'chooseItemsModal') {
+    closeChooseModal();
+  }
+});
+
+// Choose search functionality
+const chooseSearchInput = document.getElementById('chooseSearch');
+if (chooseSearchInput) {
+  chooseSearchInput.addEventListener('input', (e) => {
+    const searchTerm = e.target.value.trim().toLowerCase();
+    filterChooseItems(searchTerm);
+  });
+}
+
+function filterChooseItems(searchTerm) {
+  const items = document.querySelectorAll('.choose-item');
+  
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    const badge = item.querySelector('.badge');
+    const textWithoutBadge = badge ? text.replace(badge.textContent, '').trim() : text;
+    
+    if (searchTerm === '' || textWithoutBadge.includes(searchTerm)) {
+      item.style.display = '';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+}
