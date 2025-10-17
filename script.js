@@ -1302,25 +1302,52 @@ function attachLongPressToItem(itemElement) {
 // Show context menu at position
 function showContextMenu(x, y, itemElement) {
   longPressTarget = itemElement;
-  contextMenu.style.display = 'block';
   
-  // Position menu near touch point, but keep it on screen
+  // Position menu far from the touch point to avoid accidental clicks
   const menuWidth = 150;
   const menuHeight = 150;
-  let left = x - menuWidth / 2;
-  let top = y - menuHeight / 2;
+  const offset = 80; // Larger distance from touch point
   
-  // Keep menu on screen
-  if (left < 10) left = 10;
-  if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
-  if (top < 10) top = 10;
-  if (top + menuHeight > window.innerHeight - 10) top = window.innerHeight - menuHeight - 10;
+  // Try to position menu to the right and above the touch point
+  let left = x + offset;
+  let top = y - menuHeight - offset;
+  
+  // If menu goes off right edge, position to the left
+  if (left + menuWidth > window.innerWidth - 10) {
+    left = x - menuWidth - offset;
+  }
+  
+  // If menu goes off left edge, center it horizontally
+  if (left < 10) {
+    left = Math.max(10, (window.innerWidth - menuWidth) / 2);
+  }
+  
+  // If menu goes off top edge, position below touch point
+  if (top < 10) {
+    top = y + offset;
+  }
+  
+  // If menu goes off bottom edge, position above
+  if (top + menuHeight > window.innerHeight - 10) {
+    top = y - menuHeight - offset;
+  }
+  
+  // Final bounds check
+  top = Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10));
+  left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
   
   contextMenu.style.left = left + 'px';
   contextMenu.style.top = top + 'px';
   
   // Add highlight to selected item
   itemElement.style.backgroundColor = 'rgba(33, 150, 243, 0.1)';
+  
+  // Disable pointer events briefly to prevent accidental clicks when releasing finger
+  contextMenu.style.pointerEvents = 'none';
+  setTimeout(() => {
+    contextMenu.style.display = 'block';
+    contextMenu.style.pointerEvents = 'auto';
+  }, 150);
 }
 
 // Hide context menu
@@ -1430,23 +1457,52 @@ function attachLongPressToChooseItem(chooseItemElement, itemData) {
 
 function showContextMenuForChooseItem(x, y, element, itemData) {
   longPressChooseItem = { element, data: itemData };
-  contextMenu.style.display = 'block';
   
+  // Position menu far from the touch point to avoid accidental clicks
   const menuWidth = 150;
   const menuHeight = 150;
-  let left = x - menuWidth / 2;
-  let top = y - menuHeight / 2;
+  const offset = 80; // Larger distance from touch point
   
-  if (left < 10) left = 10;
-  if (left + menuWidth > window.innerWidth - 10) left = window.innerWidth - menuWidth - 10;
-  if (top < 10) top = 10;
-  if (top + menuHeight > window.innerHeight - 10) top = window.innerHeight - menuHeight - 10;
+  // Try to position menu to the right and above the touch point
+  let left = x + offset;
+  let top = y - menuHeight - offset;
+  
+  // If menu goes off right edge, position to the left
+  if (left + menuWidth > window.innerWidth - 10) {
+    left = x - menuWidth - offset;
+  }
+  
+  // If menu goes off left edge, center it horizontally
+  if (left < 10) {
+    left = Math.max(10, (window.innerWidth - menuWidth) / 2);
+  }
+  
+  // If menu goes off top edge, position below touch point
+  if (top < 10) {
+    top = y + offset;
+  }
+  
+  // If menu goes off bottom edge, position above
+  if (top + menuHeight > window.innerHeight - 10) {
+    top = y - menuHeight - offset;
+  }
+  
+  // Final bounds check
+  top = Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10));
+  left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
   
   contextMenu.style.left = left + 'px';
   contextMenu.style.top = top + 'px';
   
   element.style.backgroundColor = 'rgba(33, 150, 243, 0.15)';
   element.style.transform = 'scale(1.02)';
+  
+  // Disable pointer events briefly to prevent accidental clicks when releasing finger
+  contextMenu.style.pointerEvents = 'none';
+  setTimeout(() => {
+    contextMenu.style.display = 'block';
+    contextMenu.style.pointerEvents = 'auto';
+  }, 150);
 }
 
 // Update the context menu handlers to work with both list items and choose items
@@ -1640,3 +1696,339 @@ if (addItemListInput) {
     }
   });
 }
+
+/* ====== Icon Picker Functionality ====== */
+// Comprehensive icon list organized by categories
+const iconCategories = {
+  'פירות': ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝'],
+  'ירקות': ['🥕', '🌽', '🥒', '🥬', '🥦', '🍅', '🧄', '🧅', '🫑', '🌶️', '🥔', '🍆', '🥗'],
+  'לחם ומאפים': ['🍞', '🥖', '🥐', '🥯', '🧇', '🥞', '🍰', '🎂', '🧁', '🥧', '🍪', '🍩'],
+  'בשר ודגים': ['🥩', '🍖', '🍗', '🥓', '🍤', '🦐', '🦞', '🦀', '🐟', '🐠'],
+  'חלבי': ['🥛', '🧀', '🧈', '🥚', '🍳'],
+  'תבלינים ובישול': ['🧂', '🫚', '🌿', '🍃', '🧄', '🧅', '🌶️', '🫒', '🥫', '🫙', '🍯', '🫘', '🍚', '🌾'],
+  'משקאות': ['☕', '🍵', '🧃', '🥤', '🧋', '🍷', '🍺', '🥂', '🧉'],
+  'מזון מוכן': ['🍕', '🍔', '🌭', '🌮', '🌯', '🥙', '🥪', '🍝', '🍜', '🍲', '🥘', '🥟', '🍱', '🍛', '🍣', '🍚', '🥡'],
+  'חטיפים': ['🍿', '🍫', '🍬', '🍭', '🥜', '🌰'],
+  'ניקיון': ['🧼', '🧽', '🧹', '🧺', '🧴', '🧻', '🪥'],
+  'מוצרי טיפוח': ['🧴', '💄', '💅', '🪒', '🧖'],
+  'תינוקות': ['🍼', '👶', '🧷', '🧸'],
+  'בעלי חיים': ['🐕', '🐈', '🐦', '🐠', '🐹'],
+  'אחר': ['🛒', '📦', '🎁', '💊', '🌡️', '🔋', '💡', '🕯️', '📱', '💻', '🎒', '👕', '👖', '👗', '🧦', '👟', '⚽', '🎾', '🏀']
+};
+
+// Icon names mapping for search (Hebrew names for each icon)
+const iconNames = {
+  '🍎': 'תפוח תפוחים אדום',
+  '🍊': 'תפוז תפוזים כתום',
+  '🍋': 'לימון לימונים צהוב חמוץ',
+  '🍌': 'בננה בננות',
+  '🍉': 'אבטיח',
+  '🍇': 'ענבים',
+  '🍓': 'תות תותים',
+  '🫐': 'אוכמניות',
+  '🍈': 'מלון',
+  '🍒': 'דובדבן דובדבנים',
+  '🍑': 'אפרסק אפרסקים',
+  '🥭': 'מנגו',
+  '🍍': 'אננס',
+  '🥥': 'קוקוס',
+  '🥝': 'קיווי',
+  '🥕': 'גזר',
+  '🌽': 'תירס',
+  '🥒': 'מלפפון מלפפונים',
+  '🥬': 'חסה ירוק עלים',
+  '🥦': 'ברוקולי',
+  '🍅': 'עגבניה עגבניות',
+  '🧄': 'שום',
+  '🧅': 'בצל',
+  '🫑': 'פלפל ירוק',
+  '🌶️': 'פלפל חריף',
+  '🥔': 'תפוח אדמה תפוחי אדמה',
+  '🍆': 'חציל',
+  '🥗': 'סלט',
+  '🍞': 'לחם',
+  '🥖': 'באגט לחם צרפתי',
+  '🥐': 'קרואסון',
+  '🥯': 'בייגל בגל',
+  '🧇': 'ופל',
+  '🥞': 'פנקייק',
+  '🍰': 'עוגה',
+  '🎂': 'עוגת יום הולדת',
+  '🧁': 'מאפין קאפקייק',
+  '🥧': 'פאי',
+  '🍪': 'עוגיה עוגיות',
+  '🍩': 'סופגניה דונאט',
+  '🥩': 'בשר סטייק',
+  '🍖': 'בשר על עצם',
+  '🍗': 'עוף רגל עוף',
+  '🥓': 'בייקון',
+  '🍤': 'שרימפס',
+  '🦐': 'שרימפס קטן',
+  '🦞': 'לובסטר',
+  '🦀': 'סרטן',
+  '🐟': 'דג דגים',
+  '🐠': 'דג טרופי',
+  '🥛': 'חלב',
+  '🧀': 'גבינה',
+  '🧈': 'חמאה',
+  '🥚': 'ביצה ביצים',
+  '🍳': 'ביצה מטוגנת',
+  '🧂': 'מלח',
+  '🫚': 'ג\'ינג\'ר זנגביל',
+  '🌿': 'עשבי תיבול הרבס',
+  '🍃': 'עלים',
+  '🫒': 'זית זיתים',
+  '🥫': 'שימורים',
+  '🫙': 'צנצנת ריבה',
+  '🍯': 'דבש',
+  '🫘': 'שעועית קטניות עדשים',
+  '🍚': 'אורז',
+  '🌾': 'חיטה קמח דגנים',
+  '☕': 'קפה',
+  '🍵': 'תה',
+  '🧃': 'מיץ קופסא',
+  '🥤': 'משקה קר',
+  '🧋': 'באבל טי',
+  '🍷': 'יין',
+  '🍺': 'בירה',
+  '🥂': 'שמפניה',
+  '🧉': 'מטה',
+  '🍕': 'פיצה',
+  '🍔': 'המבורגר',
+  '🌭': 'נקניק הוט דוג',
+  '🌮': 'טאקו',
+  '🌯': 'בוריטו',
+  '🥙': 'פיתה',
+  '🥪': 'כריך סנדוויץ',
+  '🍝': 'פסטה ספגטי',
+  '🍜': 'מרק נודלס',
+  '🍲': 'תבשיל',
+  '🥘': 'פאייה',
+  '🥟': 'כופתאות',
+  '🍱': 'בנטו',
+  '🍛': 'קארי',
+  '🍣': 'סושי',
+  '🥡': 'אוכל סיני',
+  '🍿': 'פופקורן',
+  '🍫': 'שוקולד',
+  '🍬': 'סוכריה',
+  '🍭': 'סוכריה על מקל',
+  '🥜': 'בוטנים',
+  '🌰': 'אגוזים',
+  '🧼': 'סבון',
+  '🧽': 'ספוג',
+  '🧹': 'מטאטא',
+  '🧺': 'סל כביסה',
+  '🧴': 'בקבוק שמפו',
+  '🧻': 'נייר טואלט',
+  '🪥': 'מברשת שיניים',
+  '💄': 'שפתון',
+  '💅': 'לק',
+  '🪒': 'סכין גילוח',
+  '🧖': 'ספא',
+  '🍼': 'בקבוק תינוק',
+  '👶': 'תינוק',
+  '🧷': 'סיכת ביטחון',
+  '🧸': 'דובי',
+  '🐕': 'כלב',
+  '🐈': 'חתול',
+  '🐦': 'ציפור',
+  '🐠': 'דג',
+  '🐹': 'אוגר',
+  '🛒': 'עגלת קניות',
+  '📦': 'חבילה קופסא',
+  '🎁': 'מתנה',
+  '💊': 'תרופה כדור',
+  '🌡️': 'מדחום',
+  '🔋': 'סוללה',
+  '💡': 'נורה',
+  '🕯️': 'נר',
+  '📱': 'טלפון',
+  '💻': 'מחשב',
+  '🎒': 'תיק',
+  '👕': 'חולצה',
+  '👖': 'מכנסיים',
+  '👗': 'שמלה',
+  '🧦': 'גרביים',
+  '👟': 'נעליים',
+  '⚽': 'כדורגל',
+  '🎾': 'טניס',
+  '🏀': 'כדורסל'
+};
+
+let iconPickerTarget = null; // The item being edited
+let iconPickerMode = null; // 'list' or 'choose'
+
+// Initialize icon picker
+function initIconPicker() {
+  const iconGrid = document.getElementById('iconGrid');
+  
+  // Create icon grid with categories
+  Object.entries(iconCategories).forEach(([category, icons]) => {
+    const categoryDiv = document.createElement('div');
+    categoryDiv.className = 'icon-category';
+    
+    const categoryTitle = document.createElement('h3');
+    categoryTitle.textContent = category;
+    categoryTitle.style.fontSize = '1.1rem';
+    categoryTitle.style.fontWeight = '700';
+    categoryTitle.style.marginTop = '1rem';
+    categoryTitle.style.marginBottom = '0.5rem';
+    categoryTitle.style.textAlign = 'right';
+    categoryTitle.style.color = 'var(--text-color, #333)';
+    categoryDiv.appendChild(categoryTitle);
+    
+    const iconsContainer = document.createElement('div');
+    iconsContainer.style.display = 'grid';
+    iconsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(60px, 1fr))';
+    iconsContainer.style.gap = '0.5rem';
+    iconsContainer.style.marginBottom = '1rem';
+    
+    icons.forEach(icon => {
+      const iconBtn = document.createElement('div');
+      iconBtn.className = 'icon-option';
+      iconBtn.textContent = icon;
+      iconBtn.addEventListener('click', () => selectIcon(icon));
+      iconsContainer.appendChild(iconBtn);
+    });
+    
+    categoryDiv.appendChild(iconsContainer);
+    iconGrid.appendChild(categoryDiv);
+  });
+}
+
+// Show icon picker
+function showIconPicker(targetElement, mode) {
+  iconPickerTarget = targetElement;
+  iconPickerMode = mode;
+  document.getElementById('iconPickerModal').style.display = 'flex';
+}
+
+// Select icon and update item
+function selectIcon(icon) {
+  if (!iconPickerTarget) return;
+  
+  if (iconPickerMode === 'list') {
+    // Update list item
+    const nameSpan = iconPickerTarget.querySelector('.name');
+    if (nameSpan) {
+      const currentText = nameSpan.textContent.trim();
+      const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
+      nameSpan.textContent = `${icon} ${textWithoutIcon}`;
+      saveListToStorage();
+    }
+  } else if (iconPickerMode === 'choose') {
+    // Update choose item
+    const badge = iconPickerTarget.querySelector('.badge');
+    const currentText = iconPickerTarget.textContent.trim().replace(/\d+$/, '').trim();
+    const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
+    
+    iconPickerTarget.textContent = `${icon} ${textWithoutIcon}`;
+    if (badge) {
+      iconPickerTarget.appendChild(badge);
+    }
+    saveChooseItemsToStorage();
+  }
+  
+  closeIconPicker();
+}
+
+// Close icon picker
+function closeIconPicker() {
+  document.getElementById('iconPickerModal').style.display = 'none';
+  iconPickerTarget = null;
+  iconPickerMode = null;
+}
+
+// Event listeners
+document.getElementById('closeIconPicker').addEventListener('click', closeIconPicker);
+
+// Click outside to close
+document.getElementById('iconPickerModal').addEventListener('click', (e) => {
+  if (e.target.id === 'iconPickerModal') {
+    closeIconPicker();
+  }
+});
+
+// Icon search functionality
+const iconSearchInput = document.getElementById('iconSearch');
+iconSearchInput.addEventListener('input', (e) => {
+  const searchTerm = e.target.value.trim().toLowerCase();
+  const categories = document.querySelectorAll('.icon-category');
+  
+  if (searchTerm === '') {
+    // Show all categories and icons
+    categories.forEach(cat => {
+      cat.style.display = 'block';
+      const icons = cat.querySelectorAll('.icon-option');
+      icons.forEach(icon => icon.style.display = 'block');
+    });
+    return;
+  }
+  
+  // Filter categories and icons
+  categories.forEach(cat => {
+    const categoryTitle = cat.querySelector('h3').textContent.toLowerCase();
+    const icons = cat.querySelectorAll('.icon-option');
+    let hasVisibleIcons = false;
+    
+    // Check if category name matches
+    const categoryMatches = categoryTitle.includes(searchTerm);
+    
+    // Check each icon
+    icons.forEach(icon => {
+      const iconEmoji = icon.textContent.trim();
+      const iconName = iconNames[iconEmoji] || '';
+      const iconMatches = iconName.toLowerCase().includes(searchTerm);
+      
+      if (categoryMatches || iconMatches) {
+        icon.style.display = 'block';
+        hasVisibleIcons = true;
+      } else {
+        icon.style.display = 'none';
+      }
+    });
+    
+    // Show category only if it has visible icons
+    cat.style.display = hasVisibleIcons ? 'block' : 'none';
+  });
+  
+  // If no results, show a message
+  const hasResults = Array.from(categories).some(cat => cat.style.display !== 'none');
+  
+  if (!hasResults) {
+    // Could add a "no results" message here if desired
+    console.log('No icons found for:', searchTerm);
+  }
+});
+
+// Clear search when opening picker
+function showIconPicker(targetElement, mode) {
+  iconPickerTarget = targetElement;
+  iconPickerMode = mode;
+  document.getElementById('iconPickerModal').style.display = 'flex';
+  
+  // Clear search and show all icons
+  iconSearchInput.value = '';
+  const categories = document.querySelectorAll('.icon-category');
+  categories.forEach(cat => {
+    cat.style.display = 'block';
+  });
+  
+  // Focus search input for easy typing
+  setTimeout(() => iconSearchInput.focus(), 100);
+}
+
+// Add to context menu
+document.getElementById('contextIcon').addEventListener('click', () => {
+  if (longPressChooseItem) {
+    showIconPicker(longPressChooseItem.element, 'choose');
+    hideContextMenu();
+  } else if (longPressTarget) {
+    showIconPicker(longPressTarget, 'list');
+    hideContextMenu();
+  }
+});
+
+// Initialize on page load
+initIconPicker();

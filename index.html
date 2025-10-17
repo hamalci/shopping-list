@@ -153,8 +153,21 @@
     <!-- Context Menu for List Items -->
     <div id="itemContextMenu" class="context-menu" style="display:none;">
       <button id="contextEdit" class="context-menu-btn">✏️ ערוך</button>
+      <button id="contextIcon" class="context-menu-btn">🎨 שנה אייקון</button>
       <button id="contextDelete" class="context-menu-btn delete">🗑️ מחק</button>
       <button id="contextCancel" class="context-menu-btn">❌ ביטול</button>
+    </div>
+
+    <!-- Icon Picker Modal -->
+    <div id="iconPickerModal" class="modal" style="display:none;">
+      <div class="modal-content icon-picker-content">
+        <span class="close-modal" id="closeIconPicker">&times;</span>
+        <h2 class="modal-title">בחר אייקון</h2>
+        <div class="icon-search-container">
+          <input type="text" id="iconSearch" class="icon-search-input" placeholder="🔍 חפש אייקון לפי קטגוריה...">
+        </div>
+        <div id="iconGrid" class="icon-grid"></div>
+      </div>
     </div>
   </main>
 
