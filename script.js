@@ -1372,10 +1372,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check for ?list= param in URL
   const params = new URLSearchParams(window.location.search);
   const sharedList = params.get('list');
-  if (sharedList) {
+  if (sharedList && sharedList.trim() !== '') {
     try {
       localStorage.setItem("shoppingList", decodeURIComponent(sharedList));
       alert("הרשימה שותפה בהצלחה!");
+      // Remove the list parameter from URL after loading
+      window.history.replaceState({}, document.title, window.location.pathname);
     } catch (e) { alert("קישור הרשימה לא תקין."); }
   }
   loadListFromStorage();
