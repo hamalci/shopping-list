@@ -206,19 +206,65 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   qty.className = "qty";
   qty.textContent = `${num} ${cleanUnit}`.trim();
 
-  // הערה קצרה
+  // Note icon button
+  const noteIcon = document.createElement("span");
+  noteIcon.className = "note-icon";
+  noteIcon.textContent = "📝";
+  noteIcon.title = "הוסף הערה";
+  noteIcon.style.cursor = "pointer";
+  
+  // הערה קצרה - מוסתרת כברירת מחדל
   const noteDiv = document.createElement("div");
   noteDiv.className = "item-note-row";
+  if (!note || note.trim() === "") {
+    noteDiv.style.display = "none"; // מוסתר אם אין הערה
+  }
+  
   const noteInput = document.createElement("input");
   noteInput.className = "item-note";
   noteInput.type = "text";
   noteInput.placeholder = "הוסף הערה...";
   noteInput.value = note || "";
   noteInput.setAttribute("aria-label", "הערה לפריט");
+  
   noteInput.addEventListener("change", () => {
+    // אם ההערה ריקה, הסתר את השדה
+    if (noteInput.value.trim() === "") {
+      noteDiv.style.display = "none";
+      noteIcon.textContent = "📝";
+    } else {
+      noteIcon.textContent = "📝✓";
+    }
     saveListToStorage();
   });
+  
+  noteInput.addEventListener("blur", () => {
+    // אם ההערה ריקה בעת איבוד פוקוס, הסתר
+    if (noteInput.value.trim() === "") {
+      noteDiv.style.display = "none";
+      noteIcon.textContent = "📝";
+    }
+  });
+  
   noteDiv.appendChild(noteInput);
+  
+  // Toggle note visibility on icon click
+  noteIcon.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (noteDiv.style.display === "none") {
+      noteDiv.style.display = "flex";
+      noteInput.focus();
+    } else {
+      if (noteInput.value.trim() === "") {
+        noteDiv.style.display = "none";
+      }
+    }
+  });
+  
+  // Update icon if note exists
+  if (note && note.trim() !== "") {
+    noteIcon.textContent = "📝✓";
+  }
 
   // price element: amount and currency, compact
   const priceSpan = document.createElement("span");
@@ -246,27 +292,20 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     renderTotal();
   });
 
-  // ארוז שם+כמות בעמודה ראשונה; מחיר בעמודה שנייה (תואם CSS grid)
-  const mainCol = document.createElement("div");
-  mainCol.className = "main-col";
-  // wrap name+qty in a flex row
-  const nameQtyRow = document.createElement("div");
-  nameQtyRow.className = "name-qty-row";
-  nameQtyRow.style.display = "flex";
-  nameQtyRow.style.alignItems = "center";
-  nameQtyRow.style.gap = "0.4rem";
-  nameQtyRow.appendChild(nameSpan);
-  nameQtyRow.appendChild(qty);
-  mainCol.appendChild(nameQtyRow);
-  mainCol.appendChild(noteDiv);
-
-  row.appendChild(mainCol);
+  // מבנה חדש: שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
+  row.appendChild(nameSpan);
+  row.appendChild(qty);
   row.appendChild(priceSpan);
+  row.appendChild(noteIcon);
+  row.appendChild(noteDiv);
 
   // שמירת נתונים ותוספות אירועים
   row.addEventListener("click", (e) => {
-    // אם לחצת על ה priceSpan או על כפתורי qty, אל תטפל ב־toggle של השורה
-    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) return;
+    // אם אנחנו במצב בחירה, אל תבצע את הפעולה הרגילה
+    if (selectionMode || row.dataset.selectionMode) return;
+    
+    // אם לחצת על ה priceSpan או על כפתורי qty או note-icon, אל תטפל ב־toggle של השורה
+    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
     row.classList.toggle("checked");
     const listGrid = document.getElementById("listGrid");
     row.classList.add("moving");
@@ -472,29 +511,99 @@ function loadDefaultChooseItems() {
     ]
   };
 
-  // Create categories with items
+  // Load custom items and merge with default categories
+  const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
+  
+  // Group custom items by category
+  const customByCategory = {};
+  savedCustom.forEach(item => {
+    const cat = item.category || 'פריטים מותאמים אישית';
+    if (!customByCategory[cat]) customByCategory[cat] = [];
+    customByCategory[cat].push(item);
+  });
+
+  // Create categories with items and + button
   Object.entries(categorizedItems).forEach(([categoryName, items]) => {
-    // Create category header
+    // Create category header with + button
     const categoryHeader = document.createElement('div');
     categoryHeader.className = 'choose-category-header';
-    categoryHeader.textContent = categoryName;
+    categoryHeader.style.display = 'flex';
+    categoryHeader.style.justifyContent = 'space-between';
+    categoryHeader.style.alignItems = 'center';
+    categoryHeader.style.cursor = 'default';
+    
+    const categoryTitle = document.createElement('span');
+    categoryTitle.textContent = categoryName;
+    categoryHeader.appendChild(categoryTitle);
+    
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '➕';
+    addBtn.style.cssText = 'background: transparent; border: 1px solid rgba(76,175,80,0.4); color: #4CAF50; padding: 0.2rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 1.1rem; transition: all 0.2s;';
+    addBtn.title = `הוסף פריט ל${categoryName}`;
+    addBtn.addEventListener('mouseenter', () => {
+      addBtn.style.background = 'rgba(76,175,80,0.1)';
+      addBtn.style.transform = 'scale(1.1)';
+    });
+    addBtn.addEventListener('mouseleave', () => {
+      addBtn.style.background = 'transparent';
+      addBtn.style.transform = 'scale(1)';
+    });
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addCustomItem(categoryName);
+    });
+    categoryHeader.appendChild(addBtn);
+    
     chooseGrid.appendChild(categoryHeader);
 
-    // Add items for this category
+    // Add default items for this category
     items.forEach(item => {
       chooseGrid.appendChild(makeChooseButton(item));
     });
+    
+    // Add custom items that belong to this category
+    if (customByCategory[categoryName]) {
+      customByCategory[categoryName].forEach(c => {
+        const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
+        chooseGrid.appendChild(makeChooseButton(safe));
+      });
+    }
   });
 
-  // Add custom items at the end
-  const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
-  if (savedCustom.length > 0) {
+  // Add custom items section if there are items without category
+  if (customByCategory['פריטים מותאמים אישית']) {
+    // Create dedicated custom items section
     const customHeader = document.createElement('div');
     customHeader.className = 'choose-category-header';
-    customHeader.textContent = 'פריטים מותאמים אישית';
+    customHeader.style.display = 'flex';
+    customHeader.style.justifyContent = 'space-between';
+    customHeader.style.alignItems = 'center';
+    
+    const customTitle = document.createElement('span');
+    customTitle.textContent = 'פריטים מותאמים אישית';
+    customHeader.appendChild(customTitle);
+    
+    const addBtn = document.createElement('button');
+    addBtn.textContent = '➕';
+    addBtn.style.cssText = 'background: transparent; border: 1px solid rgba(76,175,80,0.4); color: #4CAF50; padding: 0.2rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 1.1rem; transition: all 0.2s;';
+    addBtn.title = 'הוסף פריט מותאם אישית';
+    addBtn.addEventListener('mouseenter', () => {
+      addBtn.style.background = 'rgba(76,175,80,0.1)';
+      addBtn.style.transform = 'scale(1.1)';
+    });
+    addBtn.addEventListener('mouseleave', () => {
+      addBtn.style.background = 'transparent';
+      addBtn.style.transform = 'scale(1)';
+    });
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      addCustomItem('פריטים מותאמים אישית');
+    });
+    customHeader.appendChild(addBtn);
+    
     chooseGrid.appendChild(customHeader);
     
-    savedCustom.forEach(c => {
+    customByCategory['פריטים מותאמים אישית'].forEach(c => {
       const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
       chooseGrid.appendChild(makeChooseButton(safe));
     });
@@ -668,13 +777,18 @@ function togglePriceDisplay(show) {
 }
 
 /* ====== basic actions ====== */
-function resetChoices(){
-  // איפוס הסימונים והבדג'ים
+function resetChoiceBadges(){
+  // איפוס רק הסימונים והבדג'ים, לא את כל הטבלה
   document.querySelectorAll(".choose-item .badge").forEach(b => { b.textContent = "0"; b.style.display = "none"; });
   document.querySelectorAll(".choose-item.selected").forEach(btn => {
     btn.classList.add("resetting");
     setTimeout(() => { btn.classList.remove("selected", "resetting", "pulse"); }, 180);
   });
+}
+
+function resetChoices(){
+  // איפוס הסימונים והבדג'ים
+  resetChoiceBadges();
   
   // בדיקה אם יש פריטים בטבלת הבחירה
   const chooseGrid = document.getElementById("chooseGrid");
@@ -693,39 +807,188 @@ function resetChoices(){
     }
   }
 }
+
 function clearList(){
   const listGrid = document.getElementById("listGrid");
   if (listGrid) listGrid.innerHTML = "";
-  resetChoices();
+  resetChoiceBadges(); // שינוי: לא לאפס את כל הטבלה, רק את המונים
   saveListToStorage();
   renderAllPrices();
   renderTotal();
 }
+
 function clearChecked(){
-  const listGrid = document.getElementById("listGrid");
+  // הסרת הסימון מהפריטים (לא מחיקתם!)
   document.querySelectorAll("#listGrid .item.checked").forEach(el => {
-    el.classList.remove("checked");
-    listGrid.appendChild(el);
+    el.classList.remove("checked"); // הסרת הסימון בלבד
   });
-  resetChoices();
   saveListToStorage();
   renderAllPrices();
   renderTotal();
 }
-function addCustomItem(){
+/* ====== Smart category detection ====== */
+function detectCategory(itemName) {
+  const name = itemName.toLowerCase().trim();
+  
+  // Category keywords mapping
+  const categoryKeywords = {
+    'פירות וירקות': [
+      'גזר', 'מלפפון', 'עגבני', 'חסה', 'בצל', 'שום', 'תפוח', 'בננ', 'תפוז', 'לימון',
+      'אבוקדו', 'פלפל', 'ברוקולי', 'כרובית', 'תירס', 'חציל', 'דלעת', 'תות', 'ענב',
+      'אבטיח', 'מלון', 'ירק', 'פר', 'סלט', 'פטרוזיליה', 'כוסבר', 'נענע'
+    ],
+    'מוצרי חלב': [
+      'חלב', 'גבינ', 'קוטג', 'יוגורט', 'שמנת', 'חמא', 'ביצ', 'לבן', 'צהוב', 'בולגרי',
+      'שקד', 'סוי', 'אשל', 'תנובה', 'שטראוס', 'יטבתה'
+    ],
+    'מאפים ולחמים': [
+      'לחם', 'חלה', 'לחמני', 'פית', 'טורטי', 'בייגל', 'קרואסון', 'עוגי', 'עוג',
+      'בורקס', 'מאפ', 'כיכר', 'בגט'
+    ],
+    'בשר ועופות': [
+      'עוף', 'שניצל', 'כרעי', 'חזה', 'בשר', 'אנטריקוט', 'סטייק', 'נקניק', 'קבב',
+      'כבד', 'טחון', 'המבורגר', 'פרג'
+    ],
+    'דגים': [
+      'סלמון', 'טונה', 'דניס', 'בורי', 'פילה דג', 'שרימפ', 'דג', 'קרפיון', 'אמנון'
+    ],
+    'מזווה ויבשים': [
+      'אורז', 'פסטה', 'קוסקוס', 'בורגול', 'קמח', 'סוכר', 'מלח', 'שמן', 'קטשופ',
+      'מיונז', 'חומוס', 'טחינ', 'ריב', 'דבש', 'שוקולד ממרח', 'קפה', 'תה', 'קקאו',
+      'זית', 'שימור'
+    ],
+    'משקאות': [
+      'מים', 'מיץ', 'קולה', 'פחית', 'בירה', 'יין', 'אלכוהול', 'סודה', 'וויסקי',
+      'ליקר', 'בקבוק'
+    ],
+    'חטיפים וממתקים': [
+      'שוקולד', 'ביסלי', 'במבה', 'דובונ', 'סוכרי', 'גלידה', 'פופקורן', 'חטיף',
+      'אגוז', 'בוטנ', 'קשיו', 'שקד', 'צ\'יפס', 'ממתק', 'סניקרס', 'קיט קט'
+    ],
+    'מוצרי ניקיון': [
+      'נייר טואלט', 'מגבות נייר', 'סבון כלים', 'אבקת כביסה', 'מרכך', 'אקונומיקה',
+      'שקיות זבל', 'ספוג', 'מטלי', 'רצפה', 'ניקוי', 'חומר ניקוי', 'אקונומיקה'
+    ],
+    'מוצרי טיפוח': [
+      'סבון רחצה', 'שמפו', 'מרכך שיער', 'משחת שיניים', 'מברשת שיניים', 'דאודורנט',
+      'תער', 'קרם', 'טישו', 'טיפוח', 'ג\'ל', 'בושם', 'קולון'
+    ],
+    'מוצרי תינוק': [
+      'חיתול', 'מזון תינוק', 'מטליות לחות', 'תינוק', 'תינוקות', 'תרמיל', 'פמפרס'
+    ],
+    'קפואים': [
+      'קפוא', 'גלידה', 'ירקות קפוא', 'פיצה קפוא', 'שניצל קפוא', 'דגים קפוא'
+    ]
+  };
+  
+  // Check each category
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    for (const keyword of keywords) {
+      if (name.includes(keyword)) {
+        return category;
+      }
+    }
+  }
+  
+  return null; // No category detected
+}
+
+// Global variable to store pending custom item data
+let pendingCustomItem = null;
+
+function addCustomItem(suggestedCategory = null){
+  console.log('addCustomItem called with suggestedCategory:', suggestedCategory);
   const rawName = prompt("הכנס שם פריט חדש:");
   if (!rawName) return;
   const name = String(rawName).trim();
   const unit = String(prompt("הכנס יחידת מידה (למשל: ק\"ג, יח', ליטר):", "יח'") || "יח'").trim();
-  const icon = String(prompt("בחר אייקון לפריט (למשל 🥑):", "🛒") || "🛒").trim();
+  
+  // Detect category or use suggested one
+  let targetCategory = suggestedCategory;
+  console.log('targetCategory before detection:', targetCategory);
+  if (!targetCategory) {
+    targetCategory = detectCategory(name);
+  }
+  
+  // If no category detected or suggested, ask user
+  if (!targetCategory) {
+    const categories = ['פירות וירקות', 'מוצרי חלב', 'מאפים ולחמים', 'בשר ועופות', 'דגים', 
+                       'מזווה ייבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
+                       'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
+    const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
+    const choice = prompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר (או אישור לקטגוריה מותאמת אישית):`, String(categories.length));
+    if (!choice) return;
+    const index = parseInt(choice) - 1;
+    if (index >= 0 && index < categories.length) {
+      targetCategory = categories[index];
+    } else {
+      targetCategory = 'פריטים מותאמים אישית';
+    }
+  } else if (!suggestedCategory) {
+    // Only confirm if category was auto-detected (not when user clicked + on specific category)
+    const confirmMsg = window.confirm(`זיהינו שהפריט "${name}" שייך ל-"${targetCategory}". האם נכון?`);
+    if (!confirmMsg) {
+      const categories = ['פירות וירקות', 'מוצרי חלב', 'מאפים ולחמים', 'בשר ועופות', 'דגים', 
+                         'מזווה ויבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
+                         'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
+      const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
+      const choice = prompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר:`, '1');
+      if (!choice) return;
+      const index = parseInt(choice) - 1;
+      if (index >= 0 && index < categories.length) {
+        targetCategory = categories[index];
+      } else {
+        targetCategory = 'פריטים מותאמים אישית';
+      }
+    }
+  }
+  
+  console.log('Final targetCategory:', targetCategory);
+  
+  // Store pending item data and open icon picker
+  pendingCustomItem = { name, unit, category: targetCategory };
+  openIconPickerForCustomItem();
+}
+
+// Open icon picker for custom item
+function openIconPickerForCustomItem() {
+  // Set up icon picker in custom item mode
+  iconPickerMode = 'custom-item';
+  iconPickerTarget = null;
+  
+  // Show icon picker modal
+  const modal = document.getElementById('iconPickerModal');
+  if (modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+// Finish adding custom item with selected icon
+function finishAddingCustomItem(icon) {
+  if (!pendingCustomItem) return;
+  
+  const { name, unit, category } = pendingCustomItem;
+  console.log('Finishing custom item with icon:', icon, 'category:', category);
+  
+  // Add to list
   createListItem(name, icon, 1, unit);
+  
+  // Save to appropriate category
   const saved = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
   if (!saved.some(it => String(it.name || "").trim().toLowerCase() === name.toLowerCase())) {
-    saved.push({ name, icon, unit });
+    const newItem = { name, icon, unit, category: category };
+    console.log('Saving new item:', newItem);
+    saved.push(newItem);
     localStorage.setItem('customChooseItems', JSON.stringify(saved));
+    console.log('customChooseItems after save:', JSON.parse(localStorage.getItem('customChooseItems')));
   }
-  const chooseGrid = document.getElementById("chooseGrid");
-  if (chooseGrid) chooseGrid.appendChild(makeChooseButton({ name, icon, unit }));
+  
+  // Reload choose items to show in correct category
+  loadDefaultChooseItems();
+  
+  // Clear pending item
+  pendingCustomItem = null;
+  
   saveListToStorage();
   renderAllPrices();
   renderTotal();
@@ -1103,22 +1366,6 @@ function handleChooseListSelection(selectedName, selectedList, displayName) {
   alert(`פריטי רשימת "${displayName}" ${actionText} בהצלחה לטבלת הבחירה!`);
 }
 
-function loadChooseItems() {
-  // טעינת רשימות מותאמות אישית
-  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
-  const allLists = { ...presetLists, ...customLists };
-  
-  // יצירת רשימת האפשרויות
-  const listNames = Object.keys(allLists);
-  if (listNames.length === 0) {
-    alert('אין רשימות מוכנות זמינות.');
-    return;
-  }
-  
-  // פתיחת modal במקום prompt
-  openChooseListModal(listNames, allLists, customLists);
-}
-
 /* ====== init ====== */
 document.addEventListener("DOMContentLoaded", () => {
   loadDefaultChooseItems();
@@ -1136,10 +1383,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Open choose modal button
   document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
 
-  // New header icon buttons replacing choose-section actions
-  document.getElementById("btnHdrResetChoices")?.addEventListener("click", resetChoices);
-  document.getElementById("btnHdrAddCustom")?.addEventListener("click", addCustomItem);
-  document.getElementById("btnHdrLoadChoose")?.addEventListener("click", loadChooseItems);
+  // Removed: btnHdrResetChoices and btnHdrAddCustom - no longer needed with + buttons in categories
   // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
 
   document.getElementById("btnSaveCategories")?.addEventListener("click", () => {
@@ -1190,89 +1434,85 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector('.app-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
+  // Helper function to close main menu
+  function closeMainMenu() {
+    const menu = document.getElementById('menuDropdown');
+    if (menu) menu.style.display = 'none';
+  }
+
   document.getElementById("menuButton")?.addEventListener("click", () => {
     const menu = document.getElementById("menuDropdown");
     if (!menu) return;
     menu.style.display = menu.style.display === "block" ? "none" : "block";
   });
-  // Close button inside view menu
+  
+  // Close button inside menu
   document.querySelector('#menuDropdown .dropdown-close')?.addEventListener('click', (e) => {
     e.stopPropagation();
-    const menu = document.getElementById('menuDropdown');
-    if (menu) menu.style.display = 'none';
+    closeMainMenu();
   });
+  
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".menu-container")) {
-      const menu = document.getElementById("menuDropdown");
-      if (menu) menu.style.display = "none";
+      closeMainMenu();
     }
   });
 
   // Close dropdowns on Escape
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      const v = document.getElementById('menuDropdown');
-      const f = document.getElementById('fontDropdown');
-      if (v) v.style.display = 'none';
-      if (f) f.style.display = 'none';
+      closeMainMenu();
     }
   });
 
-  // Auto-close the view menu after actions inside it
+  // Auto-close menu after actions - view mode
   document.getElementById('btnViewMode')?.addEventListener('click', () => {
-    const dd = document.getElementById('menuDropdown');
-    if (dd) dd.style.display = 'none';
-  });
-  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
-    const dd = document.getElementById('menuDropdown');
-    if (dd) dd.style.display = 'none';
-  });
-
-  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
-    rootFontPx = Math.min(rootFontPx + 1, 30);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
-  });
-  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
-    rootFontPx = Math.max(rootFontPx - 1, 12);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
-  });
-  document.getElementById("btnFontReset")?.addEventListener("click", () => {
-    rootFontPx = 19;
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    const dd = document.getElementById('fontDropdown'); if (dd) dd.style.display = 'none';
-  });
-
-  // Close button for font menu
-  document.querySelector('#fontDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const dd = document.getElementById('fontDropdown');
-    if (dd) dd.style.display = 'none';
-  });
-
-  document.getElementById("btnViewMode")?.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
     localStorage.setItem("viewMode", document.body.classList.contains("dark-mode") ? "dark" : "light");
-    // ensure panels get panel class so dark CSS applies
     if (document.body.classList.contains('dark-mode')) {
       document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
         if (el && !el.classList.contains('panel')) el.classList.add('panel');
       });
     }
+    closeMainMenu();
+  });
+
+  // Font controls
+  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
+    rootFontPx = Math.min(rootFontPx + 1, 30);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+  
+  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
+    rootFontPx = Math.max(rootFontPx - 1, 12);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+  
+  document.getElementById("btnFontReset")?.addEventListener("click", () => {
+    rootFontPx = 19;
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+
+  // Categories settings
+  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
+    closeMainMenu();
   });
 
   /* store UI wiring */
   document.getElementById('networkSelect')?.addEventListener('change', (e) => populateBranches(e.target.value));
-  document.getElementById('btnSaveStore')?.addEventListener('click', saveStoreSelection);
-  document.getElementById('togglePrices')?.addEventListener('change', (e) => togglePriceDisplay(e.target.checked));
-  // Also close the view dropdown when toggling the price switch
-  document.getElementById('togglePrices')?.addEventListener('change', () => {
-    const dd = document.getElementById('menuDropdown');
-    if (dd) dd.style.display = 'none';
+  document.getElementById('btnSaveStore')?.addEventListener('click', () => {
+    saveStoreSelection();
+    closeMainMenu();
+  });
+  document.getElementById('togglePrices')?.addEventListener('change', (e) => {
+    togglePriceDisplay(e.target.checked);
+    closeMainMenu();
   });
 
   /* init store UI */
@@ -1326,22 +1566,98 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ===== List Menu (next to "הרשימה שלי") =====
+  function closeListMenu() {
+    const menu = document.getElementById('listMenuDropdown');
+    if (menu) menu.style.display = 'none';
+  }
+
+  document.getElementById("listMenuButton")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById("listMenuDropdown");
+    if (!menu) return;
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+  });
+  
+  // Close button inside list menu
+  document.querySelector('#listMenuDropdown .dropdown-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeListMenu();
+  });
+  
+  // Close list menu on outside click
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".list-header") && !e.target.closest("#listMenuDropdown")) {
+      closeListMenu();
+    }
+  });
+
+  // List menu actions
+  document.getElementById('btnListSave')?.addEventListener('click', () => {
+    if (typeof saveCurrentListAsPreset === 'function') saveCurrentListAsPreset();
+    closeListMenu();
+  });
+  
+  document.getElementById('btnListClear')?.addEventListener('click', () => {
+    if (confirm('האם למחוק את כל הרשימה?')) clearList();
+    closeListMenu();
+  });
+  
+  document.getElementById('btnListClearChecked')?.addEventListener('click', () => {
+    clearChecked();
+    closeListMenu();
+  });
+  
+  document.getElementById('btnListShare')?.addEventListener('click', () => {
+    shareCurrentList();
+    closeListMenu();
+  });
+  
+  document.getElementById('btnListShareWA')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+    window.open(waUrl, '_blank');
+    closeListMenu();
+  });
+  
+  document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
+    window.open(smsUrl, '_blank');
+    closeListMenu();
+  });
+
   // Initial UI render calls if functions exist
   if (typeof renderAllPrices === 'function') renderAllPrices();
   if (typeof renderTotal === 'function') renderTotal();
 
-  // ===== Footer actions wiring =====
+  // ===== Menu actions wiring =====
   document.getElementById('btnFooterSave')?.addEventListener('click', () => {
-    // Call directly
     if (typeof saveCurrentListAsPreset === 'function') saveCurrentListAsPreset();
+    closeMainMenu();
   });
+  
   document.getElementById('btnFooterClear')?.addEventListener('click', () => {
     if (confirm('האם למחוק את כל הרשימה?')) clearList();
+    closeMainMenu();
   });
+  
   document.getElementById('btnFooterClearChecked')?.addEventListener('click', () => {
     clearChecked();
+    closeMainMenu();
   });
-  document.getElementById('btnFooterShare')?.addEventListener('click', shareCurrentList);
+  
+  document.getElementById('btnFooterShare')?.addEventListener('click', () => {
+    shareCurrentList();
+    closeMainMenu();
+  });
+  
   document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
     if (!data) { alert("הרשימה ריקה."); return; }
@@ -1349,7 +1665,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
     window.open(waUrl, '_blank');
+    closeMainMenu();
   });
+  
   document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
     if (!data) { alert("הרשימה ריקה."); return; }
@@ -1357,6 +1675,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
     window.open(smsUrl, '_blank');
+    closeMainMenu();
   });
 });
 
@@ -1396,6 +1715,10 @@ async function shareCurrentList() {
 let longPressTimer = null;
 let longPressTarget = null;
 const contextMenu = document.getElementById('itemContextMenu');
+
+// Multi-selection mode variables
+let selectionMode = false;
+let selectedItems = new Set();
 
 // Prevent default context menu on list items and choose items
 document.addEventListener('contextmenu', (e) => {
@@ -1456,9 +1779,15 @@ function attachLongPressToItem(itemElement) {
 function showContextMenu(x, y, itemElement) {
   longPressTarget = itemElement;
   
+  // Always show context menu for list items
+  showRegularContextMenu(x, y, itemElement);
+}
+
+// Show regular context menu (for single item actions)
+function showRegularContextMenu(x, y, itemElement) {
   // Position menu far from the touch point to avoid accidental clicks
   const menuWidth = 150;
-  const menuHeight = 150;
+  const menuHeight = 200; // Increased for new button
   const offset = 80; // Larger distance from touch point
   
   // Try to position menu to the right and above the touch point
@@ -1512,6 +1841,161 @@ function hideContextMenu() {
   }
 }
 
+/* ====== Multi-Selection Mode ====== */
+function enterSelectionMode(firstItem) {
+  if (selectionMode) return; // Already in selection mode
+  
+  selectionMode = true;
+  selectedItems.clear();
+  
+  // Add selection toolbar to page
+  createSelectionToolbar();
+  
+  // Add selection class to all items and attach selection click handler
+  const allItems = document.querySelectorAll('#listGrid .item');
+  allItems.forEach(item => {
+    item.classList.add('selection-mode-item');
+    item.dataset.selectionMode = 'active'; // Flag to prevent normal click behavior
+  });
+  
+  // Select the first item
+  if (firstItem) {
+    selectedItems.add(firstItem);
+    firstItem.classList.add('selected-for-action');
+  }
+  
+  // Add global click handler for selection mode
+  document.addEventListener('click', handleSelectionClick);
+  
+  updateSelectionToolbar();
+}
+
+function handleSelectionClick(e) {
+  if (!selectionMode) return;
+  
+  const item = e.target.closest('#listGrid .item');
+  if (!item) return;
+  
+  // Ignore clicks on interactive elements
+  if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) {
+    return;
+  }
+  
+  e.preventDefault();
+  e.stopPropagation();
+  
+  toggleItemSelection(item);
+}
+
+function toggleItemSelection(item) {
+  if (selectedItems.has(item)) {
+    selectedItems.delete(item);
+    item.classList.remove('selected-for-action');
+  } else {
+    selectedItems.add(item);
+    item.classList.add('selected-for-action');
+  }
+  updateSelectionToolbar();
+}
+
+function selectAllItems() {
+  const allItems = document.querySelectorAll('#listGrid .item');
+  selectedItems.clear();
+  allItems.forEach(item => {
+    selectedItems.add(item);
+    item.classList.add('selected-for-action');
+  });
+  updateSelectionToolbar();
+}
+
+function deselectAllItems() {
+  selectedItems.forEach(item => {
+    item.classList.remove('selected-for-action');
+  });
+  selectedItems.clear();
+  updateSelectionToolbar();
+}
+
+function exitSelectionMode() {
+  selectionMode = false;
+  
+  // Remove selection classes and flags
+  const allItems = document.querySelectorAll('#listGrid .item');
+  allItems.forEach(item => {
+    item.classList.remove('selection-mode-item', 'selected-for-action');
+    delete item.dataset.selectionMode;
+  });
+  
+  selectedItems.clear();
+  
+  // Hide toolbar
+  const toolbar = document.getElementById('selectionToolbar');
+  if (toolbar) toolbar.style.display = 'none';
+  
+  // Remove global selection click handler
+  document.removeEventListener('click', handleSelectionClick);
+}
+
+function createSelectionToolbar() {
+  const toolbar = document.getElementById('selectionToolbar');
+  if (toolbar) {
+    toolbar.style.display = 'flex';
+  }
+  
+  // Add event listeners if not already added
+  const btnSelectAll = document.getElementById('btnSelectAll');
+  const btnDeselectAll = document.getElementById('btnDeselectAll');
+  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
+  const btnCancelSelection = document.getElementById('btnCancelSelection');
+  
+  if (btnSelectAll && !btnSelectAll.dataset.listenerAdded) {
+    btnSelectAll.addEventListener('click', selectAllItems);
+    btnSelectAll.dataset.listenerAdded = 'true';
+  }
+  
+  if (btnDeselectAll && !btnDeselectAll.dataset.listenerAdded) {
+    btnDeselectAll.addEventListener('click', deselectAllItems);
+    btnDeselectAll.dataset.listenerAdded = 'true';
+  }
+  
+  if (btnDeleteSelected && !btnDeleteSelected.dataset.listenerAdded) {
+    btnDeleteSelected.addEventListener('click', deleteSelectedItems);
+    btnDeleteSelected.dataset.listenerAdded = 'true';
+  }
+  
+  if (btnCancelSelection && !btnCancelSelection.dataset.listenerAdded) {
+    btnCancelSelection.addEventListener('click', exitSelectionMode);
+    btnCancelSelection.dataset.listenerAdded = 'true';
+  }
+}
+
+function updateSelectionToolbar() {
+  const countSpan = document.getElementById('selectedCount');
+  if (countSpan) {
+    countSpan.textContent = selectedItems.size;
+  }
+  
+  const deleteBtn = document.getElementById('btnDeleteSelected');
+  if (deleteBtn) {
+    deleteBtn.disabled = selectedItems.size === 0;
+  }
+}
+
+function deleteSelectedItems() {
+  if (selectedItems.size === 0) return;
+  
+  const count = selectedItems.size;
+  if (confirm(`האם למחוק ${count} פריטים נבחרים?`)) {
+    selectedItems.forEach(item => {
+      item.remove();
+    });
+    saveListToStorage();
+    exitSelectionMode();
+    renderAllPrices();
+    renderTotal();
+  }
+}
+
 // Context menu button handlers
 document.getElementById('contextEdit').addEventListener('click', () => {
   if (!longPressTarget) return;
@@ -1546,6 +2030,28 @@ document.getElementById('contextDelete').addEventListener('click', () => {
   }
   
   hideContextMenu();
+});
+
+document.getElementById('contextIcon').addEventListener('click', () => {
+  if (!longPressTarget) return;
+  hideContextMenu();
+  
+  // Open icon picker in 'list-item' mode
+  iconPickerMode = 'list-item';
+  iconPickerTargetItem = longPressTarget;
+  
+  const modal = document.getElementById('iconPickerModal');
+  if (modal) {
+    modal.style.display = 'block';
+    const searchInput = document.getElementById('iconSearch');
+    if (searchInput) searchInput.value = '';
+    filterIcons('');
+  }
+});
+
+document.getElementById('contextSelect').addEventListener('click', () => {
+  hideContextMenu();
+  enterSelectionMode(longPressTarget);
 });
 
 document.getElementById('contextCancel').addEventListener('click', () => {
@@ -2010,7 +2516,8 @@ const iconNames = {
 };
 
 let iconPickerTarget = null; // The item being edited
-let iconPickerMode = null; // 'list' or 'choose'
+let iconPickerMode = null; // 'list', 'choose', 'list-item', or 'custom-item'
+let iconPickerTargetItem = null; // For changing icon of existing list item
 
 // Initialize icon picker
 function initIconPicker() {
@@ -2059,6 +2566,27 @@ function showIconPicker(targetElement, mode) {
 
 // Select icon and update item
 function selectIcon(icon) {
+  if (iconPickerMode === 'custom-item') {
+    // Custom item mode - finish adding the custom item
+    finishAddingCustomItem(icon);
+    closeIconPicker();
+    return;
+  }
+  
+  if (iconPickerMode === 'list-item' && iconPickerTargetItem) {
+    // Update existing list item icon
+    const nameSpan = iconPickerTargetItem.querySelector('.name');
+    if (nameSpan) {
+      const currentText = nameSpan.textContent.trim();
+      const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
+      nameSpan.textContent = `${icon} ${textWithoutIcon}`;
+      saveListToStorage();
+    }
+    iconPickerTargetItem = null;
+    closeIconPicker();
+    return;
+  }
+  
   if (!iconPickerTarget) return;
   
   if (iconPickerMode === 'list') {

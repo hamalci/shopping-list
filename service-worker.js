@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'shopping-app-v3.3.4';
+const CACHE_VERSION = 'shopping-app-v7.0.0';
 
 self.addEventListener('install', e => {
   e.waitUntil(

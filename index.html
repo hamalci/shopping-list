@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title> רשימת קניות פשוטה</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=7.0.2" />
   <link rel="stylesheet" href="icons.css" />
 
   <script src="script.js" defer></script>
@@ -30,17 +30,29 @@
   <header class="app-header">
     <h1>רשימת קניות</h1>
     <div class="header-controls">
-      <div class="header-actions">
-        <button id="btnViewMode" class="header-btn icon-view-mode" title="מצב תצוגה" aria-label="מצב תצוגה"></button>
-        <button id="btnHdrLoadChoose" class="header-btn icon-load" title="טען פריטים" aria-label="טען פריטים"></button>
-        <button id="btnHdrResetChoices" class="header-btn icon-reset" title="איפוס פריטים לבחירה" aria-label="איפוס פריטים"></button>
-        <button id="btnHdrAddCustom" class="header-btn icon-add" title="הוסף פריט" aria-label="הוסף פריט"></button>
-      </div>
   <div class="menu-container">
-  <button id="menuButton" class="header-btn menu-icon icon-menu" title="תפריט" aria-label="תפריט"></button>
+  <button id="menuButton" class="header-btn menu-icon icon-menu" title="תפריט והגדרות" aria-label="תפריט והגדרות"></button>
       <div id="menuDropdown" class="menu-dropdown">
         <button class="dropdown-close icon-close" aria-label="סגור"></button>
-        <button id="btnCategoriesSettings" class="icon-categories">סדר קטגוריות</button>
+        
+        <!-- קטגוריה: תצוגה -->
+        <div class="menu-section">
+          <div class="menu-section-title">תצוגה</div>
+          <button id="btnViewMode" class="menu-item">🌙☀️ מצב לילה/יום</button>
+          <button id="btnFontIncrease" class="menu-item">🔼 הגדל פונט</button>
+          <button id="btnFontDecrease" class="menu-item">🔽 הקטן פונט</button>
+          <button id="btnFontReset" class="menu-item">↩️ פונט ברירת מחדל</button>
+        </div>
+
+        <!-- קטגוריה: ניהול פריטים -->
+        <!-- Removed: Items management section - no longer needed with + buttons in categories -->
+
+        <!-- קטגוריה: פעולות על הרשימה -->
+        <!-- Removed: Actions moved to list menu next to "הרשימה שלי" -->
+
+        <!-- קטגוריה: הגדרות מתקדמות -->
+        <div class="menu-section">
+          <div class="menu-section-title">הגדרות</div>
         <!-- Store selector and price toggle (הדבק בתוך ה-header או settings) -->
 <div id="storeSelector" class="store-selector">
   <div class="store-group">
@@ -68,15 +80,8 @@
     <button id="btnSaveStore" class="btn">שמור בחירה</button>
   </div>
 </div>
-      </div>
-      </div>
-  <div class="menu-container font-menu-container">
-  <button id="fontMenuButton" class="header-btn menu-icon icon-font-size" title="גודל טקסט" aria-label="גודל טקסט"></button>
-      <div id="fontDropdown" class="menu-dropdown">
-        <button class="dropdown-close icon-close" aria-label="סגור"></button>
-        <button id="btnFontIncrease" class="icon-font-increase">הגדל פונט</button>
-        <button id="btnFontDecrease" class="icon-font-decrease">הקטן פונט</button>
-        <button id="btnFontReset" class="icon-font-reset">פונט ברירת מחדל</button>
+          <button id="btnCategoriesSettings" class="menu-item">⚙️ סדר קטגוריות</button>
+        </div>
       </div>
       </div>
     </div>
@@ -86,14 +91,31 @@
     <!-- Button to open choose modal -->
     <div class="choose-modal-trigger">
       <button id="btnOpenChooseModal" class="btn-open-choose">
-        🛒 בחר פריט מהרשימה
+        בחר פריטים מהרשימה
       </button>
     </div>
 
     <section id="listSection">
       <div class="list-header">
         <h2>📃 הרשימה שלי</h2>
+        <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
       </div>
+      
+      <!-- List Menu Dropdown -->
+      <div id="listMenuDropdown" class="menu-dropdown" style="display:none;">
+        <button class="dropdown-close icon-close" aria-label="סגור"></button>
+        
+        <div class="menu-section">
+          <div class="menu-section-title">פעולות</div>
+          <button id="btnListSave" class="menu-item">💾 שמור רשימה</button>
+          <button id="btnListClear" class="menu-item">🗑️ נקה רשימה</button>
+          <button id="btnListClearChecked" class="menu-item">↺ נקה סימונים</button>
+          <button id="btnListShare" class="menu-item">📤 שתף רשימה</button>
+          <button id="btnListShareWA" class="menu-item">💬 שתף ב-WhatsApp</button>
+          <button id="btnListShareSMS" class="menu-item">📱 שתף ב-SMS</button>
+        </div>
+      </div>
+      
       <div class="add-item-inline" id="addItemList">
         <input type="text" placeholder="➕ הוסף פריט לרשימה..." class="add-item-input" id="addItemListInput">
       </div>
@@ -150,7 +172,16 @@
       <button id="contextEdit" class="context-menu-btn">✏️ ערוך</button>
       <button id="contextIcon" class="context-menu-btn">🎨 שנה אייקון</button>
       <button id="contextDelete" class="context-menu-btn delete">🗑️ מחק</button>
+      <button id="contextSelect" class="context-menu-btn select">☑️ בחר</button>
       <button id="contextCancel" class="context-menu-btn">❌ ביטול</button>
+    </div>
+    
+    <!-- Selection Mode Toolbar -->
+    <div id="selectionToolbar" class="selection-toolbar" style="display:none;">
+      <button id="btnSelectAll" class="context-menu-btn">✅ בחר הכל</button>
+      <button id="btnDeselectAll" class="context-menu-btn">⬜ בטל בחירה</button>
+      <button id="btnDeleteSelected" class="context-menu-btn delete">🗑️ מחק נבחרים (<span id="selectedCount">0</span>)</button>
+      <button id="btnCancelSelection" class="context-menu-btn">❌ ביטול</button>
     </div>
 
     <!-- Icon Picker Modal -->
@@ -181,15 +212,7 @@
     </div>
   </main>
 
-  <!-- Footer actions (icon-only) -->
-  <footer class="app-footer" role="contentinfo">
-    <button id="btnFooterSave" class="footer-btn icon-save" title="שמור רשימה" aria-label="שמור רשימה"></button>
-  <button id="btnFooterClear" class="footer-btn icon-clear" title="נקה רשימה" aria-label="נקה רשימה"></button>
-  <button id="btnFooterClearChecked" class="footer-btn icon-reset" title="נקה סימונים" aria-label="נקה סימונים"></button>
-  <button id="btnFooterShare" class="footer-btn icon-share" title="שתף רשימה" aria-label="שתף רשימה"></button>
-  <button id="btnFooterShareWA" class="footer-btn icon-whatsapp" title="שתף ב-WhatsApp" aria-label="שתף ב-WhatsApp"></button>
-  <button id="btnFooterShareSMS" class="footer-btn icon-sms" title="שתף ב-SMS" aria-label="שתף ב-SMS"></button>
-  </footer>
+  <!-- Footer removed - all actions moved to menu -->
 
   <script>
     (function(){
