@@ -14,25 +14,38 @@ let rootFontPx = parseInt(localStorage.getItem("rootFontPx")) || 19;
 document.documentElement.style.fontSize = rootFontPx + "px";
 if (localStorage.getItem("viewMode") === "dark") document.body.classList.add("dark-mode");
 
-/* ====== categories + defaults ====== */
-let categoriesOrder = JSON.parse(localStorage.getItem("categoriesOrder")) || [
-  "פירות וירקות","מוצרי חלב","מאפים ולחמים","בשר ועופות","מזווה ויבשים","אחרים"
-];
-const categories = {
-  "פירות וירקות": ["גזר","מלפפונים","עגבניות"],
-  "מוצרי חלב": ["חלב","גבינה"],
-  "מאפים ולחמים": ["לחם"],
-  "בשר ועופות": ["עוף"],
-  "מזווה ויבשים": ["אורז","קפה"]
+/* ====== DOM Cache ====== */
+// Cache frequently accessed DOM elements
+const DOM = {
+  listGrid: null,
+  chooseGrid: null,
+  totalAmount: null,
+  init() {
+    this.listGrid = document.getElementById("listGrid");
+    this.chooseGrid = document.getElementById("chooseGrid");
+    this.totalAmount = document.getElementById("totalAmount");
+  }
 };
-const savedCategories = localStorage.getItem("categoriesMap");
-if (savedCategories) Object.assign(categories, JSON.parse(savedCategories));
+
+/* ====== categories + defaults ====== */
+// Categories are now managed dynamically from loadDefaultChooseItems()
+// The order and content will be extracted from categorizedItems
+let categoriesOrder = [];
+const categories = {};
 
 /* ====== store map דמה ====== */
 const storeMap = {
-  yohananof: [{ id: 'gd', name: 'יוחננוף גדרה' }, { id: 'tlv', name: 'יוחננוף תל אביב' }],
-  shufersal: [{ id: 'rd', name: 'שופרסל רמת דוד' }],
-  rami: [{ id: 'hl', name: 'רמי לוי חולון' }]
+  yohananof: [
+    { id: 'gd', name: 'יוחננוף גדרה' },
+    { id: 'bilu-ekron', name: 'יוחננוף בילו סנטר עקרון' },
+    { id: 'moti-kind-rehovot', name: 'יוחננוף מוטי קינד רחובות' }
+  ],
+  shufersal: [
+    { id: 'sheli-rehovot', name: 'שופרסל שלי רחובות החדשה' }
+  ],
+  rami: [
+    { id: 'moti-kind-rehovot', name: 'רמי לוי מוטי קינד רחובות' }
+  ]
 };
 
 /* ====== price maps (api/manual) ====== */
@@ -51,15 +64,20 @@ function loadManualPrices() { return JSON.parse(localStorage.getItem('manualPric
 })();
 
 /* ====== Normalization (Hebrew) + fuzzy helper ====== */
+// Character replacement map for better performance
+const HEBREW_FINAL_TO_NORMAL = {
+  'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ'
+};
+
 function normalizeName(s) {
   if (!s) return "";
   s = String(s).trim().toLowerCase();
   s = s.replace(/[\u0591-\u05C7]/g, ""); // remove nikud
-  s = s.replace(/ך/g, "כ").replace(/ם/g, "מ").replace(/ן/g, "נ").replace(/ף/g, "פ").replace(/ץ/g, "צ");
+  // Replace final letters in one pass
+  s = s.replace(/[ךםןףץ]/g, m => HEBREW_FINAL_TO_NORMAL[m]);
   s = s.replace(/[^א-ת0-9\s]/g, "");
   s = s.replace(/\s+/g, " ").trim();
-  s = s.replace(/ות$/,"").replace(/ים$/,"").replace(/יות$/,""
-  );
+  s = s.replace(/ות$|ים$|יות$/,"");
   s = s.replace(/^ה\s*/,"");
   return s;
 }
@@ -117,22 +135,40 @@ function getPriceForItem(name) {
 }
 
 /* ====== fetch prices for branch (saves apiPrices + normalized cache) ====== */
+// Configuration: Use Cloudflare Worker or local JSON files
+const USE_CLOUDFLARE_WORKER = true; // Set to true when Worker is deployed
+const WORKER_URL = 'https://shopping-list-prices.hamalci.workers.dev'; // Replace with your Worker URL
+
 async function fetchPricesForBranch(network, branchId) {
   if (!network || !branchId) return null;
-  const url = `/data/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}.json`;
+  
+  // Choose data source
+  const url = USE_CLOUDFLARE_WORKER 
+    ? `${WORKER_URL}/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}`
+    : `/data/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}.json`;
+  
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    if (!json || !json.prices) throw new Error("Invalid price data");
+    
+    // Handle both formats: Worker format and local JSON format
+    const prices = json.prices || json;
+    if (!prices || typeof prices !== 'object') throw new Error("Invalid price data");
 
-    saveApiPrices(json.prices || {});
-    const normMap = buildNormalizedPriceMap(json.prices || {});
+    saveApiPrices(prices);
+    const normMap = buildNormalizedPriceMap(prices);
     localStorage.setItem('apiPricesNormalized', JSON.stringify(normMap));
-    localStorage.setItem('lastFetchedPrices', JSON.stringify({ network, branchId, updated: json.updated || new Date().toISOString() }));
+    localStorage.setItem('lastFetchedPrices', JSON.stringify({ 
+      network, 
+      branchId, 
+      updated: json.updated || new Date().toISOString(),
+      source: USE_CLOUDFLARE_WORKER ? 'cloudflare-worker' : 'local-json',
+      cached: json.cached || false
+    }));
     renderAllPrices();
     renderTotal();
-    return json.prices;
+    return prices;
   } catch (err) {
     console.error("Failed to fetch prices for branch:", err);
     return null;
@@ -153,8 +189,9 @@ function makeChooseButton(item) {
   btn.appendChild(badge);
 
   btn.addEventListener("click", () => {
-    const listGrid = document.getElementById("listGrid");
-    const existing = Array.from(listGrid.querySelectorAll(".item"))
+    if (!DOM.listGrid) return;
+    
+    const existing = Array.from(DOM.listGrid.querySelectorAll(".item"))
       .find(el => el.querySelector(".name")?.textContent.includes(item.name));
 
     if (existing) {
@@ -307,17 +344,19 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     // אם לחצת על ה priceSpan או על כפתורי qty או note-icon, אל תטפל ב־toggle של השורה
     if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
     row.classList.toggle("checked");
-    const listGrid = document.getElementById("listGrid");
+    if (!DOM.listGrid) return;
     row.classList.add("moving");
-    setTimeout(() => { listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
+    setTimeout(() => { DOM.listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
   });
 
-  document.getElementById("listGrid").appendChild(row);
+  if (DOM.listGrid) DOM.listGrid.appendChild(row);
   
   // Attach long press handler for context menu
   attachLongPressToItem(row);
   
-  if (!skipSave) saveListToStorage();
+  if (!skipSave) {
+    saveListToStorage();
+  }
   renderAllPrices();
   renderTotal();
   return row;
@@ -326,7 +365,9 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 // ===== compute total (now price * quantity) =====
 function computeTotalFromDOM() {
   let total = 0;
-  document.querySelectorAll('#listGrid .item').forEach(el => {
+  const items = DOM.listGrid?.querySelectorAll('.item') || [];
+  
+  for (const el of items) {
     const amtText = el.querySelector('.price .amount')?.textContent || "";
     const price = parseFloat((amtText + "").replace(/[^\d.]/g,'')) || 0;
 
@@ -340,25 +381,23 @@ function computeTotalFromDOM() {
     }
 
     total += price * qty;
-  });
+  }
   return total;
 }
 
 // renderTotal unchanged except it calls computeTotalFromDOM
 function renderTotal() {
-  const el = document.getElementById('totalAmount');
-  if (!el) return;
+  if (!DOM.totalAmount) return;
   const total = computeTotalFromDOM();
   const display = Number.isInteger(total) ? `${total} ₪` : `${total.toFixed(2)} ₪`;
-  el.textContent = display;
+  DOM.totalAmount.textContent = display;
 }
 
 
 /* ====== load choose items ====== */
 function loadDefaultChooseItems() {
-  const chooseGrid = document.getElementById("chooseGrid");
-  if (!chooseGrid) return;
-  chooseGrid.innerHTML = "";
+  if (!DOM.chooseGrid) return;
+  DOM.chooseGrid.innerHTML = "";
 
   // Organized items by categories
   const categorizedItems = {
@@ -453,21 +492,38 @@ function loadDefaultChooseItems() {
     ],
     'משקאות': [
       { name:"מים",icon:"💧",unit:"בקבוק" },
+      { name:"מים נביעות הגולן 1.5L",icon:"💧",unit:"בקבוק" },
+      { name:"מים עין גדי 1.5L",icon:"💧",unit:"בקבוק" },
       { name:"מיץ",icon:"🧃",unit:"ליטר" },
+      { name:"מיץ פרימור 1L",icon:"🧃",unit:"ליטר" },
+      { name:"מיץ טרופיקנה 1L",icon:"🧃",unit:"ליטר" },
       { name:"קולה",icon:"🥤",unit:"ליטר" },
+      { name:"קוקה קולה 1.5L",icon:"🥤",unit:"בקבוק" },
+      { name:"פפסי 1.5L",icon:"🥤",unit:"בקבוק" },
       { name:"פחית קולה",icon:"🥤",unit:"יח'" },
       { name:"בירה",icon:"🍺",unit:"בקבוק" },
+      { name:"בירה גולדסטאר",icon:"🍺",unit:"בקבוק" },
+      { name:"בירה קרלסברג",icon:"🍺",unit:"בקבוק" },
       { name:"יין",icon:"🍷",unit:"בקבוק" },
+      { name:"יין ברקן",icon:"🍷",unit:"בקבוק" },
+      { name:"יין כרמל",icon:"🍷",unit:"בקבוק" },
+      { name:"יין גולן",icon:"🍷",unit:"בקבוק" },
       { name:"אלכוהול",icon:"🥃",unit:"בקבוק" }
     ],
     'חטיפים וממתקים': [
       { name:"שוקולד",icon:"🍫",unit:"יח'" },
+      { name:"שוקולד מילקה",icon:"🍫",unit:"יח'" },
+      { name:"שוקולד קינדר",icon:"🍫",unit:"יח'" },
       { name:"ביסלי",icon:"🥔",unit:"שקית" },
       { name:"במבה",icon:"🥜",unit:"שקית" },
+      { name:"במבה אסם",icon:"🥜",unit:"שקית" },
       { name:"דובונים",icon:"🍬",unit:"שקית" },
       { name:"סוכריות",icon:"🍭",unit:"שקית" },
       { name:"גלידה",icon:"🍦",unit:"יח'" },
+      { name:"גלידה בן אנד ג'ריס",icon:"🍦",unit:"יח'" },
+      { name:"גלידה שטראוס",icon:"🍦",unit:"יח'" },
       { name:"עוגיות",icon:"🍪",unit:"אריזה" },
+      { name:"עוגיות לוטוס",icon:"🍪",unit:"אריזה" },
       { name:"פופקורן",icon:"🍿",unit:"אריזה" },
       { name:"חטיף אנרגיה",icon:"🍫",unit:"יח'" },
       { name:"אגוזים",icon:"🥜",unit:"שקית" }
@@ -497,8 +553,12 @@ function loadDefaultChooseItems() {
     ],
     'מוצרי תינוק': [
       { name:"חיתולים",icon:"👶",unit:"אריזה" },
+      { name:"חיתולי האגיס 4-9 ק\"ג",icon:"👶",unit:"אריזה" },
+      { name:"חיתולי כיפי מידה 4",icon:"👶",unit:"אריזה" },
+      { name:"חיתולי פרה מגה פק",icon:"👶",unit:"אריזה" },
       { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
       { name:"מטליות לחות",icon:"🧻",unit:"אריזה" },
+      { name:"מטליות האגיס",icon:"🧻",unit:"אריזה" },
       { name:"קרם לתינוק",icon:"🧴",unit:"יח'" },
       { name:"שמפו לתינוק",icon:"🧴",unit:"בקבוק" }
     ],
@@ -511,6 +571,13 @@ function loadDefaultChooseItems() {
     ]
   };
 
+  // Populate categoriesOrder and categories from categorizedItems
+  categoriesOrder.length = 0; // Clear array
+  Object.keys(categorizedItems).forEach(cat => {
+    categoriesOrder.push(cat);
+    categories[cat] = categorizedItems[cat].map(item => item.name);
+  });
+
   // Load custom items and merge with default categories
   const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
   
@@ -521,6 +588,9 @@ function loadDefaultChooseItems() {
     if (!customByCategory[cat]) customByCategory[cat] = [];
     customByCategory[cat].push(item);
   });
+
+  // Use DocumentFragment for better performance
+  const fragment = document.createDocumentFragment();
 
   // Create categories with items and + button
   Object.entries(categorizedItems).forEach(([categoryName, items]) => {
@@ -554,18 +624,18 @@ function loadDefaultChooseItems() {
     });
     categoryHeader.appendChild(addBtn);
     
-    chooseGrid.appendChild(categoryHeader);
+    fragment.appendChild(categoryHeader);
 
     // Add default items for this category
     items.forEach(item => {
-      chooseGrid.appendChild(makeChooseButton(item));
+      fragment.appendChild(makeChooseButton(item));
     });
     
     // Add custom items that belong to this category
     if (customByCategory[categoryName]) {
       customByCategory[categoryName].forEach(c => {
         const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
-        chooseGrid.appendChild(makeChooseButton(safe));
+        fragment.appendChild(makeChooseButton(safe));
       });
     }
   });
@@ -601,19 +671,26 @@ function loadDefaultChooseItems() {
     });
     customHeader.appendChild(addBtn);
     
-    chooseGrid.appendChild(customHeader);
+    fragment.appendChild(customHeader);
     
     customByCategory['פריטים מותאמים אישית'].forEach(c => {
       const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
-      chooseGrid.appendChild(makeChooseButton(safe));
+      fragment.appendChild(makeChooseButton(safe));
     });
   }
+  
+  // Append all items at once for better performance
+  if (DOM.chooseGrid) DOM.chooseGrid.appendChild(fragment);
 }
 
 /* ====== list persistence ====== */
 function saveListToStorage() {
+  if (!DOM.listGrid) return;
+  
   const items = [];
-  document.querySelectorAll("#listGrid .item").forEach(el => {
+  const listItems = DOM.listGrid.querySelectorAll(".item");
+  
+  for (const el of listItems) {
     const rawName = (el.querySelector(".name")?.textContent || "").trim();
     const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
     const icon = nameParts.length > 0 ? nameParts[0] : "🛒";
@@ -627,7 +704,7 @@ function saveListToStorage() {
     const noteText = (el.querySelector(".item-note")?.value || "").trim();
 
     items.push({ icon, name: pureName, qty, price: priceText, checked: el.classList.contains("checked"), note: noteText });
-  });
+  }
 
   localStorage.setItem("shoppingList", JSON.stringify(items));
   if (typeof sortListByCategories === "function") sortListByCategories();
@@ -682,59 +759,32 @@ function renderAllPrices() {
 
 /* ====== sorting by categories ====== */
 function sortListByCategories(){
-  const listGrid = document.getElementById("listGrid");
-  if (!listGrid) return;
-  const items = Array.from(listGrid.querySelectorAll(".item"));
-  listGrid.innerHTML = "";
+  if (!DOM.listGrid) return;
+  
+  const items = Array.from(DOM.listGrid.querySelectorAll(".item"));
+  DOM.listGrid.innerHTML = "";
 
+  // First, add unchecked items sorted by categories
   categoriesOrder.forEach(category => {
     const productNames = categories[category] || [];
     const catItems = items.filter(el => {
       const pureName = el.querySelector(".name").textContent.split(" ").slice(1).join(" ");
       return productNames.includes(pureName) && !el.classList.contains("checked");
     });
-    catItems.forEach(el => listGrid.appendChild(el));
+    catItems.forEach(el => DOM.listGrid.appendChild(el));
   });
 
+  // Then, add unchecked items that don't belong to any category
   const flatNames = Object.values(categories).flat();
   const others = items.filter(el => {
     const pureName = el.querySelector(".name").textContent.split(" ").slice(1).join(" ");
     return !flatNames.includes(pureName) && !el.classList.contains("checked");
   });
-  others.forEach(el => listGrid.appendChild(el));
+  others.forEach(el => DOM.listGrid.appendChild(el));
 
+  // Finally, add all checked items at the end
   const checkedItems = items.filter(el => el.classList.contains("checked"));
-  checkedItems.forEach(el => listGrid.appendChild(el));
-}
-
-/* ====== categories UI ====== */
-function renderCategoriesList() {
-  const ul = document.getElementById("categoriesList");
-  if (!ul) return;
-  ul.innerHTML = "";
-  categoriesOrder.forEach((cat, index) => {
-    const li = document.createElement("li"); li.textContent = cat;
-    li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "center";
-    const controls = document.createElement("div");
-    const upBtn = document.createElement("button"); upBtn.textContent = "⬆"; upBtn.className = "btn-settings";
-    upBtn.addEventListener("click", () => {
-      if (index > 0) {
-        [categoriesOrder[index-1], categoriesOrder[index]] = [categoriesOrder[index], categoriesOrder[index-1]];
-        localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
-        renderCategoriesList(); sortListByCategories();
-      }
-    });
-    const downBtn = document.createElement("button"); downBtn.textContent = "⬇"; downBtn.className = "btn-settings";
-    downBtn.addEventListener("click", () => {
-      if (index < categoriesOrder.length - 1) {
-        [categoriesOrder[index+1], categoriesOrder[index]] = [categoriesOrder[index], categoriesOrder[index+1]];
-        localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
-        renderCategoriesList(); sortListByCategories();
-      }
-    });
-    controls.appendChild(upBtn); controls.appendChild(downBtn);
-    li.appendChild(controls); ul.appendChild(li);
-  });
+  checkedItems.forEach(el => DOM.listGrid.appendChild(el));
 }
 
 /* ====== store UI ====== */
@@ -994,380 +1044,176 @@ function finishAddingCustomItem(icon) {
   renderTotal();
 }
 
-/* ====== רשימות קניה מוכנות ====== */
-const presetLists = {
-  "ארוחת בוקר": [
-    { name: "חלב", icon: "🥛", unit: "ליטר" },
-    { name: "לחם", icon: "🍞", unit: "יח'" },
-    { name: "ביצים", icon: "🥚", unit: "יח'" },
-    { name: "גבינה צהובה", icon: "🧀", unit: "אריזה" },
-    { name: "חמאה", icon: "🧈", unit: "אריזה" },
-    { name: "יוגורט", icon: "🥛", unit: "יח'" },
-    { name: "בננה", icon: "🍌", unit: "ק\"ג" },
-    { name: "קפה", icon: "☕", unit: "אריזה" }
-  ],
-  "ארוחת ערב": [
-    { name: "עוף", icon: "🍗", unit: "ק\"ג" },
-    { name: "בשר בקר", icon: "🥩", unit: "ק\"ג" },
-    { name: "אורז", icon: "🍚", unit: "ק\"ג" },
-    { name: "פסטה", icon: "🍝", unit: "אריזה" },
-    { name: "עגבניות", icon: "🍅", unit: "ק\"ג" },
-    { name: "בצל", icon: "🧅", unit: "ק\"ג" },
-    { name: "שום", icon: "🧄", unit: "אריזה" },
-    { name: "פלפל", icon: "🌶️", unit: "ק\"ג" }
-  ],
-  "פירות וירקות": [
-    { name: "גזר", icon: "🥕", unit: "ק\"ג" },
-    { name: "מלפפונים", icon: "🥒", unit: "ק\"ג" },
-    { name: "עגבניות", icon: "🍅", unit: "ק\"ג" },
-    { name: "חסה", icon: "🥬", unit: "יח'" },
-    { name: "תפוחים", icon: "🍎", unit: "ק\"ג" },
-    { name: "בננה", icon: "🍌", unit: "ק\"ג" },
-    { name: "תפוזים", icon: "🍊", unit: "ק\"ג" },
-    { name: "אבוקדו", icon: "🥑", unit: "יח'" }
-  ],
-  "ניקיון ובית": [
-    { name: "נייר טואלט", icon: "🧻", unit: "אריזה" },
-    { name: "סבון כלים", icon: "🧽", unit: "בקבוק" },
-    { name: "מסיכות כביסה", icon: "🧴", unit: "אריזה" },
-    { name: "אבקת כביסה", icon: "📦", unit: "אריזה" },
-    { name: "מטליות", icon: "🧽", unit: "אריזה" },
-    { name: "שקיות זבל", icon: "🗑️", unit: "אריזה" },
-    { name: "מרכך כביסה", icon: "🧴", unit: "בקבוק" },
-    { name: "סבון רחצה", icon: "🧼", unit: "יח'" }
-  ],
-  "חטיפים וממתקים": [
-    { name: "שוקולד", icon: "🍫", unit: "יח'" },
-    { name: "ביסקוויטים", icon: "🍪", unit: "אריזה" },
-    { name: "פופקורן", icon: "🍿", unit: "אריזה" },
-    { name: "גלידה", icon: "🍦", unit: "יח'" },
-    { name: "ממתקים", icon: "🍬", unit: "שקית" },
-    { name: "צ'יפס", icon: "🥔", unit: "שקית" },
-    { name: "אגוזים", icon: "🥜", unit: "שקית" },
-    { name: "פירות יבשים", icon: "🥭", unit: "שקית" }
-  ],
-  "בסיסי שבת": [
-    { name: "יין", icon: "🍷", unit: "בקבוק" },
-    { name: "נרות שבת", icon: "🕯️", unit: "אריזה" },
-    { name: "חלה", icon: "🍞", unit: "יח'" },
-    { name: "בשר", icon: "🥩", unit: "ק\"ג" },
-    { name: "דגים", icon: "🐟", unit: "ק\"ג" },
-    { name: "ירקות לסלט", icon: "🥗", unit: "יח'" },
-    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
-    { name: "שמן זית", icon: "🫒", unit: "בקבוק" }
-  ],
-  "מוצרי תינוק": [
-    { name: "חיתולים", icon: "👶", unit: "אריזה" },
-    { name: "מזון תינוקות", icon: "🍼", unit: "יח'" },
-    { name: "מטליות לחות", icon: "🧻", unit: "אריזה" },
-    { name: "קרם לתינוק", icon: "🧴", unit: "יח'" },
-    { name: "שמפו לתינוק", icon: "🧴", unit: "בקבוק" },
-    { name: "אבקת כביסה לתינוק", icon: "📦", unit: "אריזה" },
-    { name: "כוסות הזנה", icon: "🍼", unit: "יח'" }
-  ],
-  "ביקור חולים": [
-    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
-    { name: "מיצים טבעיים", icon: "🧃", unit: "יח'" },
-    { name: "עוגיות דיאטטיות", icon: "🍪", unit: "אריזה" },
-    { name: "תה צמחים", icon: "🫖", unit: "אריזה" },
-    { name: "דבש", icon: "🍯", unit: "צנצנת" },
-    { name: "לימונים", icon: "🍋", unit: "ק\"ג" },
-    { name: "ג'לי רויאל", icon: "🍯", unit: "יח'" }
-  ],
-  "קיץ וחופש": [
-    { name: "מים מינרליים", icon: "💧", unit: "ליטר" },
-    { name: "גלידה", icon: "🍦", unit: "יח'" },
-    { name: "פופסיקל", icon: "🧊", unit: "אריזה" },
-    { name: "אבטיח", icon: "🍉", unit: "יח'" },
-    { name: "קרם הגנה", icon: "🧴", unit: "יח'" },
-    { name: "כובעים", icon: "🧢", unit: "יח'" },
-    { name: "משקאות קרים", icon: "🥤", unit: "יח'" },
-    { name: "פירות יבשים", icon: "🥭", unit: "שקית" }
-  ],
-  "אירוח": [
-    { name: "אורזים", icon: "🍚", unit: "ק\"ג" },
-    { name: "נפקינים", icon: "🧻", unit: "אריזה" },
-    { name: "כוסות חד-פעמיות", icon: "🥤", unit: "אריזה" },
-    { name: "צלחות חד-פעמיות", icon: "🍽️", unit: "אריזה" },
-    { name: "משקאות", icon: "🥤", unit: "יח'" },
-    { name: "ממתקים", icon: "🍬", unit: "שקית" },
-    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
-    { name: "גבינות", icon: "🧀", unit: "אריזה" }
-  ]
-};
+/* ====== Barcode Scanner ====== */
+let barcodeScanner = null;
 
-// פונקציה לפתיחת modal עבור רשימות מוכנות
-function openPresetListModal(listNames, allLists, customLists) {
-  const modal = document.getElementById('presetListModal');
-  const listEl = document.getElementById('presetListOptions');
-  const closeBtn = document.getElementById('closePresetListModal');
-  if (!modal || !listEl) return;
+function startBarcodeScanner() {
+  const modal = document.getElementById('barcodeScannerModal');
+  const viewport = document.getElementById('barcodeScannerViewport');
   
-  // נקה תוכן קודם
-  listEl.innerHTML = '';
-  
-  // צור אפשרות לכל רשימה
-  listNames.forEach((name, idx) => {
-    const li = document.createElement('li');
-    const isCustom = customLists[name] ? ' (מותאם אישית)' : '';
-    li.textContent = `${name} (${allLists[name].length} פריטים)${isCustom}`;
-    li.tabIndex = 0;
-    
-    li.addEventListener('click', () => {
-      modal.style.display = 'none';
-      handlePresetListSelection(name, allLists[name], name);
-    });
-    
-    listEl.appendChild(li);
-  });
-  
-  // הוסף אפשרות לניהול רשימות מותאמות אישית אם יש כאלה
-  const hasCustomLists = Object.keys(customLists).length > 0;
-  if (hasCustomLists) {
-    const li = document.createElement('li');
-    li.textContent = '⚙️ נהל רשימות מותאמות אישית';
-    li.style.backgroundColor = '#f0f0f0';
-    li.style.borderTop = '1px solid #ddd';
-    li.tabIndex = 0;
-    
-    li.addEventListener('click', () => {
-      modal.style.display = 'none';
-      manageCustomLists();
-    });
-    
-    listEl.appendChild(li);
+  if (!modal || !viewport) {
+    alert('שגיאה: לא נמצא אלמנט הסורק');
+    return;
   }
   
-  // סגירה
-  closeBtn.onclick = () => { modal.style.display = 'none'; };
-  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+  // בדיקה אם הספרייה נטענה
+  if (typeof Quagga === 'undefined') {
+    alert('שגיאה: ספריית הסריקה לא נטענה. נסה לרענן את הדף.');
+    return;
+  }
+  
+  // בדיקת HTTPS (נדרש ב-iOS)
+  const isSecure = window.location.protocol === 'https:' || 
+                   window.location.hostname === 'localhost' || 
+                   window.location.hostname === '127.0.0.1';
+  
+  if (!isSecure) {
+    alert('⚠️ דרושה גישה מאובטחת!\n\nסורק הברקודים דורש HTTPS.\n\nפתרונות:\n1. העלה לשרת עם HTTPS\n2. השתמש ב-localhost\n3. השתמש ב-ngrok או Cloudflare Tunnel');
+    return;
+  }
+  
+  // בדיקה אם יש תמיכה במצלמה
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('⚠️ הדפדפן לא תומך בגישה למצלמה.\n\nוודא שאתה משתמש בדפדפן מעודכן (Safari, Chrome).');
+    return;
+  }
+  
   modal.style.display = 'flex';
-}
-
-// פונקציה לטיפול בבחירת רשימה מוכנה עם אופציית החלפה/הוספה
-function handlePresetListSelection(selectedName, selectedList, displayName) {
-  // בדיקה אם הרשימה הנוכחית ריקה או לא
-  const currentItems = document.querySelectorAll("#listGrid .item").length;
+  viewport.innerHTML = ''; // נקה תוכן קודם
   
-  let actionChoice = '1'; // ברירת מחדל: החלפה
-  
-  if (currentItems > 0) {
-    // יש פריטים קיימים - תן אופציה להחליף או להוסיף
-    const userChoice = confirm(`יש כבר פריטים ברשימה שלי.\n\nלחץ "אישור" להחליף את הרשימה הקיימת\nלחץ "ביטול" להוסיף לרשימה הקיימת`);
-    
-    if (userChoice) {
-      // החלפה - נקה את הרשימה
-      clearList();
-      actionChoice = '1';
-    } else {
-      // הוספה - השאר את הפריטים הקיימים
-      actionChoice = '2';
-    }
-  }
-  
-  // הוסף את הפריטים מהרשימה המוכנה
-  selectedList.forEach(item => {
-    // בדוק אם הפריט כבר קיים ברשימה (רק אם מוסיפים)
-    if (actionChoice === '2') {
-      const existing = Array.from(document.querySelectorAll("#listGrid .item")).find(el => {
-        const rawName = (el.querySelector(".name")?.textContent || "").trim();
-        const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-        const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-        return pureName.toLowerCase() === item.name.toLowerCase();
-      });
-      
-      if (existing) {
-        // הגדל כמות במקום ליצור פריט חדש
-        const qtyEl = existing.querySelector(".qty");
-        if (qtyEl) {
-          const qtyText = qtyEl.textContent || "1 יח'";
-          const qtyParts = qtyText.split(" ");
-          const currentQty = parseInt(qtyParts[0]) || 1;
-          const unit = qtyParts.slice(1).join(" ") || "יח'";
-          qtyEl.textContent = `${currentQty + 1} ${unit}`;
-        }
-        return; // דלג על יצירת פריט חדש - רק עבור הפריט הנוכחי
+  Quagga.init({
+    inputStream: {
+      name: "Live",
+      type: "LiveStream",
+      target: viewport,
+      constraints: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: "environment" // מצלמה אחורית
       }
-    }
-    
-    // צור פריט חדש (אם לא קיים או אם החלפנו את הרשימה)
-    createListItem(item.name, item.icon, 1, item.unit);
-  });
-  
-  saveListToStorage();
-  renderAllPrices();
-  renderTotal();
-  
-  const actionText = actionChoice === '1' ? 'נטענה' : 'נוספה לרשימה';
-  alert(`רשימת "${displayName}" ${actionText} בהצלחה עם ${selectedList.length} פריטים!`);
-}
-
-function loadPresetList() {
-  // טעינת רשימות מותאמות אישית
-  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
-  const allLists = { ...presetLists, ...customLists };
-  
-  // יצירת רשימת האפשרויות
-  const listNames = Object.keys(allLists);
-  if (listNames.length === 0) {
-    alert('אין רשימות מוכנות זמינות.');
-    return;
-  }
-  
-  // פתיחת modal במקום prompt
-  openPresetListModal(listNames, allLists, customLists);
-}
-
-function manageCustomLists() {
-  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
-  const customListNames = Object.keys(customLists);
-  
-  if (customListNames.length === 0) {
-    alert('אין רשימות מותאמות אישית זמינות.');
-    return;
-  }
-  
-  let optionsText = "נהל רשימות מותאמות אישית:\n\n";
-  customListNames.forEach((name, index) => {
-    optionsText += `${index + 1}. ${name} (${customLists[name].length} פריטים)\n`;
-  });
-  optionsText += "\nהכנס מספר הרשימה למחיקה או 'ביטול' לחזרה:";
-  
-  const choice = prompt(optionsText);
-  
-  if (!choice || choice.trim().toLowerCase() === 'ביטול') return;
-  
-  const choiceNum = parseInt(choice.trim());
-  if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > customListNames.length) {
-    alert('מספר לא תקין.');
-    return;
-  }
-  
-  const listToDelete = customListNames[choiceNum - 1];
-  
-  if (confirm(`האם למחוק את הרשימה "${listToDelete}"? פעולה זו לא ניתנת לביטול.`)) {
-    delete customLists[listToDelete];
-    localStorage.setItem('customPresetLists', JSON.stringify(customLists));
-    alert(`רשימת "${listToDelete}" נמחקה בהצלחה.`);
-  }
-}
-
-function saveCurrentListAsPreset() {
-  const listGrid = document.getElementById("listGrid");
-  const currentItems = [];
-  
-  // אסוף את כל הפריטים מהרשימה הנוכחית
-  document.querySelectorAll("#listGrid .item").forEach(el => {
-    const rawName = (el.querySelector(".name")?.textContent || "").trim();
-    const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-    const icon = nameParts.length > 0 ? nameParts[0] : "🛒";
-    const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-    
-    const rawQty = (el.querySelector(".qty")?.textContent || "").trim();
-    const qtyParts = rawQty.split(" ").map(p => p.trim()).filter(p => p !== "");
-    const unit = qtyParts.length > 1 ? qtyParts.slice(1).join(" ") : "יח'";
-    
-    if (pureName) {
-      currentItems.push({ name: pureName, icon, unit });
-    }
-  });
-  
-  if (currentItems.length === 0) {
-    alert('הרשימה הנוכחית ריקה. אין מה לשמור.');
-    return;
-  }
-  
-  const listName = prompt(`הכנס שם לרשימה המוכנה החדשה:\n(הרשימה כוללת ${currentItems.length} פריטים)`);
-  
-  if (!listName || !listName.trim()) {
-    return;
-  }
-  
-  const cleanName = listName.trim();
-  
-  // טען רשימות מותאמות אישית קיימות
-  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
-  
-  // בדוק אם השם כבר קיים
-  if (customLists[cleanName] || presetLists[cleanName]) {
-    if (!confirm(`רשימה בשם "${cleanName}" כבר קיימת. האם להחליף אותה?`)) {
+    },
+    decoder: {
+      readers: [
+        "ean_reader",      // EAN-13 (הכי נפוץ בישראל)
+        "ean_8_reader",    // EAN-8
+        "code_128_reader", // Code 128
+        "code_39_reader",  // Code 39
+        "upc_reader"       // UPC
+      ],
+      debug: {
+        drawBoundingBox: true,
+        showFrequency: false,
+        drawScanline: true,
+        showPattern: false
+      }
+    },
+    locate: true,
+    numOfWorkers: navigator.hardwareConcurrency || 4,
+    frequency: 10
+  }, function(err) {
+    if (err) {
+      console.error("Barcode scanner initialization error:", err);
+      modal.style.display = 'none';
+      
+      // הודעת שגיאה מפורטת
+      let errorMsg = '❌ לא ניתן לפתוח מצלמה\n\n';
+      
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMsg += 'הרשאת מצלמה נדחתה.\n\nפתרון:\n';
+        errorMsg += '1. הגדרות Safari → מצלמה → אפשר\n';
+        errorMsg += '2. רענן את הדף\n';
+        errorMsg += '3. נסה שוב';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMsg += 'לא נמצאה מצלמה במכשיר.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMsg += 'המצלמה בשימוש על ידי אפליקציה אחרת.\n\nסגור אפליקציות אחרות ונסה שוב.';
+      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
+        errorMsg += 'הגדרות המצלמה אינן נתמכות.\n\nנסה דפדפן אחר.';
+      } else {
+        errorMsg += 'שגיאה: ' + (err.message || err.name || 'לא ידועה');
+        errorMsg += '\n\nוודא:\n';
+        errorMsg += '• האתר ב-HTTPS\n';
+        errorMsg += '• נתת הרשאת מצלמה\n';
+        errorMsg += '• המצלמה לא בשימוש';
+      }
+      
+      alert(errorMsg);
       return;
     }
-  }
+    
+    console.log("Barcode scanner initialized successfully");
+    Quagga.start();
+  });
+
+  // כשברקוד מזוהה:
+  Quagga.onDetected(handleBarcodeDetected);
   
-  // שמור את הרשימה החדשה
-  customLists[cleanName] = currentItems;
-  localStorage.setItem('customPresetLists', JSON.stringify(customLists));
-  
-  alert(`רשימת "${cleanName}" נשמרה בהצלחה עם ${currentItems.length} פריטים!`);
+  barcodeScanner = true;
 }
 
-// פונקציה לפתיחת modal עם אופציות החלפה/הוספה
-function openChooseListModal(listNames, allLists, customLists) {
-  const modal = document.getElementById('chooseListModal');
-  const listEl = document.getElementById('chooseListOptions');
-  const closeBtn = document.getElementById('closeChooseListModal');
-  if (!modal || !listEl) return;
+function stopBarcodeScanner() {
+  if (barcodeScanner && typeof Quagga !== 'undefined') {
+    Quagga.offDetected(handleBarcodeDetected);
+    Quagga.stop();
+    barcodeScanner = null;
+  }
+  const modal = document.getElementById('barcodeScannerModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function handleBarcodeDetected(result) {
+  if (!result || !result.codeResult) return;
   
-  // נקה תוכן קודם
-  listEl.innerHTML = '';
+  const barcode = result.codeResult.code;
+  console.log("Barcode detected:", barcode);
   
-  // צור אפשרות לכל רשימה
-  listNames.forEach((name, idx) => {
-    const li = document.createElement('li');
-    const isCustom = customLists[name] ? ' (מותאם אישית)' : '';
-    li.textContent = `${name} (${allLists[name].length} פריטים)${isCustom}`;
-    li.tabIndex = 0;
-    
-    li.addEventListener('click', () => {
-      modal.style.display = 'none';
-      handleChooseListSelection(name, allLists[name], name);
+  // עצור סריקה
+  stopBarcodeScanner();
+  
+  // חפש מוצר לפי ברקוד
+  fetchProductByBarcode(barcode)
+    .then(product => {
+      if (product) {
+        // הוסף לרשימה
+        createListItem(product.name, product.icon, 1, product.unit);
+        saveListToStorage();
+        renderAllPrices();
+        renderTotal();
+        alert(`✅ נוסף: ${product.name}` + (product.price ? ` - ${product.price}₪` : ''));
+      } else {
+        alert(`❌ ברקוד ${barcode} לא נמצא במערכת.\n\nתוכל להוסיף את המוצר ידנית.`);
+      }
+    })
+    .catch(err => {
+      console.error("Error fetching product:", err);
+      alert(`שגיאה בחיפוש מוצר. ברקוד: ${barcode}`);
     });
-    
-    listEl.appendChild(li);
-  });
-  
-  // סגירה
-  closeBtn.onclick = () => { modal.style.display = 'none'; };
-  modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-  modal.style.display = 'flex';
 }
 
-// פונקציה לטיפול בבחירת רשימה עם אופציית החלפה/הוספה
-function handleChooseListSelection(selectedName, selectedList, displayName) {
-  // בדיקה אם יש פריטים בטבלת הבחירה
-  const chooseGrid = document.getElementById('chooseGrid');
-  const hasExistingItems = chooseGrid && chooseGrid.children.length > 0;
+async function fetchProductByBarcode(barcode) {
+  const network = localStorage.getItem('selectedNetwork') || 'shufersal';
+  const url = `${WORKER_URL}/product/${encodeURIComponent(network)}/${encodeURIComponent(barcode)}`;
   
-  let actionChoice = '1'; // ברירת מחדל: החלפה
-  
-  if (hasExistingItems) {
-    // יש פריטים קיימים - תן אופציה להחליף או להוסיף
-    const userChoice = confirm(`יש כבר פריטים בטבלת הבחירה.\n\nלחץ "אישור" להחליף את הפריטים הקיימים\nלחץ "ביטול" להוסיף לפריטים הקיימים`);
-    
-    if (userChoice) {
-      // החלפה - נקה את הטבלה
-      chooseGrid.innerHTML = '';
-      actionChoice = '1';
-    } else {
-      // הוספה - השאר את הפריטים הקיימים
-      actionChoice = '2';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.log(`Product not found for barcode: ${barcode}`);
+      return null;
     }
+    return await res.json();
+  } catch (err) {
+    console.error("Failed to fetch product by barcode:", err);
+    return null;
   }
-  
-  // הוסף את הפריטים לטבלת הבחירה
-  selectedList.forEach(item => {
-    if (chooseGrid) {
-      chooseGrid.appendChild(makeChooseButton(item));
-    }
-  });
-  
-  const actionText = actionChoice === '1' ? 'נטענו' : 'נוספו';
-  alert(`פריטי רשימת "${displayName}" ${actionText} בהצלחה לטבלת הבחירה!`);
 }
+
+/* ====== Selection Mode & Context Menu ====== */
 
 /* ====== init ====== */
 document.addEventListener("DOMContentLoaded", () => {
+  // Initialize DOM cache
+  DOM.init();
+  
   loadDefaultChooseItems();
   // Check for ?list= param in URL
   const params = new URLSearchParams(window.location.search);
@@ -1385,56 +1231,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Open choose modal button
   document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
 
+  // Barcode scanner button
+  document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
+  document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
+  document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
+
   // Removed: btnHdrResetChoices and btnHdrAddCustom - no longer needed with + buttons in categories
   // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
-
-  document.getElementById("btnSaveCategories")?.addEventListener("click", () => {
-    localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
-    alert("✅ סדר הקטגוריות נשמר!");
-    sortListByCategories();
-  });
-
-  document.getElementById("btnAddCategory")?.addEventListener("click", () => {
-    const newCat = prompt("הכנס שם קטגוריה חדשה:");
-    if (!newCat) return;
-    if (categoriesOrder.includes(newCat)) { alert("⚠️ קטגוריה זו כבר קיימת!"); return; }
-    categoriesOrder.push(newCat); categories[newCat] = [];
-    localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
-    localStorage.setItem("categoriesMap", JSON.stringify(categories));
-    renderCategoriesList(); sortListByCategories();
-  });
-
-  document.getElementById("btnAssignItem")?.addEventListener("click", () => {
-    if (categoriesOrder.length === 0) { alert("אין קטגוריות זמינות. צור קטגוריה חדשה קודם."); return; }
-    const itemName = prompt("הכנס שם פריט לשיוך:");
-    if (!itemName) return;
-    const category = prompt("לאיזו קטגוריה לשייך את הפריט?\n" + categoriesOrder.join(", "));
-    if (!category || !categoriesOrder.includes(category)) { alert("⚠️ קטגוריה לא קיימת!"); return; }
-    if (!categories[category]) categories[category] = [];
-    if (!categories[category].includes(itemName)) categories[category].push(itemName);
-    localStorage.setItem("categoriesMap", JSON.stringify(categories));
-    sortListByCategories();
-  });
-
-  document.getElementById("btnCategoriesSettings")?.addEventListener("click", () => {
-    const settingsSection = document.getElementById("settingsSection");
-    if (!settingsSection) return;
-    settingsSection.style.display = settingsSection.style.display === "block" ? "none" : "block";
-    if (settingsSection.style.display === "block") {
-      settingsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-      renderCategoriesList();
-    }
-  });
-
-  document.getElementById("closeSettings")?.addEventListener("click", () => {
-    document.getElementById("settingsSection").style.display = "none";
-  });
-  document.getElementById("btnCloseCategories")?.addEventListener("click", () => {
-    const section = document.getElementById("settingsSection");
-    if (!section) return;
-    section.style.display = "none";
-    document.querySelector('.app-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
+  // Categories settings UI removed - categories now managed directly in loadDefaultChooseItems()
 
   // Helper function to close main menu
   function closeMainMenu() {
@@ -1514,7 +1318,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById('togglePrices')?.addEventListener('change', (e) => {
     togglePriceDisplay(e.target.checked);
-    closeMainMenu();
+    // Don't close menu - let user save the store selection too
   });
 
   /* init store UI */
@@ -1595,11 +1399,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // List menu actions
-  document.getElementById('btnListSave')?.addEventListener('click', () => {
-    if (typeof saveCurrentListAsPreset === 'function') saveCurrentListAsPreset();
-    closeListMenu();
-  });
-  
   document.getElementById('btnListClear')?.addEventListener('click', () => {
     if (confirm('האם למחוק את כל הרשימה?')) clearList();
     closeListMenu();
@@ -1640,11 +1439,6 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof renderTotal === 'function') renderTotal();
 
   // ===== Menu actions wiring =====
-  document.getElementById('btnFooterSave')?.addEventListener('click', () => {
-    if (typeof saveCurrentListAsPreset === 'function') saveCurrentListAsPreset();
-    closeMainMenu();
-  });
-  
   document.getElementById('btnFooterClear')?.addEventListener('click', () => {
     if (confirm('האם למחוק את כל הרשימה?')) clearList();
     closeMainMenu();

@@ -1,0 +1,31 @@
+# Cloudflare Workers configuration
+# Learn more: https://developers.cloudflare.com/workers/
+
+name = "shopping-list-prices"
+main = "cloudflare-worker.js"
+compatibility_date = "2024-10-01"
+
+# Account ID - replace with your Cloudflare account ID
+# Find it at: https://dash.cloudflare.com/ -> Workers & Pages -> Overview
+account_id = "bfaf1c0e6a717160b62788294dc04e2a"
+
+# Workers Free tier limits:
+# - 100,000 requests/day
+# - 10ms CPU time per request
+# - No cost!
+
+[env.production]
+name = "shopping-list-prices"
+route = "prices.your-domain.com/*"  # Optional: use custom domain
+
+[env.development]
+name = "shopping-list-prices-dev"
+
+# Optional: Cloudflare KV for caching (enhances free tier)
+# [[kv_namespaces]]
+# binding = "PRICES_CACHE"
+# id = "YOUR_KV_NAMESPACE_ID"
+
+# Optional: Environment variables
+# [vars]
+# API_KEY = "your-secret-key"
