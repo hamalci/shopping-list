@@ -237,7 +237,9 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
-  nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
+  // בדיקה אם השם כבר מכיל אייקון (למנוע אייקון כפול)
+  const hasIconInName = cleanName.match(/^[\p{Emoji}\u{1F300}-\u{1F9FF}]/u);
+  nameSpan.textContent = hasIconInName ? cleanName : `${cleanIcon} ${cleanName}`.trim();
 
   // qty+unit as a single span for compactness
   const qty = document.createElement("span");
