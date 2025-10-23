@@ -1252,13 +1252,46 @@ function startVoiceInput() {
   const voiceBtn = document.getElementById('btnVoiceInput');
   
   if (isListening) {
-    // Stop listening
+    // Stop listening and process what we have
+    console.log('🛑 User stopped listening manually. Processing:', lastTranscript);
+    
     if (recognition) {
       recognition.stop();
     }
     isListening = false;
     voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
+    
+    // Clear any pending timeout
+    if (finalResultTimeout) {
+      clearTimeout(finalResultTimeout);
+      finalResultTimeout = null;
+    }
+    
+    // Process the transcript immediately
+    if (lastTranscript && lastTranscript.trim() !== '') {
+      const product = findProductByVoice(lastTranscript);
+      
+      if (product) {
+        voiceBtn.textContent = '✅';
+        createListItem(product.name, product.icon, 1, product.unit);
+        setTimeout(() => {
+          voiceBtn.textContent = '🎤';
+        }, 1500);
+      } else {
+        voiceBtn.textContent = '❓';
+        setTimeout(() => {
+          if (confirm(`לא מצאתי "${lastTranscript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+            const icon = detectIconByName(lastTranscript);
+            createListItem(lastTranscript, icon, 1, 'יח\'');
+          }
+          voiceBtn.textContent = '🎤';
+        }, 100);
+      }
+      lastTranscript = '';
+    } else {
+      voiceBtn.textContent = '🎤';
+    }
+    
     return;
   }
 
@@ -1420,7 +1453,7 @@ function startVoiceInput() {
       // Clear last transcript
       lastTranscript = '';
       finalResultTimeout = null;
-    }, 3000); // Increased to 3 seconds to capture full phrases (Hebrew speakers pause between words)
+    }, 5000); // 5 seconds - plenty of time for Hebrew multi-word phrases, or click mic again to stop
   };
 
   recognition.onerror = (event) => {
