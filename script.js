@@ -1293,6 +1293,9 @@ function startVoiceInput() {
     const transcript = event.results[0][0].transcript;
     console.log('Voice input:', transcript);
     
+    // Reset state immediately
+    isListening = false;
+    
     // Search for the product in categories
     const product = findProductByVoice(transcript);
     
@@ -1323,8 +1326,6 @@ function startVoiceInput() {
         voiceBtn.textContent = '🎤';
       }, 100);
     }
-    
-    isListening = false;
   };
 
   recognition.onerror = (event) => {
@@ -1377,7 +1378,10 @@ function startVoiceInput() {
   recognition.onend = () => {
     isListening = false;
     voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
+    // Don't reset button text if it was already changed to ✅ or ❓
+    if (voiceBtn.textContent === '⏹️') {
+      voiceBtn.textContent = '🎤';
+    }
     console.log('Voice recognition ended');
   };
 }
