@@ -1216,6 +1216,7 @@ async function fetchProductByBarcode(barcode) {
 let recognition = null;
 let isListening = false;
 let noSpeechTimeout = null;
+let finalResultTimeout = null; // NEW: timeout after final result
 
 function startVoiceInput() {
   // Check for Web Speech API support
@@ -1341,53 +1342,73 @@ function startVoiceInput() {
     // Show interim results on button
     if (!isFinal) {
       voiceBtn.textContent = '⏳';
+      // Clear any pending final result timeout (user is still speaking)
+      if (finalResultTimeout) {
+        clearTimeout(finalResultTimeout);
+        finalResultTimeout = null;
+      }
       return; // Wait for final result
     }
     
-    console.log('✅ Voice recognized:', transcript);
+    console.log('✅ Voice recognized (final):', transcript);
     
-    // Stop recognition after receiving final result
-    recognition.stop();
-    
-    // Clear timeout
+    // Clear no-speech timeout
     if (noSpeechTimeout) {
       clearTimeout(noSpeechTimeout);
       noSpeechTimeout = null;
     }
     
-    // Reset state immediately
-    isListening = false;
-    
-    // Search for the product in categories
-    const product = findProductByVoice(transcript);
-    
-    if (product) {
-      // Show success feedback first
-      voiceBtn.textContent = '✅';
-      voiceBtn.classList.remove('listening');
-      
-      // Create the item
-      createListItem(product.name, product.icon, 1, product.unit);
-      
-      // Reset button after delay
-      setTimeout(() => {
-        voiceBtn.textContent = '🎤';
-      }, 1500);
-      
-    } else {
-      // Product not found - add as custom item
-      voiceBtn.textContent = '❓';
-      voiceBtn.classList.remove('listening');
-      
-      setTimeout(() => {
-        if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-          // Detect icon based on product name
-          const icon = detectIconByName(transcript);
-          createListItem(transcript, icon, 1, 'יח\'');
-        }
-        voiceBtn.textContent = '🎤';
-      }, 100);
+    // Don't stop immediately! Wait 1.5 seconds in case user says more words
+    // Clear any previous timeout
+    if (finalResultTimeout) {
+      clearTimeout(finalResultTimeout);
     }
+    
+    // Set new timeout to process the result
+    finalResultTimeout = setTimeout(() => {
+      console.log('⏱️ Processing final result after delay:', transcript);
+      
+      // Stop recognition now
+      if (recognition) {
+        recognition.stop();
+      }
+      
+      // Reset state
+      isListening = false;
+      
+      // Search for the product in categories
+      const product = findProductByVoice(transcript);
+      
+      if (product) {
+        // Show success feedback first
+        voiceBtn.textContent = '✅';
+        voiceBtn.classList.remove('listening');
+        
+        // Create the item
+        createListItem(product.name, product.icon, 1, product.unit);
+        
+        // Reset button after delay
+        setTimeout(() => {
+          voiceBtn.textContent = '🎤';
+        }, 1500);
+        
+      } else {
+        // Product not found - add as custom item
+        voiceBtn.textContent = '❓';
+        voiceBtn.classList.remove('listening');
+        
+        setTimeout(() => {
+          if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+            // Detect icon based on product name
+            const icon = detectIconByName(transcript);
+            createListItem(transcript, icon, 1, 'יח\'');
+          }
+          voiceBtn.textContent = '🎤';
+        }, 100);
+      }
+      
+      finalResultTimeout = null;
+    }, 1500); // Wait 1.5 seconds after final result
   };
 
   recognition.onerror = (event) => {
@@ -1445,16 +1466,20 @@ function startVoiceInput() {
   };
 
   recognition.onend = () => {
-    // Clear timeout
+    // Clear timeouts
     if (noSpeechTimeout) {
       clearTimeout(noSpeechTimeout);
       noSpeechTimeout = null;
+    }
+    if (finalResultTimeout) {
+      clearTimeout(finalResultTimeout);
+      finalResultTimeout = null;
     }
     
     isListening = false;
     voiceBtn.classList.remove('listening');
     // Don't reset button text if it was already changed to ✅ or ❓
-    if (voiceBtn.textContent === '🔴' || voiceBtn.textContent === '⏹️') {
+    if (voiceBtn.textContent === '🔴' || voiceBtn.textContent === '⏹️' || voiceBtn.textContent === '⏳') {
       voiceBtn.textContent = '🎤';
     }
     console.log('🛑 Voice recognition ended');
