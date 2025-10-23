@@ -181,7 +181,7 @@ function makeChooseButton(item) {
   btn.className = "choose-item";
   btn.setAttribute('data-icon', item.icon);
   btn.setAttribute('data-unit', item.unit);
-  btn.textContent = `${item.icon} ${item.name}`;
+  btn.textContent = item.name; // CSS displays icon via ::before pseudo-element
 
   const badge = document.createElement("span");
   badge.className = "badge";
