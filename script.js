@@ -1480,7 +1480,11 @@ function findProductByVoice(voiceText) {
         );
         
         if (chooseItem) {
-          const icon = chooseItem.textContent.match(/[^\u0000-\u007F]/)?.[0] || '🛒';
+          // Extract the emoji icon from the beginning of the text
+          const fullText = chooseItem.textContent.trim();
+          // Emojis are typically 1-2 characters (some are composite with modifiers)
+          const emojiMatch = fullText.match(/^(\p{Emoji_Presentation}|\p{Emoji}\uFE0F)/u);
+          const icon = emojiMatch ? emojiMatch[0] : '🛒';
           const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
           return { name: productName, icon, unit };
         }
