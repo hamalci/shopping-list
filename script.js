@@ -1290,7 +1290,7 @@ function startVoiceInput() {
   recognition = new SpeechRecognition();
   
   recognition.lang = 'he-IL'; // Hebrew first, will fallback if needed
-  recognition.continuous = false; // Stop after one phrase
+  recognition.continuous = true; // Keep listening (will stop manually or on timeout)
   recognition.interimResults = true; // Show interim results for better UX
   recognition.maxAlternatives = 5; // Get more alternatives
 
@@ -1345,6 +1345,9 @@ function startVoiceInput() {
     }
     
     console.log('✅ Voice recognized:', transcript);
+    
+    // Stop recognition after receiving final result
+    recognition.stop();
     
     // Clear timeout
     if (noSpeechTimeout) {
