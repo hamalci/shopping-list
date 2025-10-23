@@ -1297,35 +1297,31 @@ function startVoiceInput() {
     const product = findProductByVoice(transcript);
     
     if (product) {
-      createListItem(product.name, product.icon, 1, product.unit);
-      saveListToStorage();
-      renderAllPrices();
-      renderTotal();
-      
-      // Show success feedback
+      // Show success feedback first
       voiceBtn.textContent = '✅';
+      voiceBtn.classList.remove('listening');
+      
+      // Create the item
+      createListItem(product.name, product.icon, 1, product.unit);
+      
+      // Reset button after delay
       setTimeout(() => {
         voiceBtn.textContent = '🎤';
-        voiceBtn.classList.remove('listening');
-      }, 1000);
+      }, 1500);
       
-      alert(`✅ נוסף: ${product.name}`);
     } else {
       // Product not found - add as custom item
       voiceBtn.textContent = '❓';
-      setTimeout(() => {
-        voiceBtn.textContent = '🎤';
-        voiceBtn.classList.remove('listening');
-      }, 1000);
+      voiceBtn.classList.remove('listening');
       
-      if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-        // Detect icon based on product name
-        const icon = detectIconByName(transcript);
-        createListItem(transcript, icon, 1, 'יח\'');
-        saveListToStorage();
-        renderAllPrices();
-        renderTotal();
-      }
+      setTimeout(() => {
+        if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+          // Detect icon based on product name
+          const icon = detectIconByName(transcript);
+          createListItem(transcript, icon, 1, 'יח\'');
+        }
+        voiceBtn.textContent = '🎤';
+      }, 100);
     }
     
     isListening = false;
