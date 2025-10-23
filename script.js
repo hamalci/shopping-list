@@ -180,7 +180,8 @@ function makeChooseButton(item) {
   const btn = document.createElement("div");
   btn.className = "choose-item";
   btn.setAttribute('data-icon', item.icon);
-  btn.textContent = item.name;
+  btn.setAttribute('data-unit', item.unit);
+  btn.textContent = `${item.icon} ${item.name}`;
 
   const badge = document.createElement("span");
   badge.className = "badge";
