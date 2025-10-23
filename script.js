@@ -1363,36 +1363,31 @@ function startVoiceInput() {
   };
 
   recognition.onspeechend = () => {
-    console.log('🤐 Speech ended');
+    console.log('🤐 Speech ended - waiting for more words...');
+    // DON'T stop recognition here! Let the timeout handle it or user clicks mic again
   };
 
   recognition.onresult = (event) => {
-    // Collect ALL results to build the full transcript
-    let fullTranscript = '';
-    for (let i = 0; i < event.results.length; i++) {
-      fullTranscript += event.results[i][0].transcript;
-    }
+    console.log('📝 onresult event fired, results.length:', event.results.length);
     
+    // The LAST result contains the full accumulated transcript in continuous mode
     const result = event.results[event.results.length - 1];
+    const transcript = result[0].transcript;
     const isFinal = result.isFinal;
     
-    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', fullTranscript);
+    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
     
-    // Update last transcript
-    lastTranscript = fullTranscript.trim();
+    // Always update last transcript with the latest recognized text
+    lastTranscript = transcript.trim();
     
     // Show interim results on button
     if (!isFinal) {
       voiceBtn.textContent = '⏳';
-      // Clear any pending final result timeout (user is still speaking)
-      if (finalResultTimeout) {
-        clearTimeout(finalResultTimeout);
-        finalResultTimeout = null;
-      }
+      console.log('⏳ Interim result, continuing to listen...');
       return; // Wait for final result
     }
     
-    console.log('✅ Voice recognized (final):', lastTranscript);
+    console.log('✅ Final result received:', lastTranscript);
     
     // Clear no-speech timeout
     if (noSpeechTimeout) {
@@ -1400,24 +1395,27 @@ function startVoiceInput() {
       noSpeechTimeout = null;
     }
     
-    // Don't stop immediately! Wait 3 seconds in case user says more words
-    // Clear any previous timeout
+    // Clear any previous final result timeout
     if (finalResultTimeout) {
       console.log('🔄 Clearing previous timeout, extending wait...');
       clearTimeout(finalResultTimeout);
     }
     
-    // Set new timeout to process the result
+    // Set new timeout to process the result - 5 seconds to allow for multi-word phrases
     finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing final result after 3s delay:', lastTranscript);
+      console.log('⏱️ Processing final result after 5s delay:', lastTranscript);
+      
+      // DON'T stop recognition automatically - let user click mic again
+      // This way continuous mode keeps working
+      
+      // Reset state
+      isListening = false;
+      voiceBtn.classList.remove('listening');
       
       // Stop recognition now
       if (recognition) {
         recognition.stop();
       }
-      
-      // Reset state
-      isListening = false;
       
       // Search for the product in categories using the LAST stored transcript
       const product = findProductByVoice(lastTranscript);
