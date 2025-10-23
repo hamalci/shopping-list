@@ -1265,6 +1265,22 @@ function startVoiceInput() {
     return;
   }
 
+  // Test microphone permission first
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: 'microphone' }).then(result => {
+      console.log('🎤 Microphone permission:', result.state);
+      if (result.state === 'denied') {
+        alert('🔒 המיקרופון חסום!\n\n' +
+              'לפתוח:\n' +
+              '1. לחץ על 🔒 בשורת הכתובת\n' +
+              '2. מצא "מיקרופון"\n' +
+              '3. בחר "אפשר"\n' +
+              '4. רענן את הדף');
+        return;
+      }
+    }).catch(e => console.log('Permission API not supported:', e));
+  }
+
   // Initialize recognition - must be sync with user gesture
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
