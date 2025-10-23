@@ -1367,15 +1367,16 @@ function startVoiceInput() {
       noSpeechTimeout = null;
     }
     
-    // Don't stop immediately! Wait 2 seconds in case user says more words
+    // Don't stop immediately! Wait 3 seconds in case user says more words
     // Clear any previous timeout
     if (finalResultTimeout) {
+      console.log('🔄 Clearing previous timeout, extending wait...');
       clearTimeout(finalResultTimeout);
     }
     
     // Set new timeout to process the result
     finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing final result after delay:', lastTranscript);
+      console.log('⏱️ Processing final result after 3s delay:', lastTranscript);
       
       // Stop recognition now
       if (recognition) {
@@ -1419,7 +1420,7 @@ function startVoiceInput() {
       // Clear last transcript
       lastTranscript = '';
       finalResultTimeout = null;
-    }, 2000); // Increased to 2 seconds to capture full phrases
+    }, 3000); // Increased to 3 seconds to capture full phrases (Hebrew speakers pause between words)
   };
 
   recognition.onerror = (event) => {
