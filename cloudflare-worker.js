@@ -186,7 +186,8 @@ const BARCODE_DATABASE = {
   // חיתולים
   '7290000123456': { name: 'חיתולי האגיס 4-9 ק"ג', brand: 'האגיס', icon: '👶', unit: 'אריזה', basePrice: 59.90 },
   '7290001234567': { name: 'חיתולי כיפי מידה 4', brand: 'כיפי', icon: '👶', unit: 'אריזה', basePrice: 52.90 },
-  '7290002345678': { name: 'חיתולי פרה מגה פק', brand: 'פרה', icon: '👶', unit: 'אריזה', basePrice: 54.90 },
+  '7290002345678': { name: 'חיתולי פרה מגא פק', brand: 'פרה', icon: '👶', unit: 'אריזה', basePrice: 54.90 },
+  '7290111346538': { name: 'חיתולי האגיס פרידום דריי מידה 5+', brand: 'האגיס', icon: '👶', unit: 'אריזה', basePrice: 64.90 },
   
   // משקאות
   '7290003456789': { name: 'קוקה קולה 1.5L', brand: 'קוקה קולה', icon: '🥤', unit: 'בקבוק', basePrice: 7.90 },

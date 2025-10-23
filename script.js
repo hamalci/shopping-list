@@ -554,6 +554,7 @@ function loadDefaultChooseItems() {
     'מוצרי תינוק': [
       { name:"חיתולים",icon:"👶",unit:"אריזה" },
       { name:"חיתולי האגיס 4-9 ק\"ג",icon:"👶",unit:"אריזה" },
+      { name:"חיתולי האגיס פרידום דריי מידה 5+",icon:"👶",unit:"אריזה" },
       { name:"חיתולי כיפי מידה 4",icon:"👶",unit:"אריזה" },
       { name:"חיתולי פרה מגה פק",icon:"👶",unit:"אריזה" },
       { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
