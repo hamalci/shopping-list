@@ -200,14 +200,19 @@ const BARCODE_DATABASE = {
   '7290008901234': { name: 'גבינה צהובה עמק 200 גרם', brand: 'עמק', icon: '🧀', unit: 'אריזה', basePrice: 16.90 },
   '7290009012345': { name: 'יוגורט דנונה 8 יח', brand: 'דנונה', icon: '🥛', unit: 'אריזה', basePrice: 13.90 },
   
+  // דגים ושימורים
+  '7290015039246': { name: 'נתיחי טונה בהירים בשמן צמחי', brand: '', icon: '🐟', unit: 'קופסא', basePrice: 9.90 },
+  
   // לחמים ומאפים
   '7290010123456': { name: 'לחם בריאות אנג׳ל', brand: 'אנג׳ל', icon: '🍞', unit: 'יח׳', basePrice: 6.50 },
   '7290011234567': { name: 'לחמניות בורקס ביכורים', brand: 'ביכורים', icon: '🥖', unit: 'אריזה', basePrice: 7.90 },
+  '7290016144017': { name: 'קמח חיטה מלא 100%', brand: '', icon: '🌾', unit: 'ק"ג', basePrice: 8.90 },
   
   // חטיפים
   '7290012345678': { name: 'במבה אסם 80 גרם', brand: 'אסם', icon: '🥜', unit: 'שקית', basePrice: 5.50 },
   '7290013456789': { name: 'ביסלי גריל 70 גרם', brand: 'שטראוס', icon: '🥔', unit: 'שקית', basePrice: 5.90 },
   '7290014567890': { name: 'שוקולד מילקה 100 גרם', brand: 'מילקה', icon: '🍫', unit: 'יח׳', basePrice: 8.90 },
+  '7290119670895': { name: 'פתיבר ביסקוויטים', brand: 'פתיבר', icon: '🍪', unit: 'אריזה', basePrice: 12.90 },
   
   // יין ואלכוהול
   '7290015678901': { name: 'יין ברקן קלאסיק אדום', brand: 'ברקן', icon: '🍷', unit: 'בקבוק', basePrice: 45.00 },
