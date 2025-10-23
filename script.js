@@ -1216,7 +1216,8 @@ async function fetchProductByBarcode(barcode) {
 let recognition = null;
 let isListening = false;
 let noSpeechTimeout = null;
-let finalResultTimeout = null; // NEW: timeout after final result
+let finalResultTimeout = null; // timeout after final result
+let lastTranscript = ''; // store the latest transcript
 
 function startVoiceInput() {
   // Check for Web Speech API support
@@ -1332,12 +1333,19 @@ function startVoiceInput() {
   };
 
   recognition.onresult = (event) => {
-    // Handle both interim and final results
+    // Collect ALL results to build the full transcript
+    let fullTranscript = '';
+    for (let i = 0; i < event.results.length; i++) {
+      fullTranscript += event.results[i][0].transcript;
+    }
+    
     const result = event.results[event.results.length - 1];
-    const transcript = result[0].transcript;
     const isFinal = result.isFinal;
     
-    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
+    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', fullTranscript);
+    
+    // Update last transcript
+    lastTranscript = fullTranscript.trim();
     
     // Show interim results on button
     if (!isFinal) {
@@ -1350,7 +1358,7 @@ function startVoiceInput() {
       return; // Wait for final result
     }
     
-    console.log('✅ Voice recognized (final):', transcript);
+    console.log('✅ Voice recognized (final):', lastTranscript);
     
     // Clear no-speech timeout
     if (noSpeechTimeout) {
@@ -1358,7 +1366,7 @@ function startVoiceInput() {
       noSpeechTimeout = null;
     }
     
-    // Don't stop immediately! Wait 1.5 seconds in case user says more words
+    // Don't stop immediately! Wait 2 seconds in case user says more words
     // Clear any previous timeout
     if (finalResultTimeout) {
       clearTimeout(finalResultTimeout);
@@ -1366,7 +1374,7 @@ function startVoiceInput() {
     
     // Set new timeout to process the result
     finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing final result after delay:', transcript);
+      console.log('⏱️ Processing final result after delay:', lastTranscript);
       
       // Stop recognition now
       if (recognition) {
@@ -1376,8 +1384,8 @@ function startVoiceInput() {
       // Reset state
       isListening = false;
       
-      // Search for the product in categories
-      const product = findProductByVoice(transcript);
+      // Search for the product in categories using the LAST stored transcript
+      const product = findProductByVoice(lastTranscript);
       
       if (product) {
         // Show success feedback first
@@ -1398,17 +1406,19 @@ function startVoiceInput() {
         voiceBtn.classList.remove('listening');
         
         setTimeout(() => {
-          if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+          if (confirm(`לא מצאתי "${lastTranscript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
             // Detect icon based on product name
-            const icon = detectIconByName(transcript);
-            createListItem(transcript, icon, 1, 'יח\'');
+            const icon = detectIconByName(lastTranscript);
+            createListItem(lastTranscript, icon, 1, 'יח\'');
           }
           voiceBtn.textContent = '🎤';
         }, 100);
       }
       
+      // Clear last transcript
+      lastTranscript = '';
       finalResultTimeout = null;
-    }, 1500); // Wait 1.5 seconds after final result
+    }, 2000); // Increased to 2 seconds to capture full phrases
   };
 
   recognition.onerror = (event) => {
