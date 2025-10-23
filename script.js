@@ -472,6 +472,9 @@ function loadDefaultChooseItems() {
     ],
     'מזווה ויבשים': [
       { name:"אורז",icon:"🍚",unit:"ק\"ג" },
+      { name:"אורז מלא",icon:"🍚",unit:"ק\"ג" },
+      { name:"אורז בסמטי",icon:"🍚",unit:"ק\"ג" },
+      { name:"אורז יסמין",icon:"🍚",unit:"ק\"ג" },
       { name:"פסטה",icon:"🍝",unit:"אריזה" },
       { name:"קוסקוס",icon:"🍚",unit:"אריזה" },
       { name:"בורגול",icon:"🍚",unit:"ק\"ג" },
@@ -1470,27 +1473,44 @@ function startVoiceInput() {
 function findProductByVoice(voiceText) {
   const searchText = voiceText.toLowerCase().trim();
   
-  // Search in all categories
+  let exactMatch = null;
+  let partialMatch = null;
+  
+  // Search in all categories - first try exact match, then partial
   for (const category of Object.values(categories)) {
     for (const productName of category) {
-      if (productName.toLowerCase().includes(searchText) || 
-          searchText.includes(productName.toLowerCase())) {
-        // Find the product details from chooseGrid
-        const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
-          btn => btn.textContent.includes(productName)
-        );
-        
-        if (chooseItem) {
-          // Extract the emoji icon from the beginning of the text
-          const fullText = chooseItem.textContent.trim();
-          // Get everything before the first space (the emoji)
-          const firstSpace = fullText.indexOf(' ');
-          const icon = firstSpace > 0 ? fullText.substring(0, firstSpace) : '🛒';
-          const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
-          return { name: productName, icon, unit };
-        }
+      const productLower = productName.toLowerCase();
+      
+      // Check for exact match
+      if (productLower === searchText) {
+        exactMatch = productName;
+        break;
+      }
+      
+      // Check for partial match (if no exact match found yet)
+      if (!partialMatch && (productLower.includes(searchText) || searchText.includes(productLower))) {
+        partialMatch = productName;
       }
     }
+    if (exactMatch) break;
+  }
+  
+  const foundProduct = exactMatch || partialMatch;
+  if (!foundProduct) return null;
+  
+  // Find the product details from chooseGrid
+  const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
+    btn => btn.textContent.includes(foundProduct)
+  );
+  
+  if (chooseItem) {
+    // Extract the emoji icon from the beginning of the text
+    const fullText = chooseItem.textContent.trim();
+    // Get everything before the first space (the emoji)
+    const firstSpace = fullText.indexOf(' ');
+    const icon = firstSpace > 0 ? fullText.substring(0, firstSpace) : '🛒';
+    const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
+    return { name: foundProduct, icon, unit };
   }
   
   return null;
