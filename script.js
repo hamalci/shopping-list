@@ -1269,10 +1269,10 @@ function startVoiceInput() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
   
-  recognition.lang = 'he-IL'; // Hebrew
+  recognition.lang = 'he-IL'; // Hebrew first, will fallback if needed
   recognition.continuous = false; // Stop after one phrase
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 3; // Get multiple alternatives
+  recognition.interimResults = true; // Show interim results for better UX
+  recognition.maxAlternatives = 5; // Get more alternatives
 
   // Add event handlers BEFORE starting
   recognition.onstart = () => {
@@ -1311,7 +1311,19 @@ function startVoiceInput() {
   };
 
   recognition.onresult = (event) => {
-    const transcript = event.results[0][0].transcript;
+    // Handle both interim and final results
+    const result = event.results[event.results.length - 1];
+    const transcript = result[0].transcript;
+    const isFinal = result.isFinal;
+    
+    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
+    
+    // Show interim results on button
+    if (!isFinal) {
+      voiceBtn.textContent = '⏳';
+      return; // Wait for final result
+    }
+    
     console.log('✅ Voice recognized:', transcript);
     
     // Clear timeout
