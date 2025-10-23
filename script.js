@@ -1219,6 +1219,7 @@ let isListening = false;
 let noSpeechTimeout = null;
 let finalResultTimeout = null; // timeout after final result
 let lastTranscript = ''; // store the latest transcript
+let accumulatedTranscript = ''; // accumulate multiple final results
 
 function startVoiceInput() {
   // Check for Web Speech API support
@@ -1288,6 +1289,7 @@ function startVoiceInput() {
         }, 100);
       }
       lastTranscript = '';
+      accumulatedTranscript = ''; // Reset accumulated transcript
     } else {
       voiceBtn.textContent = '🎤';
     }
@@ -1337,6 +1339,10 @@ function startVoiceInput() {
     voiceBtn.classList.add('listening');
     voiceBtn.textContent = '🔴';
     
+    // Reset accumulated transcript for new session
+    accumulatedTranscript = '';
+    lastTranscript = '';
+    
     // Set timeout for no speech detected
     noSpeechTimeout = setTimeout(() => {
       if (isListening) {
@@ -1370,15 +1376,12 @@ function startVoiceInput() {
   recognition.onresult = (event) => {
     console.log('📝 onresult event fired, results.length:', event.results.length);
     
-    // The LAST result contains the full accumulated transcript in continuous mode
+    // The LAST result contains the current recognized text
     const result = event.results[event.results.length - 1];
     const transcript = result[0].transcript;
     const isFinal = result.isFinal;
     
     console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
-    
-    // Always update last transcript with the latest recognized text
-    lastTranscript = transcript.trim();
     
     // Show interim results on button
     if (!isFinal) {
@@ -1387,7 +1390,16 @@ function startVoiceInput() {
       return; // Wait for final result
     }
     
-    console.log('✅ Final result received:', lastTranscript);
+    // IMPORTANT: Accumulate final results instead of replacing!
+    // Hebrew speech recognition sends each word as a separate final result
+    if (accumulatedTranscript) {
+      accumulatedTranscript += ' ' + transcript.trim();
+    } else {
+      accumulatedTranscript = transcript.trim();
+    }
+    
+    lastTranscript = accumulatedTranscript;
+    console.log('✅ Final result received. Accumulated so far:', lastTranscript);
     
     // Clear no-speech timeout
     if (noSpeechTimeout) {
@@ -1401,32 +1413,29 @@ function startVoiceInput() {
       clearTimeout(finalResultTimeout);
     }
     
-    // Set new timeout to process the result - 5 seconds to allow for multi-word phrases
+    // Set new timeout to process the result - 3 seconds to allow for multi-word phrases
     finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing final result after 5s delay:', lastTranscript);
+      console.log('⏱️ Processing final result after 3s delay:', lastTranscript);
       
-      // DON'T stop recognition automatically - let user click mic again
-      // This way continuous mode keeps working
-      
-      // Reset state
-      isListening = false;
-      voiceBtn.classList.remove('listening');
-      
-      // Stop recognition now
-      if (recognition) {
-        recognition.stop();
-      }
+      // Process the product but DON'T stop recognition
+      // Recognition stays running until user clicks mic again
       
       // Search for the product in categories using the LAST stored transcript
       const product = findProductByVoice(lastTranscript);
       
       if (product) {
-        // Show success feedback first
+        // Show success feedback
         voiceBtn.textContent = '✅';
-        voiceBtn.classList.remove('listening');
         
         // Create the item
         createListItem(product.name, product.icon, 1, product.unit);
+        
+        // Stop recognition after successful addition
+        if (recognition) {
+          recognition.stop();
+        }
+        isListening = false;
+        voiceBtn.classList.remove('listening');
         
         // Reset button after delay
         setTimeout(() => {
@@ -1436,6 +1445,12 @@ function startVoiceInput() {
       } else {
         // Product not found - add as custom item
         voiceBtn.textContent = '❓';
+        
+        // Stop recognition to ask user
+        if (recognition) {
+          recognition.stop();
+        }
+        isListening = false;
         voiceBtn.classList.remove('listening');
         
         setTimeout(() => {
@@ -1448,10 +1463,11 @@ function startVoiceInput() {
         }, 100);
       }
       
-      // Clear last transcript
+      // Clear last transcript, accumulated transcript and timeout
       lastTranscript = '';
+      accumulatedTranscript = '';
       finalResultTimeout = null;
-    }, 5000); // 5 seconds - plenty of time for Hebrew multi-word phrases, or click mic again to stop
+    }, 3000); // 3 seconds - wait for additional words
   };
 
   recognition.onerror = (event) => {
