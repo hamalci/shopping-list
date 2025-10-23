@@ -1211,6 +1211,7 @@ async function fetchProductByBarcode(barcode) {
 /* ====== Voice Input ====== */
 let recognition = null;
 let isListening = false;
+let noSpeechTimeout = null;
 
 function startVoiceInput() {
   // Check for Web Speech API support
@@ -1279,10 +1280,30 @@ function startVoiceInput() {
     isListening = true;
     voiceBtn.classList.add('listening');
     voiceBtn.textContent = '🔴';
+    
+    // Set timeout for no speech detected
+    noSpeechTimeout = setTimeout(() => {
+      if (isListening) {
+        console.log('⏱️ Timeout: No speech detected');
+        recognition.stop();
+        alert('⏱️ לא זוהה דיבור!\n\n' +
+              'טיפים:\n' +
+              '1. דבר קרוב למיקרופון\n' +
+              '2. דבר בקול רם וברור\n' +
+              '3. נסה להגיד: "חלב" או "לחם"\n' +
+              '4. ודא שהמיקרופון עובד במכשיר\n\n' +
+              '💡 אפשר גם להקליד או לסרוק ברקוד 📷');
+      }
+    }, 8000); // 8 seconds timeout
   };
 
   recognition.onspeechstart = () => {
     console.log('🗣️ Speech detected!');
+    // Clear timeout when speech is detected
+    if (noSpeechTimeout) {
+      clearTimeout(noSpeechTimeout);
+      noSpeechTimeout = null;
+    }
   };
 
   recognition.onspeechend = () => {
@@ -1292,6 +1313,12 @@ function startVoiceInput() {
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
     console.log('✅ Voice recognized:', transcript);
+    
+    // Clear timeout
+    if (noSpeechTimeout) {
+      clearTimeout(noSpeechTimeout);
+      noSpeechTimeout = null;
+    }
     
     // Reset state immediately
     isListening = false;
@@ -1330,6 +1357,13 @@ function startVoiceInput() {
 
   recognition.onerror = (event) => {
     console.error('Voice recognition error:', event.error);
+    
+    // Clear timeout
+    if (noSpeechTimeout) {
+      clearTimeout(noSpeechTimeout);
+      noSpeechTimeout = null;
+    }
+    
     isListening = false;
     voiceBtn.classList.remove('listening');
     voiceBtn.textContent = '🎤';
@@ -1376,6 +1410,12 @@ function startVoiceInput() {
   };
 
   recognition.onend = () => {
+    // Clear timeout
+    if (noSpeechTimeout) {
+      clearTimeout(noSpeechTimeout);
+      noSpeechTimeout = null;
+    }
+    
     isListening = false;
     voiceBtn.classList.remove('listening');
     // Don't reset button text if it was already changed to ✅ or ❓
