@@ -1219,33 +1219,53 @@ function startVoiceInput() {
     return;
   }
 
-  // Initialize recognition
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  
-  recognition.lang = 'he-IL'; // Hebrew
-  recognition.continuous = false; // Stop after one phrase
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
-
   const voiceBtn = document.getElementById('btnVoiceInput');
   
   if (isListening) {
     // Stop listening
-    recognition.stop();
+    if (recognition) {
+      recognition.stop();
+    }
     isListening = false;
     voiceBtn.classList.remove('listening');
     voiceBtn.textContent = '🎤';
     return;
   }
 
-  // Start listening
-  isListening = true;
-  voiceBtn.classList.add('listening');
-  voiceBtn.textContent = '⏹️';
+  // Check for HTTPS
+  const isSecure = window.location.protocol === 'https:' || 
+                   window.location.hostname === 'localhost' || 
+                   window.location.hostname === '127.0.0.1';
   
-  recognition.start();
-  console.log('Voice recognition started');
+  if (!isSecure) {
+    alert('⚠️ דרושה גישה מאובטחת!\n\nזיהוי דיבור דורש HTTPS.\n\nפתח את האתר דרך:\nhttps://hamalci.github.io/shopping-list/');
+    return;
+  }
+
+  // Initialize recognition - must be sync with user gesture
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  
+  recognition.lang = 'he-IL'; // Hebrew
+  recognition.continuous = false; // Stop after one phrase
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 3; // Get multiple alternatives
+
+  // Start listening immediately (sync with user click)
+  try {
+    recognition.start();
+    isListening = true;
+    voiceBtn.classList.add('listening');
+    voiceBtn.textContent = '⏹️';
+    console.log('Voice recognition started');
+  } catch (err) {
+    console.error('Failed to start recognition:', err);
+    alert('❌ לא ניתן להפעיל זיהוי דיבור.\n\nודא שנתת הרשאה למיקרופון בהגדרות הדפדפן.');
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    return;
+  }
 
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
@@ -1300,7 +1320,14 @@ function startVoiceInput() {
     switch (event.error) {
       case 'not-allowed':
       case 'permission-denied':
-        errorMsg += 'גישה למיקרופון נחסמה.\n\nאפשר גישה למיקרופון בהגדרות הדפדפן.';
+      case 'service-not-allowed':
+        errorMsg += '🔒 גישה למיקרופון נדחתה!\n\n';
+        errorMsg += 'פתרונות:\n';
+        errorMsg += '1. בדפדפן: לחץ על סמל המנעול 🔒 ליד הכתובת\n';
+        errorMsg += '2. בחר "הגדרות אתר" / "Site Settings"\n';
+        errorMsg += '3. אפשר גישה למיקרופון\n';
+        errorMsg += '4. רענן את הדף\n\n';
+        errorMsg += '📱 ב-iOS: הגדרות → Safari → מיקרופון → אפשר';
         break;
       case 'no-speech':
         errorMsg += 'לא זוהה דיבור.\n\nנסה שוב ודבר בבירור.';
