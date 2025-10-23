@@ -1214,8 +1214,30 @@ let isListening = false;
 
 function startVoiceInput() {
   // Check for Web Speech API support
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    alert('⚠️ הדפדפן לא תומך בזיהוי דיבור.\n\nנסה להשתמש ב-Chrome, Safari, או Edge.');
+  const hasWebSpeech = ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
+  
+  if (!hasWebSpeech) {
+    alert('⚠️ הדפדפן לא תומך בזיהוי דיבור.\n\n' +
+          '✅ Chrome - תמיכה מלאה\n' +
+          '✅ Edge - תמיכה מלאה\n' +
+          '⚠️ Safari iOS - אין תמיכה\n' +
+          '⚠️ Safari macOS - תמיכה חלקית\n\n' +
+          'מומלץ להשתמש ב-Chrome על מכשיר Android או Windows.');
+    return;
+  }
+
+  // Detect Safari iOS (which has very limited support)
+  const isSafariIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && 
+                      /Safari/.test(navigator.userAgent) && 
+                      !(/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent));
+  
+  if (isSafariIOS) {
+    alert('⚠️ Safari על iPhone אינו תומך בזיהוי דיבור!\n\n' +
+          'פתרונות:\n' +
+          '1. התקן את דפדפן Chrome על iPhone\n' +
+          '2. פתח את האתר דרך Chrome\n' +
+          '3. לחץ על כפתור 🎤 שוב\n\n' +
+          'או השתמש בסורק הברקוד במקום 📷');
     return;
   }
 
@@ -1317,17 +1339,28 @@ function startVoiceInput() {
     
     let errorMsg = '❌ שגיאה בזיהוי דיבור\n\n';
     
+    // Check if Safari
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
     switch (event.error) {
       case 'not-allowed':
       case 'permission-denied':
       case 'service-not-allowed':
-        errorMsg += '🔒 גישה למיקרופון נדחתה!\n\n';
-        errorMsg += 'פתרונות:\n';
-        errorMsg += '1. בדפדפן: לחץ על סמל המנעול 🔒 ליד הכתובת\n';
-        errorMsg += '2. בחר "הגדרות אתר" / "Site Settings"\n';
-        errorMsg += '3. אפשר גישה למיקרופון\n';
-        errorMsg += '4. רענן את הדף\n\n';
-        errorMsg += '📱 ב-iOS: הגדרות → Safari → מיקרופון → אפשר';
+        if (isSafari) {
+          errorMsg += '🍎 Safari אינו תומך בזיהוי דיבור!\n\n';
+          errorMsg += 'פתרונות:\n';
+          errorMsg += '1. התקן Chrome על iPhone/iPad\n';
+          errorMsg += '2. פתח דרך Chrome במקום Safari\n';
+          errorMsg += '3. השתמש בסורק ברקוד � במקום\n\n';
+          errorMsg += 'Chrome זמין בחינם ב-App Store';
+        } else {
+          errorMsg += '�🔒 גישה למיקרופון נדחתה!\n\n';
+          errorMsg += 'פתרונות:\n';
+          errorMsg += '1. בדפדפן: לחץ על סמל המנעול 🔒 ליד הכתובת\n';
+          errorMsg += '2. בחר "הגדרות אתר" / "Site Settings"\n';
+          errorMsg += '3. אפשר גישה למיקרופון\n';
+          errorMsg += '4. רענן את הדף';
+        }
         break;
       case 'no-speech':
         errorMsg += 'לא זוהה דיבור.\n\nנסה שוב ודבר בבירור.';
@@ -1336,7 +1369,10 @@ function startVoiceInput() {
         errorMsg += 'בעיית רשת.\n\nבדוק את החיבור לאינטרנט.';
         break;
       default:
-        errorMsg += `שגיאה: ${event.error}`;
+        errorMsg += `שגיאה: ${event.error}\n\n`;
+        if (isSafari) {
+          errorMsg += 'Safari יכול לא לתמוך בזיהוי דיבור.\nנסה Chrome במקום.';
+        }
     }
     
     alert(errorMsg);
