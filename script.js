@@ -1208,6 +1208,173 @@ async function fetchProductByBarcode(barcode) {
   }
 }
 
+/* ====== Voice Input ====== */
+let recognition = null;
+let isListening = false;
+
+function startVoiceInput() {
+  // Check for Web Speech API support
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('⚠️ הדפדפן לא תומך בזיהוי דיבור.\n\nנסה להשתמש ב-Chrome, Safari, או Edge.');
+    return;
+  }
+
+  // Initialize recognition
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  
+  recognition.lang = 'he-IL'; // Hebrew
+  recognition.continuous = false; // Stop after one phrase
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  const voiceBtn = document.getElementById('btnVoiceInput');
+  
+  if (isListening) {
+    // Stop listening
+    recognition.stop();
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    return;
+  }
+
+  // Start listening
+  isListening = true;
+  voiceBtn.classList.add('listening');
+  voiceBtn.textContent = '⏹️';
+  
+  recognition.start();
+  console.log('Voice recognition started');
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    console.log('Voice input:', transcript);
+    
+    // Search for the product in categories
+    const product = findProductByVoice(transcript);
+    
+    if (product) {
+      createListItem(product.name, product.icon, 1, product.unit);
+      saveListToStorage();
+      renderAllPrices();
+      renderTotal();
+      
+      // Show success feedback
+      voiceBtn.textContent = '✅';
+      setTimeout(() => {
+        voiceBtn.textContent = '🎤';
+        voiceBtn.classList.remove('listening');
+      }, 1000);
+      
+      alert(`✅ נוסף: ${product.name}`);
+    } else {
+      // Product not found - add as custom item
+      voiceBtn.textContent = '❓';
+      setTimeout(() => {
+        voiceBtn.textContent = '🎤';
+        voiceBtn.classList.remove('listening');
+      }, 1000);
+      
+      if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+        // Detect icon based on product name
+        const icon = detectIconByName(transcript);
+        createListItem(transcript, icon, 1, 'יח\'');
+        saveListToStorage();
+        renderAllPrices();
+        renderTotal();
+      }
+    }
+    
+    isListening = false;
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Voice recognition error:', event.error);
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    
+    let errorMsg = '❌ שגיאה בזיהוי דיבור\n\n';
+    
+    switch (event.error) {
+      case 'not-allowed':
+      case 'permission-denied':
+        errorMsg += 'גישה למיקרופון נחסמה.\n\nאפשר גישה למיקרופון בהגדרות הדפדפן.';
+        break;
+      case 'no-speech':
+        errorMsg += 'לא זוהה דיבור.\n\nנסה שוב ודבר בבירור.';
+        break;
+      case 'network':
+        errorMsg += 'בעיית רשת.\n\nבדוק את החיבור לאינטרנט.';
+        break;
+      default:
+        errorMsg += `שגיאה: ${event.error}`;
+    }
+    
+    alert(errorMsg);
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+    console.log('Voice recognition ended');
+  };
+}
+
+function findProductByVoice(voiceText) {
+  const searchText = voiceText.toLowerCase().trim();
+  
+  // Search in all categories
+  for (const category of Object.values(categories)) {
+    for (const productName of category) {
+      if (productName.toLowerCase().includes(searchText) || 
+          searchText.includes(productName.toLowerCase())) {
+        // Find the product details from chooseGrid
+        const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
+          btn => btn.textContent.includes(productName)
+        );
+        
+        if (chooseItem) {
+          const icon = chooseItem.textContent.match(/[^\u0000-\u007F]/)?.[0] || '🛒';
+          const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
+          return { name: productName, icon, unit };
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+function detectIconByName(name) {
+  const lowerName = name.toLowerCase();
+  
+  // Icon mapping by keywords
+  const iconMap = {
+    'חלב': '🥛', 'גבינה': '🧀', 'יוגורט': '🥛', 'ביצים': '🥚', 'חמאה': '🧈',
+    'לחם': '🍞', 'חלה': '🍞', 'פיתה': '🥙', 'בורקס': '🥐',
+    'עוף': '🍗', 'בשר': '🥩', 'נקניק': '🌭',
+    'דג': '🐟', 'סלמון': '🐟', 'טונה': '🐟',
+    'גזר': '🥕', 'מלפפון': '🥒', 'עגבני': '🍅', 'בצל': '🧅', 'שום': '🧄',
+    'תפוח': '🍎', 'בננה': '🍌', 'תפוז': '🍊', 'לימון': '🍋', 'אבוקדו': '🥑',
+    'אורז': '🍚', 'פסטה': '🍝', 'קמח': '🌾',
+    'מים': '💧', 'מיץ': '🧃', 'קולה': '🥤', 'בירה': '🍺', 'יין': '🍷',
+    'שוקולד': '🍫', 'במבה': '🥜', 'ביסלי': '🥔', 'גלידה': '🍦', 'עוגיות': '🍪',
+    'נייר טואלט': '🧻', 'סבון': '🧴', 'אבקת כביסה': '📦',
+    'חיתול': '👶', 'מטליות': '🧻'
+  };
+  
+  for (const [keyword, icon] of Object.entries(iconMap)) {
+    if (lowerName.includes(keyword)) {
+      return icon;
+    }
+  }
+  
+  return '🛒'; // Default icon
+}
+
 /* ====== Selection Mode & Context Menu ====== */
 
 /* ====== init ====== */
@@ -1236,6 +1403,9 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
   document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
   document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
+
+  // Voice input button
+  document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
 
   // Removed: btnHdrResetChoices and btnHdrAddCustom - no longer needed with + buttons in categories
   // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
