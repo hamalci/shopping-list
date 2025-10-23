@@ -1273,25 +1273,25 @@ function startVoiceInput() {
   recognition.interimResults = false;
   recognition.maxAlternatives = 3; // Get multiple alternatives
 
-  // Start listening immediately (sync with user click)
-  try {
-    recognition.start();
+  // Add event handlers BEFORE starting
+  recognition.onstart = () => {
+    console.log('🎤 Recognition started - speak now!');
     isListening = true;
     voiceBtn.classList.add('listening');
-    voiceBtn.textContent = '⏹️';
-    console.log('Voice recognition started');
-  } catch (err) {
-    console.error('Failed to start recognition:', err);
-    alert('❌ לא ניתן להפעיל זיהוי דיבור.\n\nודא שנתת הרשאה למיקרופון בהגדרות הדפדפן.');
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
-    return;
-  }
+    voiceBtn.textContent = '🔴';
+  };
+
+  recognition.onspeechstart = () => {
+    console.log('🗣️ Speech detected!');
+  };
+
+  recognition.onspeechend = () => {
+    console.log('🤐 Speech ended');
+  };
 
   recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
-    console.log('Voice input:', transcript);
+    console.log('✅ Voice recognized:', transcript);
     
     // Reset state immediately
     isListening = false;
@@ -1379,11 +1379,23 @@ function startVoiceInput() {
     isListening = false;
     voiceBtn.classList.remove('listening');
     // Don't reset button text if it was already changed to ✅ or ❓
-    if (voiceBtn.textContent === '⏹️') {
+    if (voiceBtn.textContent === '🔴' || voiceBtn.textContent === '⏹️') {
       voiceBtn.textContent = '🎤';
     }
-    console.log('Voice recognition ended');
+    console.log('🛑 Voice recognition ended');
   };
+
+  // Start listening (must be after defining handlers)
+  try {
+    console.log('Starting recognition...');
+    recognition.start();
+  } catch (err) {
+    console.error('Failed to start recognition:', err);
+    alert('❌ לא ניתן להפעיל זיהוי דיבור.\n\nודא שנתת הרשאה למיקרופון בהגדרות הדפדפן.');
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    voiceBtn.textContent = '🎤';
+  }
 }
 
 function findProductByVoice(voiceText) {
