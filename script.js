@@ -1369,8 +1369,25 @@ function startVoiceInput() {
   };
 
   recognition.onspeechend = () => {
-    console.log('🤐 Speech ended - waiting for more words...');
-    // DON'T stop recognition here! Let the timeout handle it or user clicks mic again
+    console.log('🤐 Speech ended - user stopped talking!');
+    
+    // User finished speaking - process after short delay
+    // This is more reliable than arbitrary timeout
+    if (finalResultTimeout) {
+      clearTimeout(finalResultTimeout);
+    }
+    
+    finalResultTimeout = setTimeout(() => {
+      console.log('⏱️ Processing speech after onspeechend:', lastTranscript);
+      
+      if (!lastTranscript || lastTranscript.trim() === '') {
+        console.log('No transcript to process');
+        return;
+      }
+      
+      // Process the accumulated transcript
+      processVoiceInput(lastTranscript);
+    }, 800); // Short delay to make sure all final results arrived
   };
 
   recognition.onresult = (event) => {
@@ -1406,68 +1423,6 @@ function startVoiceInput() {
       clearTimeout(noSpeechTimeout);
       noSpeechTimeout = null;
     }
-    
-    // Clear any previous final result timeout
-    if (finalResultTimeout) {
-      console.log('🔄 Clearing previous timeout, extending wait...');
-      clearTimeout(finalResultTimeout);
-    }
-    
-    // Set new timeout to process the result - 3 seconds to allow for multi-word phrases
-    finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing final result after 3s delay:', lastTranscript);
-      
-      // Process the product but DON'T stop recognition
-      // Recognition stays running until user clicks mic again
-      
-      // Search for the product in categories using the LAST stored transcript
-      const product = findProductByVoice(lastTranscript);
-      
-      if (product) {
-        // Show success feedback
-        voiceBtn.textContent = '✅';
-        
-        // Create the item
-        createListItem(product.name, product.icon, 1, product.unit);
-        
-        // Stop recognition after successful addition
-        if (recognition) {
-          recognition.stop();
-        }
-        isListening = false;
-        voiceBtn.classList.remove('listening');
-        
-        // Reset button after delay
-        setTimeout(() => {
-          voiceBtn.textContent = '🎤';
-        }, 1500);
-        
-      } else {
-        // Product not found - add as custom item
-        voiceBtn.textContent = '❓';
-        
-        // Stop recognition to ask user
-        if (recognition) {
-          recognition.stop();
-        }
-        isListening = false;
-        voiceBtn.classList.remove('listening');
-        
-        setTimeout(() => {
-          if (confirm(`לא מצאתי "${lastTranscript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-            // Detect icon based on product name
-            const icon = detectIconByName(lastTranscript);
-            createListItem(lastTranscript, icon, 1, 'יח\'');
-          }
-          voiceBtn.textContent = '🎤';
-        }, 100);
-      }
-      
-      // Clear last transcript, accumulated transcript and timeout
-      lastTranscript = '';
-      accumulatedTranscript = '';
-      finalResultTimeout = null;
-    }, 3000); // 3 seconds - wait for additional words
   };
 
   recognition.onerror = (event) => {
@@ -1555,6 +1510,61 @@ function startVoiceInput() {
     voiceBtn.classList.remove('listening');
     voiceBtn.textContent = '🎤';
   }
+}
+
+// Helper function to process voice input
+function processVoiceInput(transcript) {
+  const voiceBtn = document.getElementById('btnVoiceInput');
+  
+  console.log('🎯 Processing voice input:', transcript);
+  
+  // Search for the product in categories
+  const product = findProductByVoice(transcript);
+  
+  if (product) {
+    // Show success feedback
+    voiceBtn.textContent = '✅';
+    
+    // Create the item
+    createListItem(product.name, product.icon, 1, product.unit);
+    
+    // Stop recognition after successful addition
+    if (recognition) {
+      recognition.stop();
+    }
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    
+    // Reset button after delay
+    setTimeout(() => {
+      voiceBtn.textContent = '🎤';
+    }, 1500);
+    
+  } else {
+    // Product not found - add as custom item
+    voiceBtn.textContent = '❓';
+    
+    // Stop recognition to ask user
+    if (recognition) {
+      recognition.stop();
+    }
+    isListening = false;
+    voiceBtn.classList.remove('listening');
+    
+    setTimeout(() => {
+      if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+        // Detect icon based on product name
+        const icon = detectIconByName(transcript);
+        createListItem(transcript, icon, 1, 'יח\'');
+      }
+      voiceBtn.textContent = '🎤';
+    }, 100);
+  }
+  
+  // Clear accumulated transcript
+  lastTranscript = '';
+  accumulatedTranscript = '';
+  finalResultTimeout = null;
 }
 
 function findProductByVoice(voiceText) {
