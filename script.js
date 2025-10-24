@@ -1369,25 +1369,8 @@ function startVoiceInput() {
   };
 
   recognition.onspeechend = () => {
-    console.log('🤐 Speech ended - user stopped talking!');
-    
-    // User finished speaking - process after short delay
-    // This is more reliable than arbitrary timeout
-    if (finalResultTimeout) {
-      clearTimeout(finalResultTimeout);
-    }
-    
-    finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing speech after onspeechend:', lastTranscript);
-      
-      if (!lastTranscript || lastTranscript.trim() === '') {
-        console.log('No transcript to process');
-        return;
-      }
-      
-      // Process the accumulated transcript
-      processVoiceInput(lastTranscript);
-    }, 800); // Short delay to make sure all final results arrived
+    console.log('🤐 Speech ended detected');
+    // Don't process here - let onresult handle everything
   };
 
   recognition.onresult = (event) => {
@@ -1400,9 +1383,9 @@ function startVoiceInput() {
     
     console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
     
-    // Show interim results on button
+    // Show interim results on button - but keep mic icon visible
     if (!isFinal) {
-      voiceBtn.textContent = '⏳';
+      voiceBtn.textContent = '🔴'; // Show recording, not hourglass
       console.log('⏳ Interim result, continuing to listen...');
       return; // Wait for final result
     }
@@ -1423,6 +1406,24 @@ function startVoiceInput() {
       clearTimeout(noSpeechTimeout);
       noSpeechTimeout = null;
     }
+    
+    // Clear any previous timeout
+    if (finalResultTimeout) {
+      clearTimeout(finalResultTimeout);
+    }
+    
+    // Wait 2 seconds for more words - user can click mic to stop immediately
+    finalResultTimeout = setTimeout(() => {
+      console.log('⏱️ Processing after 2s delay:', lastTranscript);
+      
+      if (!lastTranscript || lastTranscript.trim() === '') {
+        console.log('No transcript to process');
+        return;
+      }
+      
+      // Process the accumulated transcript
+      processVoiceInput(lastTranscript);
+    }, 2000); // 2 seconds - balance between speed and accuracy
   };
 
   recognition.onerror = (event) => {
