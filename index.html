@@ -134,11 +134,17 @@
 
     <!-- Cart Section for Purchased Items -->
     <section id="cartSection" style="display:none;">
-      <div class="list-header">
-        <h2>🛒 עגלה</h2>
-        <button id="btnClearCart" class="clear-cart-btn" title="נקה עגלה">נקה עגלה</button>
+      <div>
+        <div class="list-header">
+          <h2>🛒 עגלה</h2>
+          <button id="btnClearCart" class="clear-cart-btn" title="נקה עגלה">נקה עגלה</button>
+        </div>
+        <div id="cartGrid"></div>
+        <div class="cart-total">
+          <span>סה"כ עגלה:</span>
+          <span id="cartTotalAmount">₪ 0</span>
+        </div>
       </div>
-      <div id="cartGrid"></div>
     </section>
 
     <!-- Context Menu for List Items -->

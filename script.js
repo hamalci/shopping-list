@@ -429,6 +429,30 @@ function renderTotal() {
   const total = computeTotalFromDOM();
   const display = Number.isInteger(total) ? `${total} ₪` : `${total.toFixed(2)} ₪`;
   DOM.totalAmount.textContent = display;
+  
+  // Calculate cart total
+  renderCartTotal();
+}
+
+function renderCartTotal() {
+  const cartTotalEl = document.getElementById('cartTotalAmount');
+  if (!cartTotalEl) return;
+  
+  const cartGrid = document.getElementById('cartGrid');
+  if (!cartGrid) return;
+  
+  let cartTotal = 0;
+  const cartItems = cartGrid.querySelectorAll('.item');
+  cartItems.forEach(el => {
+    const name = el.querySelector('.name')?.textContent.split(' ').slice(1).join(' ') || '';
+    const price = getPriceForItem(name);
+    const qtyText = el.querySelector('.qty')?.textContent || '1';
+    const qty = parseFloat(qtyText.split(' ')[0]) || 1;
+    if (price) cartTotal += parseFloat(price) * qty;
+  });
+  
+  const display = Number.isInteger(cartTotal) ? `${cartTotal} ₪` : `${cartTotal.toFixed(2)} ₪`;
+  cartTotalEl.textContent = display;
 }
 
 
