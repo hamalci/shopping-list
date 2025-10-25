@@ -1471,8 +1471,18 @@ function startVoiceInput() {
 }
 
 function findProductByVoice(voiceText) {
+  // Debug: show character codes
+  let debugMsg = 'Voice chars: ';
+  for (let i = 0; i < voiceText.length; i++) {
+    debugMsg += voiceText.charCodeAt(i) + ',';
+  }
+  alert(debugMsg);
+  
   // Normalize: remove ALL types of whitespace (space, nbsp, zero-width, etc)
   const searchText = voiceText.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
+  
+  alert('After normalize: "' + searchText + '" - chars: ' + Array.from(searchText).map(c => c.charCodeAt(0)).join(','));
+  
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
