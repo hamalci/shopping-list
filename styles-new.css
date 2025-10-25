@@ -639,6 +639,29 @@ body.dark-mode #toggleChoose.active {
   100% { transform: scale(1); }
 }
 
+/* Cart Section */
+#cartSection {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 2px solid #e0e0e0;
+}
+
+#cartGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+#cartGrid .item {
+  padding: 0.8rem;
+  background: #f5f5f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /* badge */
 .badge { background:red; color:white; border-radius:999px; padding:0.125rem 0.375rem; font-size:0.75rem; margin-right:0.375rem; }
 

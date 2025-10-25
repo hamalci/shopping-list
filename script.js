@@ -355,16 +355,36 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     
     row.classList.toggle("checked");
     
-    // Toggle checkmark visibility
-    if (row.classList.contains("checked")) {
-      checkmark.style.display = "inline-block";
-    } else {
-      checkmark.style.display = "none";
-    }
+    // Move item to cart or back to list
+    const cartGrid = document.getElementById('cartGrid');
+    const cartSection = document.getElementById('cartSection');
     
-    if (!DOM.listGrid) return;
-    row.classList.add("moving");
-    setTimeout(() => { DOM.listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
+    if (row.classList.contains("checked")) {
+      // Move to cart
+      checkmark.style.display = "inline-block";
+      row.classList.add("moving");
+      setTimeout(() => {
+        if (cartGrid) {
+          cartGrid.appendChild(row);
+          cartSection.style.display = 'block';
+        }
+        row.classList.remove("moving");
+        saveListToStorage();
+      }, 300);
+    } else {
+      // Move back to list
+      checkmark.style.display = "none";
+      row.classList.add("moving");
+      setTimeout(() => {
+        if (DOM.listGrid) DOM.listGrid.appendChild(row);
+        row.classList.remove("moving");
+        // Hide cart section if empty
+        if (cartGrid && cartGrid.children.length === 0) {
+          cartSection.style.display = 'none';
+        }
+        saveListToStorage();
+      }, 300);
+    }
   });
 
   if (DOM.listGrid) DOM.listGrid.appendChild(row);
@@ -737,6 +757,10 @@ function loadListFromStorage(){
   const data = localStorage.getItem("shoppingList");
   if (!data) return;
   const items = JSON.parse(data);
+  const cartGrid = document.getElementById('cartGrid');
+  const cartSection = document.getElementById('cartSection');
+  let hasCheckedItems = false;
+  
   items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
@@ -748,8 +772,19 @@ function loadListFromStorage(){
       // Show checkmark for checked items
       const checkmark = row.querySelector('.checkmark-indicator');
       if (checkmark) checkmark.style.display = "inline-block";
+      // Move to cart
+      if (cartGrid) {
+        cartGrid.appendChild(row);
+        hasCheckedItems = true;
+      }
     }
   });
+  
+  // Show cart section if there are checked items
+  if (cartSection && hasCheckedItems) {
+    cartSection.style.display = 'block';
+  }
+  
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
   renderTotal();
