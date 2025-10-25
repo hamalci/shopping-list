@@ -1472,23 +1472,28 @@ function startVoiceInput() {
 
 function findProductByVoice(voiceText) {
   const searchText = voiceText.toLowerCase().trim();
+  console.log('🔍 Searching for:', `"${searchText}"`);
+  console.log('📚 Categories available:', Object.keys(categories));
   
   let exactMatch = null;
   let partialMatch = null;
   
   // Search in all categories - first try exact match, then partial
-  for (const category of Object.values(categories)) {
-    for (const productName of category) {
+  for (const [categoryName, categoryProducts] of Object.entries(categories)) {
+    console.log(`  🔎 Searching in category "${categoryName}":`, categoryProducts.length, 'products');
+    for (const productName of categoryProducts) {
       const productLower = productName.toLowerCase();
       
       // Check for exact match
       if (productLower === searchText) {
+        console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
         exactMatch = productName;
         break;
       }
       
       // Check for partial match (if no exact match found yet)
       if (!partialMatch && (productLower.includes(searchText) || searchText.includes(productLower))) {
+        console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
         partialMatch = productName;
       }
     }
@@ -1496,20 +1501,20 @@ function findProductByVoice(voiceText) {
   }
   
   const foundProduct = exactMatch || partialMatch;
+  console.log('🎯 Final result:', foundProduct ? `"${foundProduct}"` : 'NOT FOUND');
+  
   if (!foundProduct) return null;
   
   // Find the product details from chooseGrid
   const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
-    btn => btn.textContent.includes(foundProduct)
+    btn => btn.textContent.trim() === foundProduct || btn.textContent.includes(foundProduct)
   );
   
   if (chooseItem) {
-    // Extract the emoji icon from the beginning of the text
-    const fullText = chooseItem.textContent.trim();
-    // Get everything before the first space (the emoji)
-    const firstSpace = fullText.indexOf(' ');
-    const icon = firstSpace > 0 ? fullText.substring(0, firstSpace) : '🛒';
+    // Extract icon and unit from data attributes
+    const icon = chooseItem.getAttribute('data-icon') || '🛒';
     const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
+    console.log(`  📦 Product details: icon="${icon}", unit="${unit}"`);
     return { name: foundProduct, icon, unit };
   }
   
