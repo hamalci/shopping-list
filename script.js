@@ -1471,19 +1471,10 @@ function startVoiceInput() {
 }
 
 function findProductByVoice(voiceText) {
-  // Normalize search text: lowercase + remove extra spaces
-  const searchText = voiceText.toLowerCase().trim().replace(/\s+/g, ' ');
+  // Normalize: remove ALL types of whitespace (space, nbsp, zero-width, etc)
+  const searchText = voiceText.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
-  
-  // Debug: Show comparison between voice input and product name
-  alert(`🔍 מה זיהיתי:\n"${voiceText}"\nאורך: ${voiceText.length} תווים\n\nמה אחפש אחרי נורמליזציה:\n"${searchText}"\nאורך: ${searchText.length} תווים`);
-  
-  const mazavaProducts = categories['מזווה ויבשים'] || [];
-  const orzMale = mazavaProducts.find(p => p.includes('אורז מלא'));
-  if (orzMale) {
-    alert(`� המוצר ברשימה:\n"${orzMale}"\nאורך: ${orzMale.length} תווים\n\nאחרי נורמליזציה:\n"${orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}"\nאורך: ${orzMale.toLowerCase().trim().replace(/\s+/g, ' ').length} תווים\n\nהשוואה:\nחיפוש: "${searchText}"\nמוצר: "${orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}"\nזהה? ${searchText === orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}`);
-  }
   
   let exactMatch = null;
   let partialMatch = null;
@@ -1491,12 +1482,11 @@ function findProductByVoice(voiceText) {
   // FIRST PASS: Search for EXACT match in ALL categories
   for (const [categoryName, categoryProducts] of Object.entries(categories)) {
     for (const productName of categoryProducts) {
-      // Normalize product name too
-      const productLower = productName.toLowerCase().trim().replace(/\s+/g, ' ');
+      // Normalize product name - remove ALL types of whitespace
+      const productLower = productName.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
       
       if (productLower === searchText) {
         console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
-        alert(`🎯 מצאתי התאמה מדויקת!\nמוצר: "${productName}"\nקטגוריה: "${categoryName}"`);
         exactMatch = productName;
         break;
       }
@@ -1508,7 +1498,7 @@ function findProductByVoice(voiceText) {
   if (!exactMatch) {
     for (const [categoryName, categoryProducts] of Object.entries(categories)) {
       for (const productName of categoryProducts) {
-        const productLower = productName.toLowerCase().trim().replace(/\s+/g, ' ');
+        const productLower = productName.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
         
         // Partial match: product contains search text (not vice versa!)
         if (productLower.includes(searchText)) {
