@@ -1481,6 +1481,14 @@ function findProductByVoice(voiceText) {
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
+  // Mobile debug
+  const catCount = Object.keys(categories).length;
+  let totalProducts = 0;
+  for (const cat of Object.values(categories)) {
+    totalProducts += cat.length;
+  }
+  alert(`📊 יש ${catCount} קטגוריות\nסה"כ ${totalProducts} מוצרים`);
+  
   let exactMatch = null;
   let partialMatch = null;
   
