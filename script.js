@@ -1342,6 +1342,9 @@ function startVoiceInput() {
     
     console.log('✅ Recognized text:', transcript);
     
+    // Show debug message on mobile
+    alert(`🔍 DEBUG:\nזיהיתי: "${transcript}"\n\nמחפש עכשיו...`);
+    
     // Clear no-speech timeout
     if (noSpeechTimeout) {
       clearTimeout(noSpeechTimeout);
@@ -1357,6 +1360,7 @@ function startVoiceInput() {
     
     if (product) {
       // Show success feedback
+      alert(`✅ מצאתי!\nמוצר: "${product.name}"\nאייקון: ${product.icon}\nיחידה: ${product.unit}`);
       voiceBtn.textContent = '✅';
       voiceBtn.classList.remove('listening');
       
@@ -1372,6 +1376,8 @@ function startVoiceInput() {
       // Product not found - add as custom item
       voiceBtn.textContent = '❓';
       voiceBtn.classList.remove('listening');
+      
+      alert(`❌ לא מצאתי "${transcript}" ברשימה`);
       
       setTimeout(() => {
         if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
