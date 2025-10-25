@@ -1476,18 +1476,17 @@ function findProductByVoice(voiceText) {
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
-  // Debug: Check if "אורז מלא" is in categories
-  let foundInCategories = false;
-  for (const [catName, products] of Object.entries(categories)) {
-    if (products.includes('אורז מלא')) {
-      foundInCategories = true;
-      console.log(`✅ "אורז מלא" found in category "${catName}"`);
-      break;
-    }
-  }
-  if (!foundInCategories) {
-    console.error('❌ "אורז מלא" NOT FOUND in any category!');
-    alert('🐛 DEBUG:\n"אורז מלא" לא נמצא בקטגוריות!\n\nצריך לטעון מחדש את הדף.');
+  // Debug: Show all products in "מזווה ויבשים" category
+  const mazavaProducts = categories['מזווה ויבשים'] || [];
+  const riceProducts = mazavaProducts.filter(p => p.includes('אורז'));
+  
+  alert(`🐛 DEBUG:\nמוצרי אורז בקטגוריה:\n${riceProducts.join('\n')}\n\nסה"כ: ${riceProducts.length} מוצרים`);
+  
+  // Check if "אורז מלא" exists
+  if (!mazavaProducts.includes('אורז מלא')) {
+    alert('❌ אורז מלא לא קיים ברשימה!');
+  } else {
+    alert('✅ אורז מלא קיים ברשימה!');
   }
   
   let exactMatch = null;
