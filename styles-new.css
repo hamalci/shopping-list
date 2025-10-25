@@ -675,14 +675,19 @@ body.dark-mode #toggleChoose.active {
   background: transparent;
   border: none;
   border-radius: 0;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
   gap: 0.5rem;
   border-bottom: 1px solid #e0e0e0;
 }
 
 #cartGrid .item:last-child {
   border-bottom: none;
+}
+
+/* Note row in cart should span full width */
+#cartGrid .item .item-note-row {
+  grid-column: 1 / -1;
 }
 
 .cart-total {
