@@ -1217,9 +1217,6 @@ async function fetchProductByBarcode(barcode) {
 let recognition = null;
 let isListening = false;
 let noSpeechTimeout = null;
-let finalResultTimeout = null; // timeout after final result
-let lastTranscript = ''; // store the latest transcript
-let accumulatedTranscript = ''; // accumulate multiple final results
 
 function startVoiceInput() {
   // Check for Web Speech API support
@@ -1253,46 +1250,15 @@ function startVoiceInput() {
   const voiceBtn = document.getElementById('btnVoiceInput');
   
   if (isListening) {
-    // Stop listening and process what we have
-    console.log('🛑 User stopped listening manually. Processing:', lastTranscript);
+    // Stop listening
+    console.log('🛑 User stopped listening manually');
     
     if (recognition) {
       recognition.stop();
     }
     isListening = false;
     voiceBtn.classList.remove('listening');
-    
-    // Clear any pending timeout
-    if (finalResultTimeout) {
-      clearTimeout(finalResultTimeout);
-      finalResultTimeout = null;
-    }
-    
-    // Process the transcript immediately
-    if (lastTranscript && lastTranscript.trim() !== '') {
-      const product = findProductByVoice(lastTranscript);
-      
-      if (product) {
-        voiceBtn.textContent = '✅';
-        createListItem(product.name, product.icon, 1, product.unit);
-        setTimeout(() => {
-          voiceBtn.textContent = '🎤';
-        }, 1500);
-      } else {
-        voiceBtn.textContent = '❓';
-        setTimeout(() => {
-          if (confirm(`לא מצאתי "${lastTranscript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-            const icon = detectIconByName(lastTranscript);
-            createListItem(lastTranscript, icon, 1, 'יח\'');
-          }
-          voiceBtn.textContent = '🎤';
-        }, 100);
-      }
-      lastTranscript = '';
-      accumulatedTranscript = ''; // Reset accumulated transcript
-    } else {
-      voiceBtn.textContent = '🎤';
-    }
+    voiceBtn.textContent = '🎤';
     
     return;
   }
@@ -1328,8 +1294,8 @@ function startVoiceInput() {
   recognition = new SpeechRecognition();
   
   recognition.lang = 'he-IL'; // Hebrew first, will fallback if needed
-  recognition.continuous = true; // Keep listening (will stop manually or on timeout)
-  recognition.interimResults = true; // Show interim results for better UX
+  recognition.continuous = false; // SIMPLE: One phrase at a time - fast and reliable
+  recognition.interimResults = false; // Only final results - no confusion
   recognition.maxAlternatives = 5; // Get more alternatives
 
   // Add event handlers BEFORE starting
@@ -1338,10 +1304,6 @@ function startVoiceInput() {
     isListening = true;
     voiceBtn.classList.add('listening');
     voiceBtn.textContent = '🔴';
-    
-    // Reset accumulated transcript for new session
-    accumulatedTranscript = '';
-    lastTranscript = '';
     
     // Set timeout for no speech detected
     noSpeechTimeout = setTimeout(() => {
@@ -1368,38 +1330,17 @@ function startVoiceInput() {
     }
   };
 
-  recognition.onspeechend = () => {
-    console.log('🤐 Speech ended detected');
-    // Don't process here - let onresult handle everything
-  };
-
   recognition.onresult = (event) => {
-    console.log('📝 onresult event fired, results.length:', event.results.length);
+    console.log('📝 Voice recognized!');
     
-    // The LAST result contains the current recognized text
-    const result = event.results[event.results.length - 1];
-    const transcript = result[0].transcript;
-    const isFinal = result.isFinal;
-    
-    console.log(isFinal ? '✅ Final:' : '⏳ Interim:', transcript);
-    
-    // Show interim results on button - but keep mic icon visible
-    if (!isFinal) {
-      voiceBtn.textContent = '🔴'; // Show recording, not hourglass
-      console.log('⏳ Interim result, continuing to listen...');
-      return; // Wait for final result
+    // Get the final transcript
+    let transcript = '';
+    for (let i = 0; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
     }
+    transcript = transcript.trim();
     
-    // IMPORTANT: Accumulate final results instead of replacing!
-    // Hebrew speech recognition sends each word as a separate final result
-    if (accumulatedTranscript) {
-      accumulatedTranscript += ' ' + transcript.trim();
-    } else {
-      accumulatedTranscript = transcript.trim();
-    }
-    
-    lastTranscript = accumulatedTranscript;
-    console.log('✅ Final result received. Accumulated so far:', lastTranscript);
+    console.log('✅ Recognized text:', transcript);
     
     // Clear no-speech timeout
     if (noSpeechTimeout) {
@@ -1407,23 +1348,39 @@ function startVoiceInput() {
       noSpeechTimeout = null;
     }
     
-    // Clear any previous timeout
-    if (finalResultTimeout) {
-      clearTimeout(finalResultTimeout);
-    }
+    // Stop recognition
+    recognition.stop();
+    isListening = false;
     
-    // Wait 2 seconds for more words - user can click mic to stop immediately
-    finalResultTimeout = setTimeout(() => {
-      console.log('⏱️ Processing after 2s delay:', lastTranscript);
+    // Search for the product
+    const product = findProductByVoice(transcript);
+    
+    if (product) {
+      // Show success feedback
+      voiceBtn.textContent = '✅';
+      voiceBtn.classList.remove('listening');
       
-      if (!lastTranscript || lastTranscript.trim() === '') {
-        console.log('No transcript to process');
-        return;
-      }
+      // Create the item
+      createListItem(product.name, product.icon, 1, product.unit);
       
-      // Process the accumulated transcript
-      processVoiceInput(lastTranscript);
-    }, 2000); // 2 seconds - balance between speed and accuracy
+      // Reset button after delay
+      setTimeout(() => {
+        voiceBtn.textContent = '🎤';
+      }, 1500);
+      
+    } else {
+      // Product not found - add as custom item
+      voiceBtn.textContent = '❓';
+      voiceBtn.classList.remove('listening');
+      
+      setTimeout(() => {
+        if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
+          const icon = detectIconByName(transcript);
+          createListItem(transcript, icon, 1, 'יח\'');
+        }
+        voiceBtn.textContent = '🎤';
+      }, 100);
+    }
   };
 
   recognition.onerror = (event) => {
@@ -1511,61 +1468,6 @@ function startVoiceInput() {
     voiceBtn.classList.remove('listening');
     voiceBtn.textContent = '🎤';
   }
-}
-
-// Helper function to process voice input
-function processVoiceInput(transcript) {
-  const voiceBtn = document.getElementById('btnVoiceInput');
-  
-  console.log('🎯 Processing voice input:', transcript);
-  
-  // Search for the product in categories
-  const product = findProductByVoice(transcript);
-  
-  if (product) {
-    // Show success feedback
-    voiceBtn.textContent = '✅';
-    
-    // Create the item
-    createListItem(product.name, product.icon, 1, product.unit);
-    
-    // Stop recognition after successful addition
-    if (recognition) {
-      recognition.stop();
-    }
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    
-    // Reset button after delay
-    setTimeout(() => {
-      voiceBtn.textContent = '🎤';
-    }, 1500);
-    
-  } else {
-    // Product not found - add as custom item
-    voiceBtn.textContent = '❓';
-    
-    // Stop recognition to ask user
-    if (recognition) {
-      recognition.stop();
-    }
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    
-    setTimeout(() => {
-      if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-        // Detect icon based on product name
-        const icon = detectIconByName(transcript);
-        createListItem(transcript, icon, 1, 'יח\'');
-      }
-      voiceBtn.textContent = '🎤';
-    }, 100);
-  }
-  
-  // Clear accumulated transcript
-  lastTranscript = '';
-  accumulatedTranscript = '';
-  finalResultTimeout = null;
 }
 
 function findProductByVoice(voiceText) {
