@@ -1476,17 +1476,13 @@ function findProductByVoice(voiceText) {
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
-  // Debug: Show all products in "מזווה ויבשים" category
+  // Debug: Show comparison between voice input and product name
+  alert(`🔍 מה זיהיתי:\n"${voiceText}"\nאורך: ${voiceText.length} תווים\n\nמה אחפש אחרי נורמליזציה:\n"${searchText}"\nאורך: ${searchText.length} תווים`);
+  
   const mazavaProducts = categories['מזווה ויבשים'] || [];
-  const riceProducts = mazavaProducts.filter(p => p.includes('אורז'));
-  
-  alert(`🐛 DEBUG:\nמוצרי אורז בקטגוריה:\n${riceProducts.join('\n')}\n\nסה"כ: ${riceProducts.length} מוצרים`);
-  
-  // Check if "אורז מלא" exists
-  if (!mazavaProducts.includes('אורז מלא')) {
-    alert('❌ אורז מלא לא קיים ברשימה!');
-  } else {
-    alert('✅ אורז מלא קיים ברשימה!');
+  const orzMale = mazavaProducts.find(p => p.includes('אורז מלא'));
+  if (orzMale) {
+    alert(`� המוצר ברשימה:\n"${orzMale}"\nאורך: ${orzMale.length} תווים\n\nאחרי נורמליזציה:\n"${orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}"\nאורך: ${orzMale.toLowerCase().trim().replace(/\s+/g, ' ').length} תווים\n\nהשוואה:\nחיפוש: "${searchText}"\nמוצר: "${orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}"\nזהה? ${searchText === orzMale.toLowerCase().trim().replace(/\s+/g, ' ')}`);
   }
   
   let exactMatch = null;
