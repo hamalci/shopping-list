@@ -646,6 +646,27 @@ body.dark-mode #toggleChoose.active {
   border-top: 2px solid #e0e0e0;
 }
 
+#cartSection .list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.clear-cart-btn {
+  background: transparent;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.clear-cart-btn:hover {
+  color: #d32f2f;
+}
+
 #cartGrid {
   display: flex;
   flex-direction: column;

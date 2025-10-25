@@ -1856,6 +1856,24 @@ document.addEventListener("DOMContentLoaded", () => {
     closeListMenu();
   });
   
+  document.getElementById('btnClearCart')?.addEventListener('click', () => {
+    const cartGrid = document.getElementById('cartGrid');
+    const cartSection = document.getElementById('cartSection');
+    if (cartGrid && confirm('האם לנקות את העגלה? (הפריטים יחזרו לרשימה)')) {
+      // Move all cart items back to list
+      const items = Array.from(cartGrid.children);
+      items.forEach(item => {
+        item.classList.remove('checked');
+        const checkmark = item.querySelector('.checkmark-indicator');
+        if (checkmark) checkmark.style.display = 'none';
+        if (DOM.listGrid) DOM.listGrid.appendChild(item);
+      });
+      // Hide cart section
+      if (cartSection) cartSection.style.display = 'none';
+      saveListToStorage();
+    }
+  });
+  
   document.getElementById('btnListShare')?.addEventListener('click', () => {
     shareCurrentList();
     closeListMenu();
