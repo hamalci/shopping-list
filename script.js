@@ -1342,9 +1342,6 @@ function startVoiceInput() {
     
     console.log('✅ Recognized text:', transcript);
     
-    // Show debug message on mobile
-    alert(`🔍 DEBUG:\nזיהיתי: "${transcript}"\n\nמחפש עכשיו...`);
-    
     // Clear no-speech timeout
     if (noSpeechTimeout) {
       clearTimeout(noSpeechTimeout);
@@ -1360,7 +1357,6 @@ function startVoiceInput() {
     
     if (product) {
       // Show success feedback
-      alert(`✅ מצאתי!\nמוצר: "${product.name}"\nאייקון: ${product.icon}\nיחידה: ${product.unit}`);
       voiceBtn.textContent = '✅';
       voiceBtn.classList.remove('listening');
       
@@ -1376,8 +1372,6 @@ function startVoiceInput() {
       // Product not found - add as custom item
       voiceBtn.textContent = '❓';
       voiceBtn.classList.remove('listening');
-      
-      alert(`❌ לא מצאתי "${transcript}" ברשימה`);
       
       setTimeout(() => {
         if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
@@ -1481,37 +1475,38 @@ function findProductByVoice(voiceText) {
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
-  // Mobile debug
-  const catCount = Object.keys(categories).length;
-  let totalProducts = 0;
-  for (const cat of Object.values(categories)) {
-    totalProducts += cat.length;
-  }
-  alert(`📊 יש ${catCount} קטגוריות\nסה"כ ${totalProducts} מוצרים`);
-  
   let exactMatch = null;
   let partialMatch = null;
   
-  // Search in all categories - first try exact match, then partial
+  // FIRST PASS: Search for EXACT match in ALL categories
   for (const [categoryName, categoryProducts] of Object.entries(categories)) {
-    console.log(`  🔎 Searching in category "${categoryName}":`, categoryProducts.length, 'products');
     for (const productName of categoryProducts) {
       const productLower = productName.toLowerCase();
       
-      // Check for exact match
       if (productLower === searchText) {
         console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
         exactMatch = productName;
         break;
       }
-      
-      // Check for partial match (if no exact match found yet)
-      if (!partialMatch && (productLower.includes(searchText) || searchText.includes(productLower))) {
-        console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
-        partialMatch = productName;
-      }
     }
     if (exactMatch) break;
+  }
+  
+  // SECOND PASS: If no exact match, search for partial match
+  if (!exactMatch) {
+    for (const [categoryName, categoryProducts] of Object.entries(categories)) {
+      for (const productName of categoryProducts) {
+        const productLower = productName.toLowerCase();
+        
+        // Partial match: product contains search text (not vice versa!)
+        if (productLower.includes(searchText)) {
+          console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
+          partialMatch = productName;
+          break;
+        }
+      }
+      if (partialMatch) break;
+    }
   }
   
   const foundProduct = exactMatch || partialMatch;
