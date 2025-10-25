@@ -1471,17 +1471,12 @@ function startVoiceInput() {
 }
 
 function findProductByVoice(voiceText) {
-  // Debug: show character codes
-  let debugMsg = 'Voice chars: ';
-  for (let i = 0; i < voiceText.length; i++) {
-    debugMsg += voiceText.charCodeAt(i) + ',';
-  }
-  alert(debugMsg);
-  
-  // Normalize: remove ALL types of whitespace (space, nbsp, zero-width, etc)
-  const searchText = voiceText.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
-  
-  alert('After normalize: "' + searchText + '" - chars: ' + Array.from(searchText).map(c => c.charCodeAt(0)).join(','));
+  // Normalize: remove ALL types of whitespace AND directional marks (RTL/LTR)
+  const searchText = voiceText
+    .replace(/[\u200E\u200F]/g, '') // Remove LTR/RTL marks (8206, 8207)
+    .toLowerCase()
+    .trim()
+    .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
   
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
@@ -1492,8 +1487,12 @@ function findProductByVoice(voiceText) {
   // FIRST PASS: Search for EXACT match in ALL categories
   for (const [categoryName, categoryProducts] of Object.entries(categories)) {
     for (const productName of categoryProducts) {
-      // Normalize product name - remove ALL types of whitespace
-      const productLower = productName.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
+      // Normalize product name - remove directional marks and whitespace
+      const productLower = productName
+        .replace(/[\u200E\u200F]/g, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
       
       if (productLower === searchText) {
         console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
@@ -1508,7 +1507,11 @@ function findProductByVoice(voiceText) {
   if (!exactMatch) {
     for (const [categoryName, categoryProducts] of Object.entries(categories)) {
       for (const productName of categoryProducts) {
-        const productLower = productName.toLowerCase().trim().replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
+        const productLower = productName
+          .replace(/[\u200E\u200F]/g, '')
+          .toLowerCase()
+          .trim()
+          .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
         
         // Partial match: product contains search text (not vice versa!)
         if (productLower.includes(searchText)) {
