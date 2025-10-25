@@ -1376,6 +1376,29 @@ function startVoiceInput() {
       setTimeout(() => {
         if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
           const icon = detectIconByName(transcript);
+          
+          // Save to custom items in localStorage
+          const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
+          const newItem = {
+            name: transcript,
+            icon: icon,
+            unit: 'יח\'',
+            category: 'פריטים מותאמים אישית'
+          };
+          
+          // Check if item already exists
+          const exists = savedCustom.some(item => item.name === transcript);
+          if (!exists) {
+            savedCustom.push(newItem);
+            localStorage.setItem('customChooseItems', JSON.stringify(savedCustom));
+            
+            // Reload choose grid to show new item
+            loadDefaultChooseItems();
+            
+            console.log(`✅ המוצר "${transcript}" נשמר בקטגוריות`);
+          }
+          
+          // Add to shopping list
           createListItem(transcript, icon, 1, 'יח\'');
         }
         voiceBtn.textContent = '🎤';
