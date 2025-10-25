@@ -1475,6 +1475,20 @@ function findProductByVoice(voiceText) {
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
+  // Debug: Check if "אורז מלא" is in categories
+  let foundInCategories = false;
+  for (const [catName, products] of Object.entries(categories)) {
+    if (products.includes('אורז מלא')) {
+      foundInCategories = true;
+      console.log(`✅ "אורז מלא" found in category "${catName}"`);
+      break;
+    }
+  }
+  if (!foundInCategories) {
+    console.error('❌ "אורז מלא" NOT FOUND in any category!');
+    alert('🐛 DEBUG:\n"אורז מלא" לא נמצא בקטגוריות!\n\nצריך לטעון מחדש את הדף.');
+  }
+  
   let exactMatch = null;
   let partialMatch = null;
   
