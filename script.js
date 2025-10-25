@@ -235,12 +235,6 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   const row = document.createElement("div");
   row.className = "item fade-in";
 
-  // Checkmark indicator
-  const checkmark = document.createElement("span");
-  checkmark.className = "checkmark-indicator";
-  checkmark.textContent = "✓";
-  checkmark.style.display = "none";
-
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
   // Always combine icon + name (they are passed separately)
@@ -337,8 +331,7 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     renderTotal();
   });
 
-  // מבנה חדש: checkmark, שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
-  row.appendChild(checkmark);
+  // מבנה חדש: שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
   row.appendChild(nameSpan);
   row.appendChild(qty);
   row.appendChild(priceSpan);
@@ -361,7 +354,6 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     
     if (row.classList.contains("checked")) {
       // Move to cart
-      checkmark.style.display = "inline-block";
       row.classList.add("moving");
       setTimeout(() => {
         if (cartGrid) {
@@ -373,7 +365,6 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
       }, 300);
     } else {
       // Move back to list
-      checkmark.style.display = "none";
       row.classList.add("moving");
       setTimeout(() => {
         if (DOM.listGrid) DOM.listGrid.appendChild(row);
@@ -793,9 +784,6 @@ function loadListFromStorage(){
     const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
     if (item.checked) {
       row.classList.add("checked");
-      // Show checkmark for checked items
-      const checkmark = row.querySelector('.checkmark-indicator');
-      if (checkmark) checkmark.style.display = "inline-block";
       // Move to cart
       if (cartGrid) {
         cartGrid.appendChild(row);
@@ -1888,8 +1876,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const items = Array.from(cartGrid.children);
       items.forEach(item => {
         item.classList.remove('checked');
-        const checkmark = item.querySelector('.checkmark-indicator');
-        if (checkmark) checkmark.style.display = 'none';
         if (DOM.listGrid) DOM.listGrid.appendChild(item);
       });
       // Hide cart section
