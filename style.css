@@ -1073,17 +1073,24 @@ body.dark-mode #toggleChoose:hover { background: rgba(255,255,255,0.1); }
 .item .price .currency { font-size:0.9rem; opacity:0.95; order: 0; }
 
 .list-footer { 
-  margin-top:0.5rem; 
-  padding-top:0.5rem; 
-  border-top:1px solid #eee; 
-  display:flex; 
-  justify-content:flex-end; 
-  direction:rtl; 
-  padding-left: 1rem; /* מוסיף ריווח לשמאל */
+  margin-top: 1rem;
 }
-.total-row { display:flex; gap:0.5rem; align-items:center; font-weight:700; }
-.total-label { color:#333; font-size:0.95rem; }
-.total-amount { color:#1b7a2b; font-size:1rem; min-width:4.5rem; text-align:left; direction:rtl; }
+
+.list-footer > .total-row {
+  background: #f8f9fa;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.total-label { color:#333; }
+.total-amount { color:#1b7a2b; }
+
 /* --- למצב לילה: הצג מחיר (label) לא מטושטש --- */
 body.dark-mode label[for="togglePrices"],
 body.dark-mode #togglePrices {
