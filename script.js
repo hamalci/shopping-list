@@ -235,6 +235,12 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   const row = document.createElement("div");
   row.className = "item fade-in";
 
+  // Checkmark indicator
+  const checkmark = document.createElement("span");
+  checkmark.className = "checkmark-indicator";
+  checkmark.textContent = "✓";
+  checkmark.style.display = "none";
+
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
   // Always combine icon + name (they are passed separately)
@@ -331,7 +337,8 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     renderTotal();
   });
 
-  // מבנה חדש: שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
+  // מבנה חדש: checkmark, שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
+  row.appendChild(checkmark);
   row.appendChild(nameSpan);
   row.appendChild(qty);
   row.appendChild(priceSpan);
@@ -345,7 +352,16 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     
     // אם לחצת על ה priceSpan או על כפתורי qty או note-icon, אל תטפל ב־toggle של השורה
     if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
+    
     row.classList.toggle("checked");
+    
+    // Toggle checkmark visibility
+    if (row.classList.contains("checked")) {
+      checkmark.style.display = "inline-block";
+    } else {
+      checkmark.style.display = "none";
+    }
+    
     if (!DOM.listGrid) return;
     row.classList.add("moving");
     setTimeout(() => { DOM.listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
@@ -727,7 +743,12 @@ function loadListFromStorage(){
   const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
     const note = item.note || "";
     const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
-    if (item.checked) row.classList.add("checked");
+    if (item.checked) {
+      row.classList.add("checked");
+      // Show checkmark for checked items
+      const checkmark = row.querySelector('.checkmark-indicator');
+      if (checkmark) checkmark.style.display = "inline-block";
+    }
   });
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
