@@ -1471,7 +1471,8 @@ function startVoiceInput() {
 }
 
 function findProductByVoice(voiceText) {
-  const searchText = voiceText.toLowerCase().trim();
+  // Normalize search text: lowercase + remove extra spaces
+  const searchText = voiceText.toLowerCase().trim().replace(/\s+/g, ' ');
   console.log('🔍 Searching for:', `"${searchText}"`);
   console.log('📚 Categories available:', Object.keys(categories));
   
@@ -1495,10 +1496,12 @@ function findProductByVoice(voiceText) {
   // FIRST PASS: Search for EXACT match in ALL categories
   for (const [categoryName, categoryProducts] of Object.entries(categories)) {
     for (const productName of categoryProducts) {
-      const productLower = productName.toLowerCase();
+      // Normalize product name too
+      const productLower = productName.toLowerCase().trim().replace(/\s+/g, ' ');
       
       if (productLower === searchText) {
         console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
+        alert(`🎯 מצאתי התאמה מדויקת!\nמוצר: "${productName}"\nקטגוריה: "${categoryName}"`);
         exactMatch = productName;
         break;
       }
@@ -1510,7 +1513,7 @@ function findProductByVoice(voiceText) {
   if (!exactMatch) {
     for (const [categoryName, categoryProducts] of Object.entries(categories)) {
       for (const productName of categoryProducts) {
-        const productLower = productName.toLowerCase();
+        const productLower = productName.toLowerCase().trim().replace(/\s+/g, ' ');
         
         // Partial match: product contains search text (not vice versa!)
         if (productLower.includes(searchText)) {
