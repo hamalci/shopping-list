@@ -9,7 +9,26 @@
 
   <!-- Quagga Barcode Scanner Library -->
   <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-  
+
+  <!-- Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <!-- Add Firebase products that you want to use -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+  <!-- TODO: עדכן את הערכים שלך מה-Firebase Console -->
+  <script>
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+    const firebaseConfig = {
+      apiKey: "AIzaSyDuc3Cx7GnbOOUzWSazB_nnHO6wHE4gIoQ",
+      authDomain: "shopping-3a351.firebaseapp.com",
+      projectId: "shopping-3a351",
+      storageBucket: "shopping-3a351.firebasestorage.app",
+      messagingSenderId: "1035612983793",
+      appId: "1:1035612983793:web:d7741772c29439403d7450",
+      measurementId: "G-NM9ZNPTNDS"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+  </script>
   <script src="script.js" defer></script>
   <!-- Favicon and description for better install/app experience and SEO -->
 <link rel="icon" type="image/png" href="icons/favicon.png">
@@ -30,6 +49,18 @@
 
 </head>
 <body>
+  <!-- Share Modal -->
+  <div id="shareModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:400px;text-align:center;">
+      <span class="close-modal" id="closeShareModal" style="float:left;font-size:1.5em;cursor:pointer;">&times;</span>
+      <h2>קישור לשיתוף הרשימה</h2>
+      <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" />
+  <button id="copyShareLinkBtn" class="btn-action">📋 העתק קישור</button>
+  <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;">📱 שלח ב-SMS</button>
+  <button id="waShareBtn" class="btn-action" style="margin-right:0.5em;background:#25d366;color:#fff;">🟢 שתף ב-WhatsApp</button>
+  <div id="copyStatus" style="margin-top:0.5em;color:green;font-size:0.95em;"></div>
+    </div>
+  </div>
   <header class="app-header">
     <h1>רשימת קניות</h1>
     <div class="header-controls">
@@ -99,8 +130,9 @@
 
     <section id="listSection">
       <div class="list-header">
-        <h2>📃 הרשימה שלי</h2>
-        <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
+  <h2>📃 הרשימה שלי</h2>
+  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן">🔗 שתף רשימה</button>
+  <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
       </div>
       
       <!-- List Menu Dropdown -->
@@ -222,11 +254,56 @@
           if (dd) dd.style.display = 'none';
         }
       });
+
+      // Share List button
+      const shareBtn = document.getElementById('btnShareList');
+      if (shareBtn) {
+        shareBtn.addEventListener('click', async function() {
+          if (typeof saveListToFirebase === 'function') {
+            const url = await saveListToFirebase(true); // true = silent
+            if (url) showShareModal(url);
+          }
+        });
+      }
+
+      // Share Modal logic
+      function showShareModal(url) {
+        const modal = document.getElementById('shareModal');
+        const input = document.getElementById('shareLinkInput');
+        const copyBtn = document.getElementById('copyShareLinkBtn');
+        const smsBtn = document.getElementById('smsShareBtn');
+  const waBtn = document.getElementById('waShareBtn');
+  const closeBtn = document.getElementById('closeShareModal');
+  const status = document.getElementById('copyStatus');
+  if (!modal || !input || !copyBtn || !closeBtn || !smsBtn || !waBtn) return;
+        waBtn.onclick = function() {
+          const waText = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
+          window.open('https://wa.me/?text=' + waText, '_blank');
+        };
+        input.value = url;
+        status.textContent = '';
+        modal.style.display = 'block';
+        input.select();
+        copyBtn.onclick = async function() {
+          try {
+            await navigator.clipboard.writeText(url);
+            status.textContent = 'הקישור הועתק ללוח!';
+          } catch {
+            status.textContent = 'לא ניתן להעתיק אוטומטית, העתק ידנית.';
+          }
+        };
+        smsBtn.onclick = function() {
+          const smsBody = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
+          window.open('sms:?body=' + smsBody, '_blank');
+        };
+        closeBtn.onclick = function() { modal.style.display = 'none'; };
+        window.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+      }
     })();
 
     if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js');
-}
+      navigator.serviceWorker.register('service-worker.js');
+    }
   </script>
   </body>
 </html>

@@ -1,4 +1,63 @@
-﻿/* script.js — גרסה מלאה משולבת
+﻿// --- Load shared list from URL param on page load ---
+document.addEventListener('DOMContentLoaded', function() {
+  const params = new URLSearchParams(window.location.search);
+  const listId = params.get('list');
+  if (listId && typeof loadListFromFirebase === 'function') {
+    loadListFromFirebase(listId);
+  }
+});
+// --- Firebase Share Functions ---
+async function saveListToFirebase(silent) {
+  try {
+    // קרא את הרשימה המקומית
+    const data = localStorage.getItem("shoppingList");
+    if (!data) {
+      if (!silent) alert("אין רשימה לשיתוף");
+      return;
+    }
+    const list = JSON.parse(data);
+    // צור מזהה קצר (6 תווים)
+    const shortId = Math.random().toString(36).substring(2, 8);
+    // שמור ב-Firestore
+    await db.collection("lists").doc(shortId).set({
+      list,
+      created: new Date().toISOString()
+    });
+    // צור קישור קצר
+    const url = window.location.origin + window.location.pathname + "?list=" + shortId;
+    if (!silent) {
+      // הצג למשתמש (למקרה קריאה ישירה)
+      if (typeof showShareModal === 'function') showShareModal(url);
+    }
+    return url;
+  } catch (err) {
+    if (!silent) alert("שגיאה בשמירה ל-Firebase: " + err.message);
+  }
+}
+
+async function loadListFromFirebase(listId) {
+  try {
+    const doc = await db.collection("lists").doc(listId).get();
+    if (!doc.exists) {
+      alert("הרשימה לא נמצאה בענן");
+      return;
+    }
+    const data = doc.data();
+    if (data && data.list) {
+      // אפשרות: גיבוי הרשימה המקומית לפני דריסה
+      const local = localStorage.getItem("shoppingList");
+      if (local && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
+      localStorage.setItem("shoppingList", JSON.stringify(data.list));
+      // טען את הרשימה ל-UI
+      if (typeof clearList === 'function') clearList();
+      if (typeof loadListFromStorage === 'function') loadListFromStorage();
+      alert("הרשימה נטענה בהצלחה!");
+    }
+  } catch (err) {
+    alert("שגיאה בטעינה מ-Firebase: " + err.message);
+  }
+}
+/* script.js — גרסה מלאה משולבת
    תומכת: choose grid, create items, localStorage, network/branch fetch,
    apiPrices + manualPrices, normalized matching (עברית), edit-on-click price,
    price layout currency+amount, total rendering, category toggle (mobile+desktop).
