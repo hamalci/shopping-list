@@ -1,12 +1,19 @@
-﻿// --- Load shared list from URL param on page load ---
+﻿// --- Unified App Initialization ---
 document.addEventListener('DOMContentLoaded', function() {
+  // Initialize DOM cache
+  if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
+  if (typeof loadDefaultChooseItems === 'function') loadDefaultChooseItems();
+
+  // Check for shared list in URL (?list=...)
   const params = new URLSearchParams(window.location.search);
   const listId = params.get('list');
   if (listId && typeof loadListFromFirebase === 'function') {
     loadListFromFirebase(listId);
+  } else {
+    if (typeof loadListFromStorage === 'function') loadListFromStorage();
   }
 
-  // Share List button init (moved from index.html)
+  // Share List button
   const shareBtn = document.getElementById('btnShareList');
   if (shareBtn) {
     shareBtn.addEventListener('click', async function() {
@@ -16,6 +23,210 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  // --- All other UI/event listeners wiring ---
+  document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
+  document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
+  document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
+  document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
+  document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
+  function closeMainMenu() {
+    const menu = document.getElementById('menuDropdown');
+    if (menu) menu.style.display = 'none';
+  }
+  document.getElementById("menuButton")?.addEventListener("click", () => {
+    const menu = document.getElementById("menuDropdown");
+    if (!menu) return;
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+  });
+  document.querySelector('#menuDropdown .dropdown-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeMainMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".menu-container")) {
+      closeMainMenu();
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeMainMenu();
+    }
+  });
+  document.getElementById('btnViewMode')?.addEventListener('click', () => {
+    document.body.classList.toggle("dark-mode");
+    localStorage.setItem("viewMode", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    if (document.body.classList.contains('dark-mode')) {
+      document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
+        if (el && !el.classList.contains('panel')) el.classList.add('panel');
+      });
+    }
+    closeMainMenu();
+  });
+  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
+    rootFontPx = Math.min(rootFontPx + 1, 30);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
+    rootFontPx = Math.max(rootFontPx - 1, 12);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+  document.getElementById("btnFontReset")?.addEventListener("click", () => {
+    rootFontPx = 19;
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+    closeMainMenu();
+  });
+  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
+    closeMainMenu();
+  });
+  document.getElementById('networkSelect')?.addEventListener('change', (e) => populateBranches(e.target.value));
+  document.getElementById('btnSaveStore')?.addEventListener('click', () => {
+    saveStoreSelection();
+    closeMainMenu();
+  });
+  document.getElementById('togglePrices')?.addEventListener('change', (e) => {
+    togglePriceDisplay(e.target.checked);
+  });
+  (function initStoreUI(){
+    const selNet = localStorage.getItem('selectedNetwork') || '';
+    const selBranch = localStorage.getItem('selectedBranch') || '';
+    if (selNet) {
+      const netEl = document.getElementById('networkSelect');
+      if (netEl) netEl.value = selNet;
+      populateBranches(selNet);
+      const brEl = document.getElementById('branchSelect');
+      if (brEl && selBranch) brEl.value = selBranch;
+    }
+    const show = localStorage.getItem('showPrices') === '1';
+    const toggle = document.getElementById('togglePrices');
+    if (toggle) toggle.checked = show;
+    renderAllPrices();
+    renderTotal();
+  })();
+  const toggleBtn = document.querySelector('.btn-toggle-categories') || document.getElementById('btnCategoriesSettings');
+  const settings = document.getElementById('settingsSection');
+  const categoriesList = document.getElementById('categoriesList');
+  function toggleCategories(open) {
+    const isOpen = open === undefined ? !(settings?.classList.contains('open') || categoriesList?.classList.contains('open')) : !!open;
+    if (settings) settings.classList.toggle('open', isOpen);
+    if (categoriesList) categoriesList.classList.toggle('open', isOpen);
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(isOpen));
+  }
+  if (toggleBtn) toggleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleCategories(); });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.categories-container') && !e.target.closest('.btn-toggle-categories') && !e.target.closest('#btnCategoriesSettings')) {
+      toggleCategories(false);
+    }
+  });
+  if (toggleBtn) {
+    toggleBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCategories(); }
+    });
+  }
+  if (document.body.classList.contains('dark-mode')) {
+    document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
+      if (el && !el.classList.contains('panel')) el.classList.add('panel');
+    });
+  }
+  function closeListMenu() {
+    const menu = document.getElementById('listMenuDropdown');
+    if (menu) menu.style.display = 'none';
+  }
+  document.getElementById("listMenuButton")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById("listMenuDropdown");
+    if (!menu) return;
+    menu.style.display = menu.style.display === "block" ? "none" : "block";
+  });
+  document.querySelector('#listMenuDropdown .dropdown-close')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeListMenu();
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".list-header") && !e.target.closest("#listMenuDropdown")) {
+      closeListMenu();
+    }
+  });
+  document.getElementById('btnListClear')?.addEventListener('click', () => {
+    if (confirm('האם למחוק את כל הרשימה?')) clearList();
+    closeListMenu();
+  });
+  document.getElementById('btnListClearChecked')?.addEventListener('click', () => {
+    clearChecked();
+    closeListMenu();
+  });
+  document.getElementById('btnClearCart')?.addEventListener('click', () => {
+    const cartGrid = document.getElementById('cartGrid');
+    const cartSection = document.getElementById('cartSection');
+    if (cartGrid && confirm('האם לנקות את העגלה? (הפריטים יחזרו לרשימה)')) {
+      const items = Array.from(cartGrid.children);
+      items.forEach(item => {
+        item.classList.remove('checked');
+        if (DOM.listGrid) DOM.listGrid.appendChild(item);
+      });
+      if (cartSection) cartSection.style.display = 'none';
+      saveListToStorage();
+    }
+  });
+  document.getElementById('btnListShare')?.addEventListener('click', () => {
+    shareCurrentList();
+    closeListMenu();
+  });
+  document.getElementById('btnListShareWA')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+    window.open(waUrl, '_blank');
+    closeListMenu();
+  });
+  document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
+    window.open(smsUrl, '_blank');
+    closeListMenu();
+  });
+  if (typeof renderAllPrices === 'function') renderAllPrices();
+  if (typeof renderTotal === 'function') renderTotal();
+  document.getElementById('btnFooterClear')?.addEventListener('click', () => {
+    if (confirm('האם למחוק את כל הרשימה?')) clearList();
+    closeMainMenu();
+  });
+  document.getElementById('btnFooterClearChecked')?.addEventListener('click', () => {
+    clearChecked();
+    closeMainMenu();
+  });
+  document.getElementById('btnFooterShare')?.addEventListener('click', () => {
+    shareCurrentList();
+    closeMainMenu();
+  });
+  document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
+    window.open(waUrl, '_blank');
+    closeMainMenu();
+  });
+  document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
+    const data = localStorage.getItem("shoppingList") || "";
+    if (!data) { alert("הרשימה ריקה."); return; }
+    const encoded = encodeURIComponent(data);
+    const url = `${location.origin}${location.pathname}?list=${encoded}`;
+    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
+    window.open(smsUrl, '_blank');
+    closeMainMenu();
+  });
 });
 // --- Firebase Share Functions ---
 async function saveListToFirebase(silent) {
@@ -855,10 +1066,8 @@ function saveListToStorage() {
 
 function loadListFromStorage(){
   const data = localStorage.getItem("shoppingList");
-  alert('[Storage] raw data = ' + data);
   if (!data) return;
   const items = JSON.parse(data);
-  alert('[Storage] parsed items = ' + JSON.stringify(items));
   const cartGrid = document.getElementById('cartGrid');
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;

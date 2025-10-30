@@ -1,4 +1,19 @@
-﻿/* Icon background images - using PNG files from icons folder */
+﻿/* Share List icon using share_list.png */
+
+.icon-share-list {
+  background-image: url('icons/share_list.png');
+  background-size: 70% 70%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+body.dark-mode .icon-share-list {
+  background-image: url('icons/share_list.png'); /* אם יש גרסה כהה, שנה כאן */
+}
+
+body.dark-mode .icon-share-list {
+  background-image: url('icons/share_list.png'); /* אם יש גרסה כהה, שנה כאן */
+}
+/* Icon background images - using PNG files from icons folder */
 .icon-save {
   background-image: url('icons/save_icon.png');
   background-size: 80%;
