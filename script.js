@@ -5,6 +5,17 @@ document.addEventListener('DOMContentLoaded', function() {
   if (listId && typeof loadListFromFirebase === 'function') {
     loadListFromFirebase(listId);
   }
+
+  // Share List button init (moved from index.html)
+  const shareBtn = document.getElementById('btnShareList');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', async function() {
+      if (typeof saveListToFirebase === 'function') {
+        const url = await saveListToFirebase(true); // true = silent
+        if (url && typeof showShareModal === 'function') showShareModal(url);
+      }
+    });
+  }
 });
 // --- Firebase Share Functions ---
 async function saveListToFirebase(silent) {
@@ -15,14 +26,20 @@ async function saveListToFirebase(silent) {
       if (!silent) alert("אין רשימה לשיתוף");
       return;
     }
-    const list = JSON.parse(data);
+    let list = JSON.parse(data);
+    if (!Array.isArray(list) || list.length === 0) {
+      if (!silent) alert("הרשימה ריקה או לא תקינה, לא ניתן לשתף.");
+      return;
+    }
     // צור מזהה קצר (6 תווים)
     const shortId = Math.random().toString(36).substring(2, 8);
+    console.log('[Firebase] saveListToFirebase: shortId =', shortId, 'list =', list);
     // שמור ב-Firestore
-    await db.collection("lists").doc(shortId).set({
+    const setResult = await db.collection("lists").doc(shortId).set({
       list,
       created: new Date().toISOString()
     });
+    console.log('[Firebase] setResult:', setResult);
     // צור קישור קצר
     const url = window.location.origin + window.location.pathname + "?list=" + shortId;
     if (!silent) {
@@ -32,29 +49,38 @@ async function saveListToFirebase(silent) {
     return url;
   } catch (err) {
     if (!silent) alert("שגיאה בשמירה ל-Firebase: " + err.message);
+    console.error('[Firebase] Error saving to Firestore:', err);
   }
 }
 
 async function loadListFromFirebase(listId) {
   try {
     const doc = await db.collection("lists").doc(listId).get();
+    console.log('[Firebase] loadListFromFirebase: doc.exists =', doc.exists);
     if (!doc.exists) {
       alert("הרשימה לא נמצאה בענן");
       return;
     }
     const data = doc.data();
-    if (data && data.list) {
+    console.log('[Firebase] doc.data =', data);
+    if (data && Array.isArray(data.list) && data.list.length > 0) {
       // אפשרות: גיבוי הרשימה המקומית לפני דריסה
       const local = localStorage.getItem("shoppingList");
       if (local && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
       localStorage.setItem("shoppingList", JSON.stringify(data.list));
+      console.log('[Firebase] Saved to localStorage:', data.list);
       // טען את הרשימה ל-UI
       if (typeof clearList === 'function') clearList();
       if (typeof loadListFromStorage === 'function') loadListFromStorage();
+      if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
       alert("הרשימה נטענה בהצלחה!");
+    } else {
+      alert("הרשימה בענן ריקה או לא תקינה.");
+      console.log('[Firebase] Invalid or empty list:', data);
     }
   } catch (err) {
     alert("שגיאה בטעינה מ-Firebase: " + err.message);
+    console.error('[Firebase] Error loading from Firestore:', err);
   }
 }
 /* script.js — גרסה מלאה משולבת
@@ -829,8 +855,10 @@ function saveListToStorage() {
 
 function loadListFromStorage(){
   const data = localStorage.getItem("shoppingList");
+  alert('[Storage] raw data = ' + data);
   if (!data) return;
   const items = JSON.parse(data);
+  alert('[Storage] parsed items = ' + JSON.stringify(items));
   const cartGrid = document.getElementById('cartGrid');
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;
@@ -838,7 +866,7 @@ function loadListFromStorage(){
   items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
-  const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
+    const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
     const note = item.note || "";
     const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
     if (item.checked) {
@@ -859,6 +887,7 @@ function loadListFromStorage(){
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
   renderTotal();
+  if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
 }
 
 /* ====== save manual price override ====== */
@@ -995,7 +1024,6 @@ function clearList(){
   const listGrid = document.getElementById("listGrid");
   if (listGrid) listGrid.innerHTML = "";
   resetChoiceBadges(); // שינוי: לא לאפס את כל הטבלה, רק את המונים
-  saveListToStorage();
   renderAllPrices();
   renderTotal();
 }

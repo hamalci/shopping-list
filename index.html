@@ -51,9 +51,9 @@
 <body>
   <!-- Share Modal -->
   <div id="shareModal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width:400px;text-align:center;">
-      <span class="close-modal" id="closeShareModal" style="float:left;font-size:1.5em;cursor:pointer;">&times;</span>
-      <h2>קישור לשיתוף הרשימה</h2>
+    <div class="modal-content" style="max-width:400px;text-align:center;position:relative;">
+      <span class="close-modal" id="closeShareModal" style="position:absolute;top:0.3em;right:0.3em;font-size:1.5em;cursor:pointer;z-index:10;background:rgba(255,255,255,0.7);border-radius:50%;width:1.4em;height:1.4em;line-height:1.4em;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:0;text-align:center;">&times;</span>
+      <h2 style="margin-top:1.2em;">קישור לשיתוף הרשימה</h2>
       <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" />
   <button id="copyShareLinkBtn" class="btn-action">📋 העתק קישור</button>
   <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;">📱 שלח ב-SMS</button>
