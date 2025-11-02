@@ -94,8 +94,23 @@ async function saveListToFirebase(silent) {
       list,
       created: new Date().toISOString()
     });
-    // צור קישור קצר
-    const url = window.location.origin + window.location.pathname + "?list=" + shortId;
+    // צור קישור קצר - השתמש בכתובת קבועה
+    // בחר את הכתובת הקבועה הנכונה לפי הפלטפורמה
+    let baseUrl;
+    if (window.location.hostname.includes('vercel.app')) {
+      // Vercel - השתמש בכתובת קבועה
+      baseUrl = 'https://shopping-app-zeta-eight.vercel.app';
+    } else if (window.location.hostname.includes('netlify.app')) {
+      // Netlify - השתמש בכתובת קבועה (אם יש)
+      baseUrl = window.location.origin; // תצטרך להחליף אם יש domain קבוע
+    } else if (window.location.hostname.includes('github.io')) {
+      // GitHub Pages
+      baseUrl = 'https://hamalci.github.io/shopping-list';
+    } else {
+      // Local או domain אחר
+      baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
+    }
+    const url = baseUrl + "?list=" + shortId;
     if (!silent) {
       // הצג למשתמש (למקרה קריאה ישירה)
       if (typeof showShareModal === 'function') showShareModal(url);
