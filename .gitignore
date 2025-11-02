@@ -2,3 +2,5 @@ backup-shopping-list/
 
 # Local Netlify folder
 .netlify
+
+.vercel

@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Security rules for shopping lists
+    match /lists/{listId} {
+      // Allow anyone to read lists (for sharing)
+      allow read: if true;
+      
+      // Allow anyone to create lists, but with validation
+      allow create: if request.resource.data.keys().hasAll(['list', 'created', 'expiresAt'])
+                    && request.resource.data.list is list
+                    && request.resource.data.list.size() <= 100  // Max 100 items
+                    && request.resource.data.created is string
+                    && request.resource.data.expiresAt is string
+                    && request.resource.data.size() < 1048576;  // Max 1MB
+      
+      // Don't allow updates or deletes (lists are immutable once created)
+      allow update, delete: if false;
+    }
+    
+    // Deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

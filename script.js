@@ -1,4 +1,25 @@
-﻿// --- Helper functions for localStorage ---
+﻿// --- Security: Input Sanitization ---
+function sanitizeInput(input) {
+  if (!input) return '';
+  // Remove HTML tags and dangerous characters
+  const text = String(input)
+    .replace(/[<>]/g, '') // Remove < and >
+    .replace(/javascript:/gi, '') // Remove javascript: protocol
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers like onclick=
+    .trim();
+  // Limit length to prevent abuse
+  return text.substring(0, 500);
+}
+
+// Validate data size for Firebase
+function validateDataSize(data) {
+  const jsonString = JSON.stringify(data);
+  const sizeInBytes = new Blob([jsonString]).size;
+  const maxSize = 1024 * 1024; // 1MB limit
+  return sizeInBytes < maxSize;
+}
+
+// --- Helper functions for localStorage ---
 const STORAGE_KEY = "shoppingList";
 const getShoppingList = () => {
   try {
@@ -87,12 +108,31 @@ async function saveListToFirebase(silent) {
       if (!silent) alert("אין רשימה לשיתוף");
       return;
     }
+    
+    // Security: Validate list size
+    if (!validateDataSize(list)) {
+      if (!silent) alert("הרשימה גדולה מדי לשיתוף (מקסימום 1MB)");
+      return;
+    }
+    
+    // Security: Sanitize all items in the list
+    const sanitizedList = list.map(item => ({
+      ...item,
+      name: sanitizeInput(item.name || ''),
+      note: sanitizeInput(item.note || ''),
+      icon: sanitizeInput(item.icon || '🛒'),
+      qty: sanitizeInput(item.qty || '1 יח\''),
+      price: sanitizeInput(item.price || ''),
+    }));
+    
     // צור מזהה קצר (6 תווים)
     const shortId = Math.random().toString(36).substring(2, 8);
     // שמור ב-Firestore
     await db.collection("lists").doc(shortId).set({
-      list,
-      created: new Date().toISOString()
+      list: sanitizedList,
+      created: new Date().toISOString(),
+      // Add expiration (30 days)
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     });
     // צור קישור קצר - השתמש בכתובת קבועה
     // בחר את הכתובת הקבועה הנכונה לפי הפלטפורמה
@@ -2861,11 +2901,10 @@ document.getElementById('contextEdit').addEventListener('click', () => {
     
     const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
     if (newName && newName.trim() !== '') {
-      // Update the element
-      data.name = newName.trim();
+      // Update the element - use textContent to prevent XSS
+      data.name = sanitizeInput(newName.trim());
       const badge = element.querySelector('.badge');
-      const badgeHTML = badge ? badge.outerHTML : '';
-      element.innerHTML = `${data.icon} ${data.name}`;
+      element.textContent = `${data.icon} ${data.name}`;
       if (badge) element.appendChild(badge);
       
       // Save to localStorage
