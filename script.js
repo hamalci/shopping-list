@@ -1001,6 +1001,7 @@ function loadListFromStorage(){
   }
   const items = JSON.parse(data);
   console.log('[loadListFromStorage] Loading items:', items.length);
+  alert(`טעינה: ${items.length} פריטים`);
   
   // CRITICAL: Initialize DOM FIRST before creating items
   DOM.init();
