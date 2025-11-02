@@ -1010,19 +1010,25 @@ function loadListFromStorage(){
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;
   
-  items.forEach(item => {
+  items.forEach((item, index) => {
+    console.log(`[loadListFromStorage] Processing item ${index}:`, item.name, 'checked:', item.checked);
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
     const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
     const note = item.note || "";
     const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
+    console.log(`[loadListFromStorage] Created row for ${item.name}, parent:`, row.parentElement?.id);
+    
     if (item.checked) {
       row.classList.add("checked");
       // Move to cart
       if (cartGrid) {
+        console.log(`[loadListFromStorage] Moving ${item.name} to cart`);
         cartGrid.appendChild(row);
         hasCheckedItems = true;
       }
+    } else {
+      console.log(`[loadListFromStorage] Item ${item.name} should be in listGrid`);
     }
   });
   
@@ -1031,7 +1037,10 @@ function loadListFromStorage(){
     cartSection.style.display = 'block';
   }
   
-  console.log('[loadListFromStorage] Loaded items to listGrid:', DOM.listGrid?.children.length || 0);
+  console.log('[loadListFromStorage] Final state:');
+  console.log('  - listGrid children:', DOM.listGrid?.children.length || 0);
+  console.log('  - cartGrid children:', cartGrid?.children.length || 0);
+  console.log('  - Total items loaded:', items.length);
   
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
