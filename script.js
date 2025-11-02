@@ -978,18 +978,22 @@ function saveListToStorage() {
 }
 
 function loadListFromStorage(){
+  console.log('[loadListFromStorage] Starting...');
   const data = localStorage.getItem("shoppingList");
-  if (!data) return;
+  if (!data) {
+    console.log('[loadListFromStorage] No data found');
+    return;
+  }
   const items = JSON.parse(data);
+  console.log('[loadListFromStorage] Loading items:', items.length);
   
-  // Initialize DOM if not already done
-  if (!DOM.listGrid) DOM.init();
+  // CRITICAL: Initialize DOM FIRST before creating items
+  DOM.init();
+  console.log('[loadListFromStorage] DOM initialized - listGrid:', !!DOM.listGrid);
   
   const cartGrid = document.getElementById('cartGrid');
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;
-  
-  console.log('[loadListFromStorage] Loading items:', items.length);
   
   items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
