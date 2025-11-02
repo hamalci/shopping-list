@@ -1,3 +1,39 @@
+@media (max-width: 600px) {
+  #listMenuDropdown .dropdown-close,
+  #menuDropdown .dropdown-close {
+    left: 0.2em !important;
+    right: auto !important;
+  }
+  
+  #listMenuDropdown {
+    top: 2.2em;
+    bottom: auto;
+    left: auto;
+    right: 0;
+    margin: 0;
+    width: 80vw;
+    min-width: 0;
+    min-height: 0;
+    height: auto;
+    padding: 0.2em 0.3em 0.1em 0.3em;
+    box-sizing: border-box;
+  }
+  
+  #listMenuDropdown .menu-section {
+    padding-bottom: 0.15em;
+    margin-bottom: 0.15em;
+  }
+  
+  #listMenuDropdown .menu-section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+/* שיפור תגובתיות כפתור שיתוף */
+#btnShareList:active img {
+  transform: scale(0.92);
+}
 /* FOOTER BUTTONS - CLEAN START */
 /* All footer button specific styles will be defined below */
 
@@ -102,11 +138,49 @@ body {
   align-items: center;
   flex-wrap: wrap; /* allow wrapping to second row on small screens */
 }
-.app-header h1 { font-size: 1.625rem; font-weight: 800; margin: 0; }
+
+.app-header h1 { 
+  font-size: 1.8rem;
+  font-weight: 900;
+  margin: 0;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 12px rgba(240, 147, 251, 0.3);
+  letter-spacing: 0.5px;
+  position: relative;
+  animation: headerPulse 3s ease-in-out infinite;
+}
+
+@keyframes headerPulse {
+  0%, 100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.1);
+  }
+}
+
+.app-header h1::before {
+  content: '🛒';
+  font-size: 1.6rem;
+  margin-left: 0.4rem;
+  display: inline-block;
+  animation: cartBounce 2s ease-in-out infinite;
+}
+
+@keyframes cartBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
 
 /* Header controls */
-.header-controls { display:flex; gap:0.3rem; align-items:center; }
-.header-controls { flex-wrap: wrap; }
+.header-controls { display:flex; gap:0.3rem; align-items:center; flex-wrap: wrap; }
 .header-actions { display:flex; gap:0.28rem; align-items:center; margin-inline-end: 0.18rem; }
 .menu-container,
 .font-menu-container {
@@ -200,8 +274,13 @@ body.dark-mode .header-btn::after {
     gap: 0.5rem;
   }
   .app-header h1 {
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     margin: 0;
+  }
+  
+  .app-header h1::before {
+    font-size: 1.3rem;
+    margin-left: 0.3rem;
   }
   .header-controls {
     display: flex;
@@ -240,18 +319,10 @@ body.dark-mode .header-btn::after {
 }
 .menu-container { position: relative; display: inline-block; }
 .menu-dropdown {
-  display: none;
-  position: absolute;
-  top: 2.125rem;
-  left: 0;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 0.375rem;
-  min-width: 13rem;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.15);
-  z-index: 1000;
+  display: none; position: absolute; top: 2.125rem; left: 0;
+  background: white; border: 1px solid #ccc; border-radius: 0.375rem;
+  min-width: 13rem; max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.15); z-index:1000;
   padding: 1.8rem 0.5rem 0.5rem 0.5rem;
   text-align: center;
 }
@@ -358,6 +429,14 @@ body.dark-mode .header-btn::after {
 body.dark-mode { background:#222; color:#eee; }
 body.dark-mode .app-header { background:#2e3236; }
 
+body.dark-mode .app-header h1 {
+  background: linear-gradient(135deg, #fda4ff 0%, #ff758c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 15px rgba(253, 164, 255, 0.4);
+}
+
 /* תפריטים במצב לילה */
 body.dark-mode .menu-dropdown {
   background: #1f2937;
@@ -408,6 +487,33 @@ body.dark-mode .modal-content { background: #111317; color: #e6e6e6; border: 1px
 body.dark-mode .modal-list li { background: #171a1f; color: #e6e6e6; }
 body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
 
+body.dark-mode .modal input[type="text"],
+body.dark-mode .modal input[type="number"],
+body.dark-mode .modal textarea {
+  background: #2a2e33;
+  color: #eee;
+  border-color: #555;
+  caret-color: #4CAF50;
+}
+
+body.dark-mode .modal input[type="text"]:focus,
+body.dark-mode .modal input[type="number"]:focus,
+body.dark-mode .modal textarea:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+}
+
+body.dark-mode .close-modal {
+  background: #2a2e33;
+  border-color: #555;
+  color: #e53935;
+}
+
+body.dark-mode .close-modal:hover {
+  background: #3a3f44;
+  color: #ff5252;
+}
+
 /* כותרות סקשנים */
 .app-content h2 { font-size: 1.125rem; font-weight:700; margin:0.5rem 0; }
 
@@ -422,6 +528,18 @@ body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
   position: relative;
 }
 
+.list-header h2 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  text-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  letter-spacing: 0.3px;
+}
+
 .list-header #listMenuButton {
   font-size: 1.2rem;
   padding: 0.3rem 0.5rem;
@@ -431,8 +549,8 @@ body.dark-mode .modal-list li:hover { background: #1e2229; color: #bfe7cb; }
 /* List menu dropdown - same style as main menu */
 #listMenuDropdown {
   position: absolute;
-  top: 100%;
-  left: 0;
+  top: 2.5rem;
+  left: 0.5rem;
   background: white;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -482,15 +600,15 @@ body.dark-mode #listMenuDropdown .menu-section-title {
 
 @media (max-width: 600px) {
   #listMenuDropdown {
-    position: fixed;
-    top: auto;
-    bottom: 0;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+    position: absolute;
+    top: 2.5em;
+    bottom: auto;
+    left: auto;
+    right: 0;
+    transform: none;
     min-width: 200px;
     max-width: 90vw;
-    border-radius: 12px 12px 0 0;
+    border-radius: 8px;
     max-height: 60vh;
   }
 }
@@ -827,8 +945,35 @@ body.dark-mode #toggleChoose.active {
 
 /* Controls */
 .store-controls { display:flex; gap:0.5rem; align-items:center; margin-right:0.25rem; }
-.btn { padding:0.3rem 0.6rem; background:#2b7a2b; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:0.95rem; }
+.btn { padding:0.3rem 0.6rem; background:#2b7a2b; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:0.95rem; transition: all 0.2s; }
+.btn:hover { opacity: 0.9; transform: translateY(-1px); }
 .btn:active { transform:translateY(1px); }
+
+/* Custom Prompt Input */
+.custom-prompt-input {
+  background: #fff !important;
+  color: #333 !important;
+  border: 2px solid #ddd !important;
+  caret-color: #2196F3 !important;
+}
+
+.custom-prompt-input:focus {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1) !important;
+  outline: none;
+}
+
+body.dark-mode .custom-prompt-input {
+  background: #2a2e33 !important;
+  color: #eee !important;
+  border-color: #555 !important;
+  caret-color: #4CAF50 !important;
+}
+
+body.dark-mode .custom-prompt-input:focus {
+  border-color: #4CAF50 !important;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15) !important;
+}
 
 /* Toggle */
 .price-toggle { display:flex; align-items:center; gap:0.4rem; cursor:pointer; user-select:none; }
@@ -846,8 +991,27 @@ body.dark-mode #toggleChoose.active {
   .item .price { min-width:4.5rem; font-size:0.95rem; }
   /* כותרת 'הרשימה שלי' */
   .list-header h2 {
-    font-size: 2.1rem;
+    font-size: 2.2rem;
     font-weight: 900;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+    position: relative;
+    display: inline-block;
+    animation: fadeInScale 0.5s ease-out;
+  }
+  
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
   /* כל הפריטים ברשימה שלי */
   #listGrid .item {
@@ -1194,6 +1358,14 @@ body.dark-mode #cartSection .list-header {
   border-bottom-color: #4a5568;
 }
 
+body.dark-mode .list-header h2 {
+  background: linear-gradient(135deg, #8b9ef7 0%, #a88dd0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 10px rgba(139, 158, 247, 0.25);
+}
+
 body.dark-mode #cartGrid .item {
   border-bottom-color: #4a5568;
 }
@@ -1419,6 +1591,27 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
 .modal-title {
   font-size: 1.45rem; font-weight: 800; margin-bottom: 1.2rem;
 }
+
+/* Ensure all inputs in modals have proper styling */
+.modal input[type="text"],
+.modal input[type="number"],
+.modal textarea {
+  background: #fff;
+  color: #333;
+  border: 2px solid #ddd;
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  outline: none;
+  caret-color: #2196F3;
+}
+
+.modal input[type="text"]:focus,
+.modal input[type="number"]:focus,
+.modal textarea:focus {
+  border-color: #2196F3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
 .modal-list {
   list-style: none; padding: 0; margin: 0;
 }
@@ -1446,6 +1639,38 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
   .modal-title { font-size: 1.15rem; }
   .modal-list li { font-size: 1rem; padding: 0.6rem 0.1rem; }
   
+  /* Ensure inputs work properly on mobile */
+  .modal input[type="text"],
+  .modal input[type="number"],
+  .modal textarea {
+    background: #fff !important;
+    color: #333 !important;
+    border: 2px solid #ddd !important;
+    caret-color: #2196F3 !important;
+  }
+  
+  body.dark-mode .modal input[type="text"],
+  body.dark-mode .modal input[type="number"],
+  body.dark-mode .modal textarea {
+    background: #2a2e33 !important;
+    color: #eee !important;
+    border-color: #555 !important;
+    caret-color: #4CAF50 !important;
+  }
+  
+  /* Icon search input on mobile */
+  .icon-search-input {
+    background: #fff !important;
+    color: #333 !important;
+    caret-color: #2196F3 !important;
+  }
+  
+  body.dark-mode .icon-search-input {
+    background: #3a3f44 !important;
+    color: #eee !important;
+    caret-color: #4CAF50 !important;
+  }
+  
   /* Fix for settingsSection visibility on mobile portrait */
   #settingsSection {
     position: relative;
@@ -1468,15 +1693,16 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
     bottom: 50%;
     left: 50%;
     transform: translate(-50%, 50%);
-    max-height: 70vh;
+    max-height: 80vh;
     overflow-y: auto;
+    padding-bottom: 1rem;
   }
 }
 
 /* ===== Context Menu for List Items ===== */
 .context-menu {
   position: fixed;
-  background: white;
+  background: white !important;
   border: 1px solid #ddd;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -1491,8 +1717,8 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
   padding: 0.6rem 0.8rem;
   margin: 0.2rem 0;
   border: 1px solid rgba(148,163,184,0.4);
-  background-color: #ffffff;
-  color: #1f2937;
+  background-color: #ffffff !important;
+  color: #1f2937 !important;
   font-size: 0.95rem;
   font-weight: 600;
   border-radius: 0.25rem;
@@ -1520,14 +1746,14 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
 
 /* Dark mode for context menu */
 body.dark-mode .context-menu {
-  background: #2b2f33;
-  border-color: #444;
+  background: #2b2f33 !important;
+  border-color: #444 !important;
 }
 
 body.dark-mode .context-menu-btn {
-  background-color: #3a3f44;
-  border-color: #4b5563;
-  color: #e5e7eb;
+  background-color: #3a3f44 !important;
+  border-color: #4b5563 !important;
+  color: #e5e7eb !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
 
@@ -1829,6 +2055,11 @@ body.dark-mode .add-item-input:focus {
   color: #eee;
 }
 
+/* ===== Custom Prompt Modal ===== */
+#customPromptModal {
+  z-index: 15000 !important; /* Highest - above everything */
+}
+
 /* ===== Icon Picker Modal ===== */
 #iconPickerModal {
   z-index: 10000; /* Higher than other modals */
@@ -1844,8 +2075,12 @@ body.dark-mode .add-item-input:focus {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: white;
+  background: #fff;
   padding: 0.75rem 1rem;
+}
+
+body.dark-mode .icon-search-container {
+  background: #111317;
 }
 
 .icon-search-input {
@@ -1859,6 +2094,9 @@ body.dark-mode .add-item-input:focus {
   direction: rtl;
   transition: border-color 0.2s;
   box-sizing: border-box;
+  background: #fff;
+  color: #333;
+  caret-color: #2196F3;
 }
 
 .icon-search-input:focus {
@@ -1868,6 +2106,35 @@ body.dark-mode .add-item-input:focus {
 
 .icon-search-input::placeholder {
   color: #999;
+}
+
+.icon-upload-container {
+  text-align: center;
+  margin: 0.8rem 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.btn-upload-image {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.6rem 1.5rem;
+  border: 2px solid #6366f1;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s ease;
+}
+
+.btn-upload-image:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.btn-upload-image:active {
+  transform: translateY(0);
 }
 
 .icon-grid {
@@ -1903,6 +2170,15 @@ body.dark-mode .add-item-input:focus {
 }
 
 /* Dark mode for icon picker */
+body.dark-mode .icon-upload-container {
+  border-bottom-color: #4a5568;
+}
+
+body.dark-mode .btn-upload-image {
+  background: linear-gradient(135deg, #7c7ef7 0%, #a78bfa 100%);
+  box-shadow: 0 4px 12px rgba(124, 126, 247, 0.3);
+}
+
 body.dark-mode .icon-picker-content {
   background: #2b2f33;
 }
@@ -1915,6 +2191,7 @@ body.dark-mode .icon-search-input {
   background: #3a3f44;
   border-color: #555;
   color: #eee;
+  caret-color: #4CAF50;
 }
 
 body.dark-mode .icon-search-input:focus {
@@ -1966,26 +2243,41 @@ body.dark-mode .icon-option:hover {
 }
 
 .btn-open-choose {
-  font-size: 1rem;
-  font-weight: 800;
-  padding: 0.6rem 1.2rem;
-  border: 2px solid #4CAF50;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 0.85rem 2rem;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
-  transition: all 0.3s ease;
-  letter-spacing: 0.3px;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-open-choose::before {
+  content: '🛒';
+  font-size: 1.3rem;
+  margin-left: 0.5rem;
+  display: inline-block;
+  transition: transform 0.3s ease;
 }
 
 .btn-open-choose:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.btn-open-choose:hover::before {
+  transform: scale(1.2) rotate(10deg);
 }
 
 .btn-open-choose:active {
-  transform: translateY(0);
+  transform: translateY(-1px) scale(0.98);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
 }
 
 .choose-items-modal-content {
@@ -2165,8 +2457,12 @@ body.dark-mode .add-item-inline-modal {
 }
 
 body.dark-mode .btn-open-choose {
-  background: linear-gradient(135deg, #2b7a2b 0%, #1e5e1e 100%);
-  border-color: #2b7a2b;
+  background: linear-gradient(135deg, #5b7de8 0%, #8b6bb2 100%);
+  box-shadow: 0 6px 20px rgba(91, 125, 232, 0.35);
+}
+
+body.dark-mode .btn-open-choose:hover {
+  box-shadow: 0 8px 25px rgba(91, 125, 232, 0.45);
 }
 
 /* Mobile adjustments for choose modal */
@@ -2207,9 +2503,9 @@ body.dark-mode .btn-open-choose {
   }
   
   .btn-open-choose {
-    font-size: 1.25rem;
-    font-weight: 800;
-    padding: 0.75rem 1.4rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    padding: 1rem 2.2rem;
     letter-spacing: 0.3px;
   }
   

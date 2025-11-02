@@ -1,256 +1,151 @@
-﻿// --- Unified App Initialization ---
-document.addEventListener('DOMContentLoaded', function() {
-  // Initialize DOM cache
-  if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
-  if (typeof loadDefaultChooseItems === 'function') loadDefaultChooseItems();
+﻿// --- Helper functions for localStorage ---
+const STORAGE_KEY = "shoppingList";
+const getShoppingList = () => {
+  try {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+};
+const saveShoppingList = (list) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+};
 
-  // Check for shared list in URL (?list=...)
+// --- Custom Prompt Function ---
+function customPrompt(message, defaultValue = '') {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('customPromptModal');
+    const title = document.getElementById('customPromptTitle');
+    const messageEl = document.getElementById('customPromptMessage');
+    const input = document.getElementById('customPromptInput');
+    const okBtn = document.getElementById('customPromptOk');
+    const cancelBtn = document.getElementById('customPromptCancel');
+    const closeBtn = document.getElementById('closeCustomPrompt');
+    
+    if (!modal) {
+      // Fallback to native prompt
+      resolve(prompt(message, defaultValue));
+      return;
+    }
+    
+    title.textContent = 'הכנס ערך';
+    messageEl.textContent = message;
+    input.value = defaultValue;
+    modal.style.display = 'flex';
+    
+    // Focus on input
+    setTimeout(() => input.focus(), 100);
+    
+    const cleanup = (value) => {
+      modal.style.display = 'none';
+      input.value = '';
+      resolve(value);
+    };
+    
+    const handleOk = () => {
+      cleanup(input.value || null);
+    };
+    
+    const handleCancel = () => {
+      cleanup(null);
+    };
+    
+    const handleEnter = (e) => {
+      if (e.key === 'Enter') {
+        handleOk();
+      } else if (e.key === 'Escape') {
+        handleCancel();
+      }
+    };
+    
+    // Remove old listeners
+    okBtn.onclick = null;
+    cancelBtn.onclick = null;
+    closeBtn.onclick = null;
+    input.onkeydown = null;
+    
+    // Add new listeners
+    okBtn.onclick = handleOk;
+    cancelBtn.onclick = handleCancel;
+    closeBtn.onclick = handleCancel;
+    input.onkeydown = handleEnter;
+  });
+}
+
+// --- Load shared list from URL param on page load ---
+document.addEventListener('DOMContentLoaded', function() {
   const params = new URLSearchParams(window.location.search);
   const listId = params.get('list');
   if (listId && typeof loadListFromFirebase === 'function') {
     loadListFromFirebase(listId);
-  } else {
-    if (typeof loadListFromStorage === 'function') loadListFromStorage();
   }
 
-  // Share List button
+  // Share List button init (moved from index.html)
   const shareBtn = document.getElementById('btnShareList');
   if (shareBtn) {
-    shareBtn.addEventListener('click', async function() {
-      if (typeof saveListToFirebase === 'function') {
-        const url = await saveListToFirebase(true); // true = silent
-        if (url && typeof showShareModal === 'function') showShareModal(url);
+    shareBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // בדוק אם יש רשימה לפני שמתחילים
+      const list = getShoppingList();
+      if (!list || list.length === 0) {
+        alert("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף.");
+        return;
       }
-    });
+      
+      // משוב ויזואלי מיידי
+      const img = shareBtn.querySelector('img');
+      const originalTitle = shareBtn.title;
+      if (img) {
+        img.style.opacity = '0.6';
+        img.style.transform = 'scale(0.9)';
+      }
+      shareBtn.title = 'שומר...';
+      shareBtn.style.pointerEvents = 'none'; // מונע לחיצות כפולות
+      
+      try {
+        if (typeof saveListToFirebase === 'function') {
+          const url = await saveListToFirebase(true); // true = silent
+          if (url && typeof showShareModal === 'function') showShareModal(url);
+        }
+      } catch (err) {
+        console.error('Share error:', err);
+        alert("שגיאה בשיתוף הרשימה");
+      }
+      
+      // החזר למצב רגיל
+      if (img) {
+        img.style.opacity = '1';
+        img.style.transform = 'scale(1)';
+      }
+      shareBtn.title = originalTitle;
+      shareBtn.style.pointerEvents = 'auto';
+    }, { passive: false });
   }
-
-  // --- All other UI/event listeners wiring ---
-  document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
-  document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
-  document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
-  document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
-  document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
-  function closeMainMenu() {
-    const menu = document.getElementById('menuDropdown');
-    if (menu) menu.style.display = 'none';
-  }
-  document.getElementById("menuButton")?.addEventListener("click", () => {
-    const menu = document.getElementById("menuDropdown");
-    if (!menu) return;
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-  });
-  document.querySelector('#menuDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMainMenu();
-  });
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".menu-container")) {
-      closeMainMenu();
-    }
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeMainMenu();
-    }
-  });
-  document.getElementById('btnViewMode')?.addEventListener('click', () => {
-    document.body.classList.toggle("dark-mode");
-    localStorage.setItem("viewMode", document.body.classList.contains("dark-mode") ? "dark" : "light");
-    if (document.body.classList.contains('dark-mode')) {
-      document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
-        if (el && !el.classList.contains('panel')) el.classList.add('panel');
-      });
-    }
-    closeMainMenu();
-  });
-  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
-    rootFontPx = Math.min(rootFontPx + 1, 30);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
-    rootFontPx = Math.max(rootFontPx - 1, 12);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-  document.getElementById("btnFontReset")?.addEventListener("click", () => {
-    rootFontPx = 19;
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
-    closeMainMenu();
-  });
-  document.getElementById('networkSelect')?.addEventListener('change', (e) => populateBranches(e.target.value));
-  document.getElementById('btnSaveStore')?.addEventListener('click', () => {
-    saveStoreSelection();
-    closeMainMenu();
-  });
-  document.getElementById('togglePrices')?.addEventListener('change', (e) => {
-    togglePriceDisplay(e.target.checked);
-  });
-  (function initStoreUI(){
-    const selNet = localStorage.getItem('selectedNetwork') || '';
-    const selBranch = localStorage.getItem('selectedBranch') || '';
-    if (selNet) {
-      const netEl = document.getElementById('networkSelect');
-      if (netEl) netEl.value = selNet;
-      populateBranches(selNet);
-      const brEl = document.getElementById('branchSelect');
-      if (brEl && selBranch) brEl.value = selBranch;
-    }
-    const show = localStorage.getItem('showPrices') === '1';
-    const toggle = document.getElementById('togglePrices');
-    if (toggle) toggle.checked = show;
-    renderAllPrices();
-    renderTotal();
-  })();
-  const toggleBtn = document.querySelector('.btn-toggle-categories') || document.getElementById('btnCategoriesSettings');
-  const settings = document.getElementById('settingsSection');
-  const categoriesList = document.getElementById('categoriesList');
-  function toggleCategories(open) {
-    const isOpen = open === undefined ? !(settings?.classList.contains('open') || categoriesList?.classList.contains('open')) : !!open;
-    if (settings) settings.classList.toggle('open', isOpen);
-    if (categoriesList) categoriesList.classList.toggle('open', isOpen);
-    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', String(isOpen));
-  }
-  if (toggleBtn) toggleBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleCategories(); });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.categories-container') && !e.target.closest('.btn-toggle-categories') && !e.target.closest('#btnCategoriesSettings')) {
-      toggleCategories(false);
-    }
-  });
-  if (toggleBtn) {
-    toggleBtn.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCategories(); }
-    });
-  }
-  if (document.body.classList.contains('dark-mode')) {
-    document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
-      if (el && !el.classList.contains('panel')) el.classList.add('panel');
-    });
-  }
-  function closeListMenu() {
-    const menu = document.getElementById('listMenuDropdown');
-    if (menu) menu.style.display = 'none';
-  }
-  document.getElementById("listMenuButton")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById("listMenuDropdown");
-    if (!menu) return;
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-  });
-  document.querySelector('#listMenuDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeListMenu();
-  });
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".list-header") && !e.target.closest("#listMenuDropdown")) {
-      closeListMenu();
-    }
-  });
-  document.getElementById('btnListClear')?.addEventListener('click', () => {
-    if (confirm('האם למחוק את כל הרשימה?')) clearList();
-    closeListMenu();
-  });
-  document.getElementById('btnListClearChecked')?.addEventListener('click', () => {
-    clearChecked();
-    closeListMenu();
-  });
-  document.getElementById('btnClearCart')?.addEventListener('click', () => {
-    const cartGrid = document.getElementById('cartGrid');
-    const cartSection = document.getElementById('cartSection');
-    if (cartGrid && confirm('האם לנקות את העגלה? (הפריטים יחזרו לרשימה)')) {
-      const items = Array.from(cartGrid.children);
-      items.forEach(item => {
-        item.classList.remove('checked');
-        if (DOM.listGrid) DOM.listGrid.appendChild(item);
-      });
-      if (cartSection) cartSection.style.display = 'none';
-      saveListToStorage();
-    }
-  });
-  document.getElementById('btnListShare')?.addEventListener('click', () => {
-    shareCurrentList();
-    closeListMenu();
-  });
-  document.getElementById('btnListShareWA')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-    window.open(waUrl, '_blank');
-    closeListMenu();
-  });
-  document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
-    window.open(smsUrl, '_blank');
-    closeListMenu();
-  });
-  if (typeof renderAllPrices === 'function') renderAllPrices();
-  if (typeof renderTotal === 'function') renderTotal();
-  document.getElementById('btnFooterClear')?.addEventListener('click', () => {
-    if (confirm('האם למחוק את כל הרשימה?')) clearList();
-    closeMainMenu();
-  });
-  document.getElementById('btnFooterClearChecked')?.addEventListener('click', () => {
-    clearChecked();
-    closeMainMenu();
-  });
-  document.getElementById('btnFooterShare')?.addEventListener('click', () => {
-    shareCurrentList();
-    closeMainMenu();
-  });
-  document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-    window.open(waUrl, '_blank');
-    closeMainMenu();
-  });
-  document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
-    window.open(smsUrl, '_blank');
-    closeMainMenu();
-  });
 });
 // --- Firebase Share Functions ---
 async function saveListToFirebase(silent) {
   try {
     // קרא את הרשימה המקומית
-    const data = localStorage.getItem("shoppingList");
-    if (!data) {
+    const list = getShoppingList();
+    if (!list || list.length === 0) {
       if (!silent) alert("אין רשימה לשיתוף");
-      return;
-    }
-    let list = JSON.parse(data);
-    if (!Array.isArray(list) || list.length === 0) {
-      if (!silent) alert("הרשימה ריקה או לא תקינה, לא ניתן לשתף.");
       return;
     }
     // צור מזהה קצר (6 תווים)
     const shortId = Math.random().toString(36).substring(2, 8);
-    console.log('[Firebase] saveListToFirebase: shortId =', shortId, 'list =', list);
     // שמור ב-Firestore
-    const setResult = await db.collection("lists").doc(shortId).set({
+    await db.collection("lists").doc(shortId).set({
       list,
       created: new Date().toISOString()
     });
-    console.log('[Firebase] setResult:', setResult);
     // צור קישור קצר
     const url = window.location.origin + window.location.pathname + "?list=" + shortId;
     if (!silent) {
@@ -264,22 +159,52 @@ async function saveListToFirebase(silent) {
   }
 }
 
+function showShareModal(url) {
+  const modal = document.getElementById('shareModal');
+  const input = document.getElementById('shareLinkInput');
+  const copyBtn = document.getElementById('copyShareLinkBtn');
+  const smsBtn = document.getElementById('smsShareBtn');
+  const waBtn = document.getElementById('waShareBtn');
+  const closeBtn = document.getElementById('closeShareModal');
+  const status = document.getElementById('copyStatus');
+  if (!modal || !input || !copyBtn || !closeBtn || !smsBtn || !waBtn) return;
+  waBtn.onclick = function() {
+    const waText = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
+    window.open('https://wa.me/?text=' + waText, '_blank');
+  };
+  input.value = url;
+  status.textContent = '';
+  modal.style.display = 'block';
+  input.select();
+  copyBtn.onclick = async function() {
+    try {
+      await navigator.clipboard.writeText(url);
+      status.textContent = 'הקישור הועתק ללוח!';
+    } catch {
+      status.textContent = 'לא ניתן להעתיק אוטומטית, העתק ידנית.';
+    }
+  };
+  smsBtn.onclick = function() {
+    const smsBody = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
+    window.open('sms:?body=' + smsBody, '_blank');
+  };
+  closeBtn.onclick = function() { modal.style.display = 'none'; };
+  window.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
+}
+
 async function loadListFromFirebase(listId) {
   try {
     const doc = await db.collection("lists").doc(listId).get();
-    console.log('[Firebase] loadListFromFirebase: doc.exists =', doc.exists);
     if (!doc.exists) {
       alert("הרשימה לא נמצאה בענן");
       return;
     }
     const data = doc.data();
-    console.log('[Firebase] doc.data =', data);
     if (data && Array.isArray(data.list) && data.list.length > 0) {
       // אפשרות: גיבוי הרשימה המקומית לפני דריסה
-      const local = localStorage.getItem("shoppingList");
-      if (local && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
-      localStorage.setItem("shoppingList", JSON.stringify(data.list));
-      console.log('[Firebase] Saved to localStorage:', data.list);
+      const currentList = getShoppingList();
+      if (currentList.length > 0 && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
+      saveShoppingList(data.list);
       // טען את הרשימה ל-UI
       if (typeof clearList === 'function') clearList();
       if (typeof loadListFromStorage === 'function') loadListFromStorage();
@@ -287,7 +212,6 @@ async function loadListFromFirebase(listId) {
       alert("הרשימה נטענה בהצלחה!");
     } else {
       alert("הרשימה בענן ריקה או לא תקינה.");
-      console.log('[Firebase] Invalid or empty list:', data);
     }
   } catch (err) {
     alert("שגיאה בטעינה מ-Firebase: " + err.message);
@@ -530,11 +454,28 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 
   const row = document.createElement("div");
   row.className = "item fade-in";
+  row.dataset.icon = cleanIcon; // Store icon for later retrieval
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
-  // Always combine icon + name (they are passed separately)
-  nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
+  
+  // Check if icon is an image (base64)
+  if (cleanIcon.startsWith('data:image/')) {
+    const imgElement = document.createElement('img');
+    imgElement.src = cleanIcon;
+    imgElement.className = 'item-image-icon';
+    imgElement.style.width = '2em';
+    imgElement.style.height = '2em';
+    imgElement.style.objectFit = 'cover';
+    imgElement.style.borderRadius = '4px';
+    imgElement.style.marginLeft = '0.3em';
+    imgElement.style.verticalAlign = 'middle';
+    nameSpan.appendChild(imgElement);
+    nameSpan.appendChild(document.createTextNode(` ${cleanName}`));
+  } else {
+    // Regular emoji icon
+    nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
+  }
 
   // qty+unit as a single span for compactness
   const qty = document.createElement("span");
@@ -1044,10 +985,21 @@ function saveListToStorage() {
   const listItems = DOM.listGrid.querySelectorAll(".item");
   
   for (const el of listItems) {
-    const rawName = (el.querySelector(".name")?.textContent || "").trim();
-    const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-    const icon = nameParts.length > 0 ? nameParts[0] : "🛒";
-    const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+    // Check if icon is stored in dataset (for images)
+    let icon = el.dataset.icon;
+    let pureName = "";
+    
+    if (!icon) {
+      // Old method - parse from text
+      const rawName = (el.querySelector(".name")?.textContent || "").trim();
+      const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
+      icon = nameParts.length > 0 ? nameParts[0] : "🛒";
+      pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+    } else {
+      // Get name from textContent, removing icon
+      const nameSpan = el.querySelector(".name");
+      pureName = nameSpan ? nameSpan.textContent.trim() : "";
+    }
 
     const rawQty = (el.querySelector(".qty")?.textContent || "").trim();
     const qtyParts = rawQty.split(" ").map(p => p.trim()).filter(p => p !== "");
@@ -1232,7 +1184,8 @@ function resetChoices(){
 function clearList(){
   const listGrid = document.getElementById("listGrid");
   if (listGrid) listGrid.innerHTML = "";
-  resetChoiceBadges(); // שינוי: לא לאפס את כל הטבלה, רק את המונים
+  localStorage.setItem("shoppingList", "[]"); // מוחק את הרשימה מהאחסון
+  resetChoiceBadges();
   renderAllPrices();
   renderTotal();
 }
@@ -1313,15 +1266,146 @@ function detectCategory(itemName) {
   return null; // No category detected
 }
 
+// Smart icon detection based on item name
+function detectIcon(itemName) {
+  const name = itemName.toLowerCase().trim();
+  
+  // Icon mapping with keywords
+  const iconMap = {
+    // פירות
+    '🍎': ['תפוח'],
+    '🍊': ['תפוז', 'אשכולית'],
+    '🍋': ['לימון'],
+    '🍌': ['בננה'],
+    '🍉': ['אבטיח'],
+    '🍇': ['ענב', 'ענבים'],
+    '🍓': ['תות'],
+    '🥝': ['כיווי', 'קיווי'],
+    '🍑': ['אפרסק'],
+    '🥭': ['מנגו'],
+    '🍍': ['אננס'],
+    
+    // ירקות
+    '🥕': ['גזר'],
+    '🥒': ['מלפפון'],
+    '🍅': ['עגבני', 'עגבניות'],
+    '🥬': ['חסה', 'סלט', 'כרוב'],
+    '🧅': ['בצל'],
+    '🧄': ['שום'],
+    '🌶️': ['פלפל חריף'],
+    '🫑': ['פלפל'],
+    '🥦': ['ברוקולי'],
+    '🥔': ['תפוח אדמה', 'תפו"א'],
+    '🍆': ['חציל'],
+    '🌽': ['תירס'],
+    
+    // חלב וביצים
+    '🥛': ['חלב'],
+    '🧈': ['חמאה', 'חמא'],
+    '🧀': ['גבינה', 'גבינת', 'קוטג', 'צהובה', 'בולגרית'],
+    '🥚': ['ביצים', 'ביצה'],
+    '🍦': ['גלידה'],
+    
+    // לחמים ומאפים
+    '🍞': ['לחם', 'לחמנ'],
+    '🥐': ['קרואסון'],
+    '🥖': ['בגט'],
+    '🥯': ['בייגל'],
+    '🧇': ['וופל'],
+    '🥞': ['פנקייק'],
+    '🍕': ['פיצה'],
+    '🍰': ['עוגה', 'עוגת'],
+    '🧁': ['מאפין', 'קאפקייק'],
+    '🍪': ['עוגיות', 'עוגייה', 'ביסקוויט'],
+    
+    // בשר ודגים
+    '🍗': ['עוף', 'שניצל', 'כרעיים'],
+    '🥩': ['בשר', 'סטייק', 'אנטריקוט'],
+    '🍖': ['צלי'],
+    '🥓': ['בייקון'],
+    '🌭': ['נקניק'],
+    '🍤': ['שרימפ', 'פירות ים'],
+    '🐟': ['דג', 'סלמון', 'טונה', 'פילה'],
+    
+    // משקאות
+    '☕': ['קפה', 'נסקפה'],
+    '🍵': ['תה'],
+    '🥤': ['קולה', 'פפסי', 'משקה', 'סודה'],
+    '🧃': ['מיץ'],
+    '🍾': ['שמפניה'],
+    '🍷': ['יין'],
+    '🍺': ['בירה'],
+    '🥛': ['חלב', 'משקה חלב'],
+    
+    // חטיפים
+    '🍫': ['שוקולד'],
+    '🍬': ['סוכריות', 'ממתק'],
+    '🍭': ['סוכרייה'],
+    '🍿': ['פופקורן'],
+    '🥜': ['בוטנים', 'אגוזים'],
+    
+    // אחר
+    '🍚': ['אורז'],
+    '🍝': ['פסטה', 'ספגטי', 'מקרונ'],
+    '🥫': ['שימור', 'קופסת שימורים', 'קונסרב'],
+    '🍯': ['דבש'],
+    '🧂': ['מלח'],
+    '🧈': ['חמאה'],
+    '🥄': ['כף'],
+    '🍽️': ['צלחת'],
+    
+    // ניקיון וטיפוח
+    '🧻': ['נייר טואלט', 'נייר'],
+    '🧽': ['ספוג'],
+    '🧴': ['סבון', 'שמפו', 'מרכך', 'ג\'ל'],
+    '🧹': ['מטאטא', 'ניקיון'],
+    '🧺': ['כביסה'],
+    '🪥': ['מברשת שיניים'],
+    '🪒': ['תער'],
+    
+    // תינוק
+    '🍼': ['בקבוק תינוק', 'מזון תינוק'],
+    '👶': ['חיתול', 'תינוק']
+  };
+  
+  // Check each icon's keywords
+  for (const [icon, keywords] of Object.entries(iconMap)) {
+    for (const keyword of keywords) {
+      if (name.includes(keyword)) {
+        return icon;
+      }
+    }
+  }
+  
+  // Default icons by category
+  const category = detectCategory(itemName);
+  const categoryDefaultIcons = {
+    'פירות וירקות': '🥬',
+    'מוצרי חלב': '🥛',
+    'מאפים ולחמים': '🍞',
+    'בשר ועופות': '🍗',
+    'דגים': '🐟',
+    'מזווה ויבשים': '🥫',
+    'משקאות': '🥤',
+    'חטיפים וממתקים': '🍫',
+    'מוצרי ניקיון': '🧹',
+    'מוצרי טיפוח': '🧴',
+    'מוצרי תינוק': '🍼',
+    'קפואים': '🧊'
+  };
+  
+  return category ? categoryDefaultIcons[category] || '🛒' : '🛒';
+}
+
 // Global variable to store pending custom item data
 let pendingCustomItem = null;
 
-function addCustomItem(suggestedCategory = null){
+async function addCustomItem(suggestedCategory = null){
   console.log('addCustomItem called with suggestedCategory:', suggestedCategory);
-  const rawName = prompt("הכנס שם פריט חדש:");
+  const rawName = await customPrompt("הכנס שם פריט חדש:");
   if (!rawName) return;
   const name = String(rawName).trim();
-  const unit = String(prompt("הכנס יחידת מידה (למשל: ק\"ג, יח', ליטר):", "יח'") || "יח'").trim();
+  const unit = String(await customPrompt("הכנס יחידת מידה (למשל: ק\"ג, יח', ליטר):", "יח'") || "יח'").trim();
   
   // Detect category or use suggested one
   let targetCategory = suggestedCategory;
@@ -1336,7 +1420,7 @@ function addCustomItem(suggestedCategory = null){
                        'מזווה ייבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
                        'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
     const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
-    const choice = prompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר (או אישור לקטגוריה מותאמת אישית):`, String(categories.length));
+    const choice = await customPrompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר (או אישור לקטגוריה מותאמת אישית):`, String(categories.length));
     if (!choice) return;
     const index = parseInt(choice) - 1;
     if (index >= 0 && index < categories.length) {
@@ -1352,7 +1436,7 @@ function addCustomItem(suggestedCategory = null){
                          'מזווה ויבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
                          'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
       const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
-      const choice = prompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר:`, '1');
+      const choice = await customPrompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר:`, '1');
       if (!choice) return;
       const index = parseInt(choice) - 1;
       if (index >= 0 && index < categories.length) {
@@ -1365,9 +1449,20 @@ function addCustomItem(suggestedCategory = null){
   
   console.log('Final targetCategory:', targetCategory);
   
-  // Store pending item data and open icon picker
-  pendingCustomItem = { name, unit, category: targetCategory };
-  openIconPickerForCustomItem();
+  // Try to detect icon automatically
+  const detectedIcon = detectIcon(name);
+  
+  // Ask user if they want to use the detected icon or choose manually
+  const useDetected = confirm(`זיהינו את האייקון ${detectedIcon} עבור "${name}".\n\nלחץ אישור להשתמש באייקון זה, או ביטול לבחור אייקון אחר.`);
+  
+  if (useDetected) {
+    // Use detected icon directly
+    finishAddingCustomItem(detectedIcon);
+  } else {
+    // Store pending item data and open icon picker for manual selection
+    pendingCustomItem = { name, unit, category: targetCategory };
+    openIconPickerForCustomItem();
+  }
 }
 
 // Open icon picker for custom item
@@ -3196,6 +3291,89 @@ document.getElementById('iconPickerModal').addEventListener('click', (e) => {
   if (e.target.id === 'iconPickerModal') {
     closeIconPicker();
   }
+});
+
+// Image upload functionality
+const btnUploadImage = document.getElementById('btnUploadImage');
+const iconImageUpload = document.getElementById('iconImageUpload');
+
+btnUploadImage.addEventListener('click', () => {
+  iconImageUpload.click();
+});
+
+iconImageUpload.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Check file size (max 500KB to avoid localStorage issues)
+  if (file.size > 500 * 1024) {
+    alert('התמונה גדולה מדי. אנא בחר תמונה קטנה מ-500KB');
+    return;
+  }
+  
+  // Check if it's an image
+  if (!file.type.startsWith('image/')) {
+    alert('אנא בחר קובץ תמונה');
+    return;
+  }
+  
+  // Read the file and convert to base64
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const imageData = event.target.result;
+    
+    // Create a preview and confirm with user
+    const img = new Image();
+    img.onload = () => {
+      // Resize image if needed (max 100x100)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      let width = img.width;
+      let height = img.height;
+      const maxSize = 100;
+      
+      if (width > height) {
+        if (width > maxSize) {
+          height *= maxSize / width;
+          width = maxSize;
+        }
+      } else {
+        if (height > maxSize) {
+          width *= maxSize / height;
+          height = maxSize;
+        }
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Get optimized base64
+      const optimizedImageData = canvas.toDataURL('image/jpeg', 0.8);
+      
+      // Use the image as icon
+      if (iconPickerMode === 'custom-item') {
+        finishAddingCustomItem(optimizedImageData);
+      } else if (iconPickerTarget) {
+        iconPickerTarget.querySelector('.item-icon').textContent = '';
+        const imgElement = document.createElement('img');
+        imgElement.src = optimizedImageData;
+        imgElement.style.width = '100%';
+        imgElement.style.height = '100%';
+        imgElement.style.objectFit = 'cover';
+        imgElement.style.borderRadius = '4px';
+        iconPickerTarget.querySelector('.item-icon').appendChild(imgElement);
+        iconPickerTarget.dataset.icon = optimizedImageData;
+        saveListToStorage();
+      }
+      
+      closeIconPicker();
+      iconImageUpload.value = ''; // Reset input
+    };
+    img.src = imageData;
+  };
+  reader.readAsDataURL(file);
 });
 
 // Icon search functionality

@@ -131,7 +131,9 @@
     <section id="listSection">
       <div class="list-header">
   <h2>📃 הרשימה שלי</h2>
-  <button id="btnShareList" class="header-btn icon-share-list" title="שתף רשימה בענן" aria-label="שתף רשימה"></button>
+  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן">
+  <img src="icons/share_icon2.png" alt="שתף רשימה" style="width:3.2em;height:3.2em;filter:drop-shadow(0 0 2px #fff);transition:transform 0.12s;">
+  </button>
   <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
       </div>
       
@@ -142,7 +144,6 @@
         <div class="menu-section">
           <div class="menu-section-title">פעולות</div>
           <button id="btnListClear" class="menu-item">🗑️ נקה רשימה</button>
-          <button id="btnListClearChecked" class="menu-item">↺ נקה סימונים</button>
           <button id="btnListShare" class="menu-item">📤 שתף רשימה</button>
           <button id="btnListShareWA" class="menu-item">💬 שתף ב-WhatsApp</button>
           <button id="btnListShareSMS" class="menu-item">📱 שתף ב-SMS</button>
@@ -209,6 +210,20 @@
       </div>
     </div>
 
+    <!-- Custom Prompt Modal -->
+    <div id="customPromptModal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:400px;">
+        <span class="close-modal" id="closeCustomPrompt">&times;</span>
+        <h2 class="modal-title" id="customPromptTitle">הכנס ערך</h2>
+        <p id="customPromptMessage" style="margin-bottom:1rem;text-align:right;"></p>
+        <input type="text" id="customPromptInput" class="custom-prompt-input" style="width:100%;padding:0.7rem;font-size:1rem;border:2px solid #ddd;border-radius:8px;text-align:right;direction:rtl;margin-bottom:1rem;">
+        <div style="display:flex;gap:0.5rem;justify-content:center;">
+          <button id="customPromptCancel" class="btn" style="background:#e0e0e0;color:#333;">ביטול</button>
+          <button id="customPromptOk" class="btn" style="background:#6366f1;color:white;">אישור</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Icon Picker Modal -->
     <div id="iconPickerModal" class="modal" style="display:none;">
       <div class="modal-content icon-picker-content">
@@ -216,6 +231,10 @@
         <h2 class="modal-title">בחר אייקון</h2>
         <div class="icon-search-container">
           <input type="text" id="iconSearch" class="icon-search-input" placeholder="🔍 חפש אייקון...">
+        </div>
+        <div class="icon-upload-container">
+          <input type="file" id="iconImageUpload" accept="image/*" style="display:none;">
+          <button id="btnUploadImage" class="btn-upload-image">📷 העלה תמונה אישית</button>
         </div>
         <div id="iconGrid" class="icon-grid"></div>
       </div>
@@ -254,51 +273,6 @@
           if (dd) dd.style.display = 'none';
         }
       });
-
-      // Share List button
-      const shareBtn = document.getElementById('btnShareList');
-      if (shareBtn) {
-        shareBtn.addEventListener('click', async function() {
-          if (typeof saveListToFirebase === 'function') {
-            const url = await saveListToFirebase(true); // true = silent
-            if (url) showShareModal(url);
-          }
-        });
-      }
-
-      // Share Modal logic
-      function showShareModal(url) {
-        const modal = document.getElementById('shareModal');
-        const input = document.getElementById('shareLinkInput');
-        const copyBtn = document.getElementById('copyShareLinkBtn');
-        const smsBtn = document.getElementById('smsShareBtn');
-  const waBtn = document.getElementById('waShareBtn');
-  const closeBtn = document.getElementById('closeShareModal');
-  const status = document.getElementById('copyStatus');
-  if (!modal || !input || !copyBtn || !closeBtn || !smsBtn || !waBtn) return;
-        waBtn.onclick = function() {
-          const waText = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
-          window.open('https://wa.me/?text=' + waText, '_blank');
-        };
-        input.value = url;
-        status.textContent = '';
-        modal.style.display = 'block';
-        input.select();
-        copyBtn.onclick = async function() {
-          try {
-            await navigator.clipboard.writeText(url);
-            status.textContent = 'הקישור הועתק ללוח!';
-          } catch {
-            status.textContent = 'לא ניתן להעתיק אוטומטית, העתק ידנית.';
-          }
-        };
-        smsBtn.onclick = function() {
-          const smsBody = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
-          window.open('sms:?body=' + smsBody, '_blank');
-        };
-        closeBtn.onclick = function() { modal.style.display = 'none'; };
-        window.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
-      }
     })();
 
     if ('serviceWorker' in navigator) {
