@@ -78,58 +78,6 @@ function customPrompt(message, defaultValue = '') {
   });
 }
 
-// --- Load shared list from URL param on page load ---
-document.addEventListener('DOMContentLoaded', function() {
-  const params = new URLSearchParams(window.location.search);
-  const listId = params.get('list');
-  if (listId && typeof loadListFromFirebase === 'function') {
-    loadListFromFirebase(listId);
-  }
-
-  // Share List button init (moved from index.html)
-  const shareBtn = document.getElementById('btnShareList');
-  if (shareBtn) {
-    shareBtn.addEventListener('click', async function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // בדוק אם יש רשימה לפני שמתחילים
-      const list = getShoppingList();
-      if (!list || list.length === 0) {
-        alert("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף.");
-        return;
-      }
-      
-      // משוב ויזואלי מיידי
-      const img = shareBtn.querySelector('img');
-      const originalTitle = shareBtn.title;
-      if (img) {
-        img.style.opacity = '0.6';
-        img.style.transform = 'scale(0.9)';
-      }
-      shareBtn.title = 'שומר...';
-      shareBtn.style.pointerEvents = 'none'; // מונע לחיצות כפולות
-      
-      try {
-        if (typeof saveListToFirebase === 'function') {
-          const url = await saveListToFirebase(true); // true = silent
-          if (url && typeof showShareModal === 'function') showShareModal(url);
-        }
-      } catch (err) {
-        console.error('Share error:', err);
-        alert("שגיאה בשיתוף הרשימה");
-      }
-      
-      // החזר למצב רגיל
-      if (img) {
-        img.style.opacity = '1';
-        img.style.transform = 'scale(1)';
-      }
-      shareBtn.title = originalTitle;
-      shareBtn.style.pointerEvents = 'auto';
-    }, { passive: false });
-  }
-});
 // --- Firebase Share Functions ---
 async function saveListToFirebase(silent) {
   try {
@@ -194,21 +142,34 @@ function showShareModal(url) {
 
 async function loadListFromFirebase(listId) {
   try {
+    console.log('[Firebase] Loading list with ID:', listId);
     const doc = await db.collection("lists").doc(listId).get();
     if (!doc.exists) {
       alert("הרשימה לא נמצאה בענן");
       return;
     }
     const data = doc.data();
+    console.log('[Firebase] Received data:', data);
     if (data && Array.isArray(data.list) && data.list.length > 0) {
       // אפשרות: גיבוי הרשימה המקומית לפני דריסה
       const currentList = getShoppingList();
       if (currentList.length > 0 && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
+      
+      console.log('[Firebase] Saving list to localStorage:', data.list.length, 'items');
+      // שמור את הרשימה ב-localStorage
       saveShoppingList(data.list);
+      
+      // נקה את הרשימה הקיימת ב-UI
+      const listGrid = document.getElementById('listGrid');
+      const cartGrid = document.getElementById('cartGrid');
+      console.log('[Firebase] Clearing UI - listGrid:', !!listGrid, 'cartGrid:', !!cartGrid);
+      if (listGrid) listGrid.innerHTML = '';
+      if (cartGrid) cartGrid.innerHTML = '';
+      
       // טען את הרשימה ל-UI
-      if (typeof clearList === 'function') clearList();
-      if (typeof loadListFromStorage === 'function') loadListFromStorage();
-      if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
+      console.log('[Firebase] Calling loadListFromStorage...');
+      loadListFromStorage();
+      
       alert("הרשימה נטענה בהצלחה!");
     } else {
       alert("הרשימה בענן ריקה או לא תקינה.");
@@ -1020,9 +981,15 @@ function loadListFromStorage(){
   const data = localStorage.getItem("shoppingList");
   if (!data) return;
   const items = JSON.parse(data);
+  
+  // Initialize DOM if not already done
+  if (!DOM.listGrid) DOM.init();
+  
   const cartGrid = document.getElementById('cartGrid');
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;
+  
+  console.log('[loadListFromStorage] Loading items:', items.length);
   
   items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
@@ -1045,10 +1012,11 @@ function loadListFromStorage(){
     cartSection.style.display = 'block';
   }
   
+  console.log('[loadListFromStorage] Loaded items to listGrid:', DOM.listGrid?.children.length || 0);
+  
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
   renderTotal();
-  if (typeof DOM !== 'undefined' && typeof DOM.init === 'function') DOM.init();
 }
 
 /* ====== save manual price override ====== */
@@ -2062,18 +2030,20 @@ document.addEventListener("DOMContentLoaded", () => {
   DOM.init();
   
   loadDefaultChooseItems();
-  // Check for ?list= param in URL
+  
+  // Check for shared Firebase list in URL (?list=xxxxx)
   const params = new URLSearchParams(window.location.search);
-  const sharedList = params.get('list');
-  if (sharedList && sharedList.trim() !== '') {
-    try {
-      localStorage.setItem("shoppingList", decodeURIComponent(sharedList));
-      alert("הרשימה שותפה בהצלחה!");
+  const listId = params.get('list');
+  if (listId && listId.trim() !== '') {
+    // Load from Firebase
+    loadListFromFirebase(listId).then(() => {
       // Remove the list parameter from URL after loading
       window.history.replaceState({}, document.title, window.location.pathname);
-    } catch (e) { alert("קישור הרשימה לא תקין."); }
+    });
+  } else {
+    // Load local list if no shared list
+    loadListFromStorage();
   }
-  loadListFromStorage();
 
   // Open choose modal button
   document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
@@ -2085,6 +2055,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Voice input button
   document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
+
+  // Share List button (main button next to "הרשימה שלי")
+  const shareBtn = document.getElementById('btnShareList');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', async function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // בדוק אם יש רשימה לפני שמתחילים
+      const list = getShoppingList();
+      if (!list || list.length === 0) {
+        alert("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף.");
+        return;
+      }
+      
+      // משוב ויזואלי מיידי
+      const img = shareBtn.querySelector('img');
+      const originalTitle = shareBtn.title;
+      if (img) {
+        img.style.opacity = '0.6';
+        img.style.transform = 'scale(0.9)';
+      }
+      shareBtn.title = 'שומר...';
+      shareBtn.style.pointerEvents = 'none'; // מונע לחיצות כפולות
+      
+      try {
+        const url = await saveListToFirebase(true); // true = silent
+        if (url) showShareModal(url);
+      } catch (err) {
+        console.error('Share error:', err);
+        alert("שגיאה בשיתוף הרשימה");
+      }
+      
+      // החזר למצב רגיל
+      if (img) {
+        img.style.opacity = '1';
+        img.style.transform = 'scale(1)';
+      }
+      shareBtn.title = originalTitle;
+      shareBtn.style.pointerEvents = 'auto';
+    }, { passive: false });
+  }
 
   // Removed: btnHdrResetChoices and btnHdrAddCustom - no longer needed with + buttons in categories
   // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
