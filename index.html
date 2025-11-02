@@ -3,7 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title> רשימת קניות פשוטה</title>
+  <meta name="theme-color" content="#4CAF50" />
+  <title>רשימת קניות חכמה | Shopping List PWA</title>
+  <meta name="description" content="אפליקציית רשימת קניות חכמה בעברית עם מחירים בזמן אמת, שיתוף רשימות, סורק ברקוד וזיהוי קולי. עובדת אופליין ללא התקנה.">
+  <meta name="keywords" content="רשימת קניות, shopping list, מחירים, סופרמרקט, ברקוד, PWA, אפליקציה">
+  
+  <!-- Preconnect to external resources for faster loading -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+  
   <link rel="stylesheet" href="style.css?v=7.0.2" />
   <link rel="stylesheet" href="icons.css" />
 
@@ -30,10 +39,17 @@
     const db = firebase.firestore();
   </script>
   <script src="script.js" defer></script>
-  <!-- Favicon and description for better install/app experience and SEO -->
-<link rel="icon" type="image/png" href="icons/favicon.png">
-<meta name="description" content="אפליקציית רשימת קניות חכמה, מהירה ונוחה בעברית מלאה. ניהול רשימות, מחירים, חנויות ועוד!">
-<link rel="manifest" href="manifest.json">
+  
+  <!-- PWA & SEO Meta Tags -->
+  <link rel="icon" type="image/png" href="icons/favicon.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Open Graph for social sharing -->
+  <meta property="og:title" content="רשימת קניות חכמה">
+  <meta property="og:description" content="אפליקציית רשימת קניות בעברית עם מחירים, שיתוף וסורק ברקוד">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://shopping-app-zeta-eight.vercel.app/icons/icon-512.png">
 
   <style>
     /* Force compact size for the Save Store selection button */
@@ -54,10 +70,10 @@
     <div class="modal-content" style="max-width:400px;text-align:center;position:relative;">
       <span class="close-modal" id="closeShareModal" style="position:absolute;top:0.3em;right:0.3em;font-size:1.5em;cursor:pointer;z-index:10;background:rgba(255,255,255,0.7);border-radius:50%;width:1.4em;height:1.4em;line-height:1.4em;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:0;text-align:center;">&times;</span>
       <h2 style="margin-top:1.2em;">קישור לשיתוף הרשימה</h2>
-      <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" />
-  <button id="copyShareLinkBtn" class="btn-action">📋 העתק קישור</button>
-  <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;">📱 שלח ב-SMS</button>
-  <button id="waShareBtn" class="btn-action" style="margin-right:0.5em;background:#25d366;color:#fff;">🟢 שתף ב-WhatsApp</button>
+      <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" aria-label="קישור לשיתוף הרשימה" />
+  <button id="copyShareLinkBtn" class="btn-action" aria-label="העתק את הקישור ללוח">📋 העתק קישור</button>
+  <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;" aria-label="שלח את הקישור ב-SMS">📱 שלח ב-SMS</button>
+  <button id="waShareBtn" class="btn-action" style="margin-right:0.5em;background:#25d366;color:#fff;" aria-label="שתף את הקישור ב-WhatsApp">🟢 שתף ב-WhatsApp</button>
   <div id="copyStatus" style="margin-top:0.5em;color:green;font-size:0.95em;"></div>
     </div>
   </div>
@@ -123,7 +139,7 @@
   <main class="app-content">
     <!-- Button to open choose modal -->
     <div class="choose-modal-trigger">
-      <button id="btnOpenChooseModal" class="btn-open-choose">
+      <button id="btnOpenChooseModal" class="btn-open-choose" aria-label="פתח חלון בחירת פריטים מהקטגוריות">
         בחר פריטים מהקטגוריה
       </button>
     </div>
@@ -131,7 +147,7 @@
     <section id="listSection">
       <div class="list-header">
   <h2>📃 הרשימה שלי</h2>
-  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן">
+  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן" aria-label="שתף את הרשימה דרך Firebase">
   <img src="icons/share_icon2.png" alt="שתף רשימה" style="width:3.2em;height:3.2em;filter:drop-shadow(0 0 2px #fff);transition:transform 0.12s;">
   </button>
   <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
@@ -151,9 +167,9 @@
       </div>
       
       <div class="add-item-inline" id="addItemList">
-        <input type="text" placeholder="➕ הוסף פריט לרשימה..." class="add-item-input" id="addItemListInput">
-        <button id="btnVoiceInput" class="voice-input-btn" title="הוסף בדיבור">🎤</button>
-        <button id="btnScanBarcode" class="scan-barcode-btn" title="סרוק ברקוד">📷</button>
+        <input type="text" placeholder="➕ הוסף פריט לרשימה..." class="add-item-input" id="addItemListInput" aria-label="הוסף פריט חדש לרשימה">
+        <button id="btnVoiceInput" class="voice-input-btn" title="הוסף בדיבור" aria-label="הוסף פריט באמצעות זיהוי קולי">🎤</button>
+        <button id="btnScanBarcode" class="scan-barcode-btn" title="סרוק ברקוד" aria-label="סרוק ברקוד להוספת מוצר">📷</button>
       </div>
       <div id="listGrid"></div>
       <div id="listFooter" class="list-footer">
