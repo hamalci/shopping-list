@@ -1,4 +1,8 @@
-﻿// --- Security: Input Sanitization ---
+﻿// --- Debug Configuration ---
+// Set to false in production to disable all console.log statements
+const DEBUG_MODE = false; // Change to true for development/debugging
+
+// --- Security: Input Sanitization ---
 function sanitizeInput(input) {
   if (!input) return '';
   // Remove HTML tags and dangerous characters
@@ -17,6 +21,50 @@ function validateDataSize(data) {
   const sizeInBytes = new Blob([jsonString]).size;
   const maxSize = 1024 * 1024; // 1MB limit
   return sizeInBytes < maxSize;
+}
+
+// --- Toast Notification System ---
+function showToast(message, type = 'info', duration = 3000) {
+  // Create toast container if it doesn't exist
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  // Create toast element
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  
+  // Add icon based on type
+  const icons = {
+    success: '✅',
+    error: '❌',
+    warning: '⚠️',
+    info: 'ℹ️'
+  };
+  
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span class="toast-message">${message}</span>
+  `;
+  
+  // Add to container
+  container.appendChild(toast);
+  
+  // Trigger animation
+  setTimeout(() => toast.classList.add('toast-show'), 10);
+  
+  // Auto remove after duration
+  setTimeout(() => {
+    toast.classList.remove('toast-show');
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
+  }, duration);
 }
 
 // --- Helper functions for localStorage ---
@@ -105,13 +153,13 @@ async function saveListToFirebase(silent) {
     // קרא את הרשימה המקומית
     const list = getShoppingList();
     if (!list || list.length === 0) {
-      if (!silent) alert("אין רשימה לשיתוף");
+      if (!silent) showToast("אין רשימה לשיתוף", 'warning');
       return;
     }
     
     // Security: Validate list size
     if (!validateDataSize(list)) {
-      if (!silent) alert("הרשימה גדולה מדי לשיתוף (מקסימום 1MB)");
+      if (!silent) showToast("הרשימה גדולה מדי לשיתוף (מקסימום 1MB)", 'error');
       return;
     }
     
@@ -157,7 +205,7 @@ async function saveListToFirebase(silent) {
     }
     return url;
   } catch (err) {
-    if (!silent) alert("שגיאה בשמירה ל-Firebase: " + err.message);
+    if (!silent) showToast("שגיאה בשמירה ל-Firebase: " + err.message, 'error', 5000);
     console.error('[Firebase] Error saving to Firestore:', err);
   }
 }
@@ -199,7 +247,7 @@ async function loadListFromFirebase(listId) {
   try {
     const doc = await db.collection("lists").doc(listId).get();
     if (!doc.exists) {
-      alert("הרשימה לא נמצאה בענן");
+      showToast("הרשימה לא נמצאה בענן", 'error');
       return;
     }
     const data = doc.data();
@@ -220,12 +268,12 @@ async function loadListFromFirebase(listId) {
       // טען את הרשימה ל-UI
       loadListFromStorage();
       
-      alert("הרשימה נטענה בהצלחה!");
+      showToast("הרשימה נטענה בהצלחה! ✨", 'success');
     } else {
-      alert("הרשימה בענן ריקה או לא תקינה.");
+      showToast("הרשימה בענן ריקה או לא תקינה", 'warning');
     }
   } catch (err) {
-    alert("שגיאה בטעינה מ-Firebase: " + err.message);
+    showToast("שגיאה בטעינה מ-Firebase: " + err.message, 'error', 5000);
     console.error('[Firebase] Error loading from Firestore:', err);
   }
 }
@@ -1148,8 +1196,8 @@ function saveStoreSelection() {
 
   // fetch prices for branch (saves to apiPrices only)
   fetchPricesForBranch(network, branch).then(map => {
-    if (map) alert('בחירת חנות נשמרה ומחירים נטענו');
-    else alert('בחירת חנות נשמרה אך לא נמצאו מחירים לסניף זה');
+    if (map) showToast('בחירת חנות נשמרה ומחירים נטענו 🛒', 'success');
+    else showToast('בחירת חנות נשמרה אך לא נמצאו מחירים לסניף זה', 'info');
   });
   renderAllPrices();
   renderTotal();
@@ -1416,7 +1464,7 @@ function detectIcon(itemName) {
 let pendingCustomItem = null;
 
 async function addCustomItem(suggestedCategory = null){
-  console.log('addCustomItem called with suggestedCategory:', suggestedCategory);
+  if (DEBUG_MODE) console.log('addCustomItem called with suggestedCategory:', suggestedCategory);
   const rawName = await customPrompt("הכנס שם פריט חדש:");
   if (!rawName) return;
   const name = String(rawName).trim();
@@ -1424,7 +1472,7 @@ async function addCustomItem(suggestedCategory = null){
   
   // Detect category or use suggested one
   let targetCategory = suggestedCategory;
-  console.log('targetCategory before detection:', targetCategory);
+  if (DEBUG_MODE) console.log('targetCategory before detection:', targetCategory);
   if (!targetCategory) {
     targetCategory = detectCategory(name);
   }
@@ -1462,7 +1510,7 @@ async function addCustomItem(suggestedCategory = null){
     }
   }
   
-  console.log('Final targetCategory:', targetCategory);
+  if (DEBUG_MODE) console.log('Final targetCategory:', targetCategory);
   
   // Try to detect icon automatically
   const detectedIcon = detectIcon(name);
@@ -1498,7 +1546,7 @@ function finishAddingCustomItem(icon) {
   if (!pendingCustomItem) return;
   
   const { name, unit, category } = pendingCustomItem;
-  console.log('Finishing custom item with icon:', icon, 'category:', category);
+  if (DEBUG_MODE) console.log('Finishing custom item with icon:', icon, 'category:', category);
   
   // Add to list
   createListItem(name, icon, 1, unit);
@@ -1507,10 +1555,10 @@ function finishAddingCustomItem(icon) {
   const saved = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
   if (!saved.some(it => String(it.name || "").trim().toLowerCase() === name.toLowerCase())) {
     const newItem = { name, icon, unit, category: category };
-    console.log('Saving new item:', newItem);
+    if (DEBUG_MODE) console.log('Saving new item:', newItem);
     saved.push(newItem);
     localStorage.setItem('customChooseItems', JSON.stringify(saved));
-    console.log('customChooseItems after save:', JSON.parse(localStorage.getItem('customChooseItems')));
+    if (DEBUG_MODE) console.log('customChooseItems after save:', JSON.parse(localStorage.getItem('customChooseItems')));
   }
   
   // Reload choose items to show in correct category
@@ -1621,7 +1669,7 @@ function startBarcodeScanner() {
       return;
     }
     
-    console.log("Barcode scanner initialized successfully");
+    if (DEBUG_MODE) console.log("Barcode scanner initialized successfully");
     Quagga.start();
   });
 
@@ -1645,7 +1693,7 @@ function handleBarcodeDetected(result) {
   if (!result || !result.codeResult) return;
   
   const barcode = result.codeResult.code;
-  console.log("Barcode detected:", barcode);
+  if (DEBUG_MODE) console.log("Barcode detected:", barcode);
   
   // עצור סריקה
   stopBarcodeScanner();
@@ -1659,14 +1707,14 @@ function handleBarcodeDetected(result) {
         saveListToStorage();
         renderAllPrices();
         renderTotal();
-        alert(`✅ נוסף: ${product.name}` + (product.price ? ` - ${product.price}₪` : ''));
+        showToast(`✅ נוסף: ${product.name}` + (product.price ? ` - ${product.price}₪` : ''), 'success');
       } else {
-        alert(`❌ ברקוד ${barcode} לא נמצא במערכת.\n\nתוכל להוסיף את המוצר ידנית.`);
+        showToast(`ברקוד ${barcode} לא נמצא במערכת`, 'warning', 4000);
       }
     })
     .catch(err => {
       console.error("Error fetching product:", err);
-      alert(`שגיאה בחיפוש מוצר. ברקוד: ${barcode}`);
+      showToast(`שגיאה בחיפוש מוצר`, 'error');
     });
 }
 
@@ -1677,7 +1725,7 @@ async function fetchProductByBarcode(barcode) {
   try {
     const res = await fetch(url);
     if (!res.ok) {
-      console.log(`Product not found for barcode: ${barcode}`);
+      if (DEBUG_MODE) console.log(`Product not found for barcode: ${barcode}`);
       return null;
     }
     return await res.json();
@@ -1725,7 +1773,7 @@ function startVoiceInput() {
   
   if (isListening) {
     // Stop listening
-    console.log('🛑 User stopped listening manually');
+    if (DEBUG_MODE) console.log('🛑 User stopped listening manually');
     
     if (recognition) {
       recognition.stop();
@@ -1750,7 +1798,7 @@ function startVoiceInput() {
   // Test microphone permission first
   if (navigator.permissions && navigator.permissions.query) {
     navigator.permissions.query({ name: 'microphone' }).then(result => {
-      console.log('🎤 Microphone permission:', result.state);
+      if (DEBUG_MODE) console.log('🎤 Microphone permission:', result.state);
       if (result.state === 'denied') {
         alert('🔒 המיקרופון חסום!\n\n' +
               'לפתוח:\n' +
@@ -1760,7 +1808,9 @@ function startVoiceInput() {
               '4. רענן את הדף');
         return;
       }
-    }).catch(e => console.log('Permission API not supported:', e));
+    }).catch(e => {
+      if (DEBUG_MODE) console.log('Permission API not supported:', e);
+    });
   }
 
   // Initialize recognition - must be sync with user gesture
@@ -1774,7 +1824,7 @@ function startVoiceInput() {
 
   // Add event handlers BEFORE starting
   recognition.onstart = () => {
-    console.log('🎤 Recognition started - speak now!');
+    if (DEBUG_MODE) console.log('🎤 Recognition started - speak now!');
     isListening = true;
     voiceBtn.classList.add('listening');
     voiceBtn.textContent = '🔴';
@@ -1782,7 +1832,7 @@ function startVoiceInput() {
     // Set timeout for no speech detected
     noSpeechTimeout = setTimeout(() => {
       if (isListening) {
-        console.log('⏱️ Timeout: No speech detected');
+        if (DEBUG_MODE) console.log('⏱️ Timeout: No speech detected');
         recognition.stop();
         alert('⏱️ לא זוהה דיבור!\n\n' +
               'טיפים:\n' +
@@ -1796,7 +1846,7 @@ function startVoiceInput() {
   };
 
   recognition.onspeechstart = () => {
-    console.log('🗣️ Speech detected!');
+    if (DEBUG_MODE) console.log('🗣️ Speech detected!');
     // Clear timeout when speech is detected
     if (noSpeechTimeout) {
       clearTimeout(noSpeechTimeout);
@@ -1805,7 +1855,7 @@ function startVoiceInput() {
   };
 
   recognition.onresult = (event) => {
-    console.log('📝 Voice recognized!');
+    if (DEBUG_MODE) console.log('📝 Voice recognized!');
     
     // Get the final transcript
     let transcript = '';
@@ -1814,7 +1864,7 @@ function startVoiceInput() {
     }
     transcript = transcript.trim();
     
-    console.log('✅ Recognized text:', transcript);
+    if (DEBUG_MODE) console.log('✅ Recognized text:', transcript);
     
     // Clear no-speech timeout
     if (noSpeechTimeout) {
@@ -1869,7 +1919,7 @@ function startVoiceInput() {
             // Reload choose grid to show new item
             loadDefaultChooseItems();
             
-            console.log(`✅ המוצר "${transcript}" נשמר בקטגוריות`);
+            if (DEBUG_MODE) console.log(`✅ המוצר "${transcript}" נשמר בקטגוריות`);
           }
           
           // Add to shopping list
@@ -1951,12 +2001,12 @@ function startVoiceInput() {
     if (voiceBtn.textContent === '🔴' || voiceBtn.textContent === '⏹️' || voiceBtn.textContent === '⏳') {
       voiceBtn.textContent = '🎤';
     }
-    console.log('🛑 Voice recognition ended');
+    if (DEBUG_MODE) console.log('🛑 Voice recognition ended');
   };
 
   // Start listening (must be after defining handlers)
   try {
-    console.log('Starting recognition...');
+    if (DEBUG_MODE) console.log('Starting recognition...');
     recognition.start();
   } catch (err) {
     console.error('Failed to start recognition:', err);
@@ -1975,8 +2025,8 @@ function findProductByVoice(voiceText) {
     .trim()
     .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
   
-  console.log('🔍 Searching for:', `"${searchText}"`);
-  console.log('📚 Categories available:', Object.keys(categories));
+  if (DEBUG_MODE) console.log('🔍 Searching for:', `"${searchText}"`);
+  if (DEBUG_MODE) console.log('📚 Categories available:', Object.keys(categories));
   
   let exactMatch = null;
   let partialMatch = null;
@@ -1992,7 +2042,7 @@ function findProductByVoice(voiceText) {
         .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
       
       if (productLower === searchText) {
-        console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
+        if (DEBUG_MODE) console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
         exactMatch = productName;
         break;
       }
@@ -2012,7 +2062,7 @@ function findProductByVoice(voiceText) {
         
         // Partial match: product contains search text (not vice versa!)
         if (productLower.includes(searchText)) {
-          console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
+          if (DEBUG_MODE) console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
           partialMatch = productName;
           break;
         }
@@ -2022,7 +2072,7 @@ function findProductByVoice(voiceText) {
   }
   
   const foundProduct = exactMatch || partialMatch;
-  console.log('🎯 Final result:', foundProduct ? `"${foundProduct}"` : 'NOT FOUND');
+  if (DEBUG_MODE) console.log('🎯 Final result:', foundProduct ? `"${foundProduct}"` : 'NOT FOUND');
   
   if (!foundProduct) return null;
   
@@ -2035,7 +2085,7 @@ function findProductByVoice(voiceText) {
     // Extract icon and unit from data attributes
     const icon = chooseItem.getAttribute('data-icon') || '🛒';
     const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
-    console.log(`  📦 Product details: icon="${icon}", unit="${unit}"`);
+    if (DEBUG_MODE) console.log(`  📦 Product details: icon="${icon}", unit="${unit}"`);
     return { name: foundProduct, icon, unit };
   }
   
@@ -2113,7 +2163,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // בדוק אם יש רשימה לפני שמתחילים
       const list = getShoppingList();
       if (!list || list.length === 0) {
-        alert("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף.");
+        showToast("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף", 'warning', 4000);
         return;
       }
       
@@ -2132,7 +2182,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (url) showShareModal(url);
       } catch (err) {
         console.error('Share error:', err);
-        alert("שגיאה בשיתוף הרשימה");
+        showToast("שגיאה בשיתוף הרשימה", 'error');
       }
       
       // החזר למצב רגיל
@@ -2341,7 +2391,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   document.getElementById('btnListShareWA')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
+    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
     const encoded = encodeURIComponent(data);
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
@@ -2351,7 +2401,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
+    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
     const encoded = encodeURIComponent(data);
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
@@ -2381,7 +2431,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
+    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
     const encoded = encodeURIComponent(data);
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
@@ -2391,7 +2441,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
   document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
     const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { alert("הרשימה ריקה."); return; }
+    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
     const encoded = encodeURIComponent(data);
     const url = `${location.origin}${location.pathname}?list=${encoded}`;
     const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
@@ -2404,7 +2454,7 @@ document.addEventListener("DOMContentLoaded", () => {
 async function shareCurrentList() {
   // Get current list as JSON
   const data = localStorage.getItem("shoppingList") || "";
-  if (!data) { alert("הרשימה ריקה."); return; }
+  if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
   // Encode as URI component
   const encoded = encodeURIComponent(data);
   const url = `${location.origin}${location.pathname}?list=${encoded}`;
@@ -2420,14 +2470,14 @@ async function shareCurrentList() {
   // Fallback: copy link to clipboard
   try {
     await navigator.clipboard.writeText(url);
-    alert('קישור הרשימה הועתק ללוח! אפשר לשלוח אותו לכל אחד.');
+    showToast('קישור הרשימה הועתק ללוח! 📋', 'success');
   } catch (e) {
     const ta = document.createElement('textarea');
     ta.value = url;
     document.body.appendChild(ta);
     ta.select();
-    try { document.execCommand('copy'); alert('הקישור הועתק ללוח!'); }
-    catch { alert(url); }
+    try { document.execCommand('copy'); showToast('הקישור הועתק ללוח! 📋', 'success'); }
+    catch { showToast(url, 'info', 6000); }
     document.body.removeChild(ta);
   }
 }
@@ -3365,13 +3415,13 @@ iconImageUpload.addEventListener('change', (e) => {
   
   // Check file size (max 500KB to avoid localStorage issues)
   if (file.size > 500 * 1024) {
-    alert('התמונה גדולה מדי. אנא בחר תמונה קטנה מ-500KB');
+    showToast('התמונה גדולה מדי. בחר תמונה קטנה מ-500KB', 'warning', 4000);
     return;
   }
   
   // Check if it's an image
   if (!file.type.startsWith('image/')) {
-    alert('אנא בחר קובץ תמונה');
+    showToast('אנא בחר קובץ תמונה', 'warning');
     return;
   }
   
@@ -3482,7 +3532,7 @@ iconSearchInput.addEventListener('input', (e) => {
   
   if (!hasResults) {
     // Could add a "no results" message here if desired
-    console.log('No icons found for:', searchTerm);
+    if (DEBUG_MODE) console.log('No icons found for:', searchTerm);
   }
 });
 
