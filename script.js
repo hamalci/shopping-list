@@ -157,32 +157,27 @@ function showShareModal(url) {
 
 async function loadListFromFirebase(listId) {
   try {
-    console.log('[Firebase] Loading list with ID:', listId);
     const doc = await db.collection("lists").doc(listId).get();
     if (!doc.exists) {
       alert("הרשימה לא נמצאה בענן");
       return;
     }
     const data = doc.data();
-    console.log('[Firebase] Received data:', data);
     if (data && Array.isArray(data.list) && data.list.length > 0) {
       // אפשרות: גיבוי הרשימה המקומית לפני דריסה
       const currentList = getShoppingList();
       if (currentList.length > 0 && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
       
-      console.log('[Firebase] Saving list to localStorage:', data.list.length, 'items');
       // שמור את הרשימה ב-localStorage
       saveShoppingList(data.list);
       
       // נקה את הרשימה הקיימת ב-UI
       const listGrid = document.getElementById('listGrid');
       const cartGrid = document.getElementById('cartGrid');
-      console.log('[Firebase] Clearing UI - listGrid:', !!listGrid, 'cartGrid:', !!cartGrid);
       if (listGrid) listGrid.innerHTML = '';
       if (cartGrid) cartGrid.innerHTML = '';
       
       // טען את הרשימה ל-UI
-      console.log('[Firebase] Calling loadListFromStorage...');
       loadListFromStorage();
       
       alert("הרשימה נטענה בהצלחה!");
@@ -993,43 +988,31 @@ function saveListToStorage() {
 }
 
 function loadListFromStorage(){
-  console.log('[loadListFromStorage] Starting...');
   const data = localStorage.getItem("shoppingList");
-  if (!data) {
-    console.log('[loadListFromStorage] No data found');
-    return;
-  }
+  if (!data) return;
   const items = JSON.parse(data);
-  console.log('[loadListFromStorage] Loading items:', items.length);
-  alert(`טעינה: ${items.length} פריטים`);
   
   // CRITICAL: Initialize DOM FIRST before creating items
   DOM.init();
-  console.log('[loadListFromStorage] DOM initialized - listGrid:', !!DOM.listGrid);
   
   const cartGrid = document.getElementById('cartGrid');
   const cartSection = document.getElementById('cartSection');
   let hasCheckedItems = false;
   
-  items.forEach((item, index) => {
-    console.log(`[loadListFromStorage] Processing item ${index}:`, item.name, 'checked:', item.checked);
+  items.forEach((item) => {
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
     const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
     const note = item.note || "";
     const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
-    console.log(`[loadListFromStorage] Created row for ${item.name}, parent:`, row.parentElement?.id);
     
     if (item.checked) {
       row.classList.add("checked");
       // Move to cart
       if (cartGrid) {
-        console.log(`[loadListFromStorage] Moving ${item.name} to cart`);
         cartGrid.appendChild(row);
         hasCheckedItems = true;
       }
-    } else {
-      console.log(`[loadListFromStorage] Item ${item.name} should be in listGrid`);
     }
   });
   
@@ -1037,11 +1020,6 @@ function loadListFromStorage(){
   if (cartSection && hasCheckedItems) {
     cartSection.style.display = 'block';
   }
-  
-  console.log('[loadListFromStorage] Final state:');
-  console.log('  - listGrid children:', DOM.listGrid?.children.length || 0);
-  console.log('  - cartGrid children:', cartGrid?.children.length || 0);
-  console.log('  - Total items loaded:', items.length);
   
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
