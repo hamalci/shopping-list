@@ -3619,8 +3619,8 @@ function openChooseModal() {
   if (searchInput) {
     searchInput.value = '';
     filterChooseItems('');
-    // Focus search input for easy typing
-    setTimeout(() => searchInput.focus(), 100);
+    // Don't auto-focus on mobile to prevent keyboard popup
+    // User can tap search field if they want to search
   }
 }
 
