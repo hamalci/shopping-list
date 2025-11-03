@@ -2522,6 +2522,40 @@ async function shareCurrentList() {
   }
 }
 
+// ===== Service Worker Update Handler =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js').then(registration => {
+    // Check for updates every time the page loads
+    registration.update();
+    
+    // Listen for new service worker waiting to activate
+    registration.addEventListener('updatefound', () => {
+      const newWorker = registration.installing;
+      
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // New service worker available - show update notification
+          showToast('עדכון זמין! רענן את הדף לגרסה החדשה 🔄', 'info', 8000);
+          
+          // Auto-reload after 3 seconds
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        }
+      });
+    });
+  });
+  
+  // Force reload when service worker updates
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+}
+
 /* ====== Context Menu for List Items (Long Press) ====== */
 let longPressTimer = null;
 let longPressTarget = null;
