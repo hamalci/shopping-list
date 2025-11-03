@@ -1057,7 +1057,24 @@ function saveListToStorage() {
     } else {
       // Get name from textContent, removing icon
       const nameSpan = el.querySelector(".name");
-      pureName = nameSpan ? nameSpan.textContent.trim() : "";
+      if (nameSpan) {
+        // Check if it's an image icon or emoji
+        const imgIcon = nameSpan.querySelector('.item-image-icon');
+        if (imgIcon) {
+          // Image icon - get text after the image (skip the image node)
+          pureName = Array.from(nameSpan.childNodes)
+            .filter(node => node.nodeType === Node.TEXT_NODE)
+            .map(node => node.textContent)
+            .join('')
+            .trim();
+        } else {
+          // Emoji icon - remove the first emoji from the text
+          const fullText = nameSpan.textContent.trim();
+          // Split by spaces and remove the first part (icon)
+          const parts = fullText.split(' ');
+          pureName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
+        }
+      }
     }
 
     const rawQty = (el.querySelector(".qty")?.textContent || "").trim();
