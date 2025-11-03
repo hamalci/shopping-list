@@ -2,6 +2,13 @@
 // Set to false in production to disable all console.log statements
 const DEBUG_MODE = false; // Change to true for development/debugging
 
+// --- Firebase Database Reference ---
+// db is initialized in index.html as window.db
+// Wait for it to be available
+function getDB() {
+  return window.db || null;
+}
+
 // --- Security: Input Sanitization ---
 function sanitizeInput(input) {
   if (!input) return '';
@@ -150,6 +157,14 @@ function customPrompt(message, defaultValue = '') {
 // --- Firebase Share Functions ---
 async function saveListToFirebase(silent) {
   try {
+    // Check if Firebase is available
+    const db = getDB();
+    if (!db) {
+      if (!silent) showToast("Firebase לא זמין. אנא רענן את הדף.", 'error');
+      console.error('Firebase DB not initialized');
+      return;
+    }
+    
     // קרא את הרשימה המקומית
     const list = getShoppingList();
     if (!list || list.length === 0) {
@@ -245,6 +260,14 @@ function showShareModal(url) {
 
 async function loadListFromFirebase(listId) {
   try {
+    // Check if Firebase is available
+    const db = getDB();
+    if (!db) {
+      showToast("Firebase לא זמין. אנא רענן את הדף.", 'error');
+      console.error('Firebase DB not initialized');
+      return;
+    }
+    
     const doc = await db.collection("lists").doc(listId).get();
     if (!doc.exists) {
       showToast("הרשימה לא נמצאה בענן", 'error');
