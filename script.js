@@ -52,10 +52,17 @@ function showToast(message, type = 'info', duration = 3000) {
     info: 'ℹ️'
   };
   
-  toast.innerHTML = `
-    <span class="toast-icon">${icons[type] || icons.info}</span>
-    <span class="toast-message">${message}</span>
-  `;
+  // Create elements safely without innerHTML
+  const iconSpan = document.createElement('span');
+  iconSpan.className = 'toast-icon';
+  iconSpan.textContent = icons[type] || icons.info;
+  
+  const messageSpan = document.createElement('span');
+  messageSpan.className = 'toast-message';
+  messageSpan.textContent = message; // Safe: uses textContent instead of innerHTML
+  
+  toast.appendChild(iconSpan);
+  toast.appendChild(messageSpan);
   
   // Add to container
   container.appendChild(toast);
