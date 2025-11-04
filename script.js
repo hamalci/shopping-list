@@ -1,313 +1,4 @@
-﻿// --- Debug Configuration ---
-// Set to false in production to disable all console.log statements
-const DEBUG_MODE = false; // Change to true for development/debugging
-
-// --- Firebase Database Reference ---
-// db is initialized in index.html as window.db
-// Wait for it to be available
-function getDB() {
-  return window.db || null;
-}
-
-// --- Security: Input Sanitization ---
-function sanitizeInput(input) {
-  if (!input) return '';
-  // Remove HTML tags and dangerous characters
-  const text = String(input)
-    .replace(/[<>]/g, '') // Remove < and >
-    .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+\s*=/gi, '') // Remove event handlers like onclick=
-    .trim();
-  // Limit length to prevent abuse
-  return text.substring(0, 500);
-}
-
-// Validate data size for Firebase
-function validateDataSize(data) {
-  const jsonString = JSON.stringify(data);
-  const sizeInBytes = new Blob([jsonString]).size;
-  const maxSize = 1024 * 1024; // 1MB limit
-  return sizeInBytes < maxSize;
-}
-
-// --- Toast Notification System ---
-function showToast(message, type = 'info', duration = 3000) {
-  // Create toast container if it doesn't exist
-  let container = document.getElementById('toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'toast-container';
-    document.body.appendChild(container);
-  }
-
-  // Create toast element
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  
-  // Add icon based on type
-  const icons = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: 'ℹ️'
-  };
-  
-  // Create elements safely without innerHTML
-  const iconSpan = document.createElement('span');
-  iconSpan.className = 'toast-icon';
-  iconSpan.textContent = icons[type] || icons.info;
-  
-  const messageSpan = document.createElement('span');
-  messageSpan.className = 'toast-message';
-  messageSpan.textContent = message; // Safe: uses textContent instead of innerHTML
-  
-  toast.appendChild(iconSpan);
-  toast.appendChild(messageSpan);
-  
-  // Add to container
-  container.appendChild(toast);
-  
-  // Trigger animation
-  setTimeout(() => toast.classList.add('toast-show'), 10);
-  
-  // Auto remove after duration
-  setTimeout(() => {
-    toast.classList.remove('toast-show');
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast);
-      }
-    }, 300);
-  }, duration);
-}
-
-// --- Helper functions for localStorage ---
-const STORAGE_KEY = "shoppingList";
-const getShoppingList = () => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-const saveShoppingList = (list) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-// --- Custom Prompt Function ---
-function customPrompt(message, defaultValue = '') {
-  return new Promise((resolve) => {
-    const modal = document.getElementById('customPromptModal');
-    const title = document.getElementById('customPromptTitle');
-    const messageEl = document.getElementById('customPromptMessage');
-    const input = document.getElementById('customPromptInput');
-    const okBtn = document.getElementById('customPromptOk');
-    const cancelBtn = document.getElementById('customPromptCancel');
-    const closeBtn = document.getElementById('closeCustomPrompt');
-    
-    if (!modal) {
-      // Fallback to native prompt
-      resolve(prompt(message, defaultValue));
-      return;
-    }
-    
-    title.textContent = 'הכנס ערך';
-    messageEl.textContent = message;
-    input.value = defaultValue;
-    modal.style.display = 'flex';
-    
-    // Focus on input
-    setTimeout(() => input.focus(), 100);
-    
-    const cleanup = (value) => {
-      modal.style.display = 'none';
-      input.value = '';
-      resolve(value);
-    };
-    
-    const handleOk = () => {
-      cleanup(input.value || null);
-    };
-    
-    const handleCancel = () => {
-      cleanup(null);
-    };
-    
-    const handleEnter = (e) => {
-      if (e.key === 'Enter') {
-        handleOk();
-      } else if (e.key === 'Escape') {
-        handleCancel();
-      }
-    };
-    
-    // Remove old listeners
-    okBtn.onclick = null;
-    cancelBtn.onclick = null;
-    closeBtn.onclick = null;
-    input.onkeydown = null;
-    
-    // Add new listeners
-    okBtn.onclick = handleOk;
-    cancelBtn.onclick = handleCancel;
-    closeBtn.onclick = handleCancel;
-    input.onkeydown = handleEnter;
-  });
-}
-
-// --- Firebase Share Functions ---
-async function saveListToFirebase(silent) {
-  try {
-    // Check if Firebase is available
-    const db = getDB();
-    if (!db) {
-      if (!silent) showToast("Firebase לא זמין. אנא רענן את הדף.", 'error');
-      console.error('Firebase DB not initialized');
-      return;
-    }
-    
-    // קרא את הרשימה המקומית
-    const list = getShoppingList();
-    if (!list || list.length === 0) {
-      if (!silent) showToast("אין רשימה לשיתוף", 'warning');
-      return;
-    }
-    
-    // Security: Validate list size
-    if (!validateDataSize(list)) {
-      if (!silent) showToast("הרשימה גדולה מדי לשיתוף (מקסימום 1MB)", 'error');
-      return;
-    }
-    
-    // Security: Sanitize all items in the list
-    const sanitizedList = list.map(item => ({
-      ...item,
-      name: sanitizeInput(item.name || ''),
-      note: sanitizeInput(item.note || ''),
-      icon: sanitizeInput(item.icon || '🛒'),
-      qty: sanitizeInput(item.qty || '1 יח\''),
-      price: sanitizeInput(item.price || ''),
-    }));
-    
-    // צור מזהה קצר (6 תווים)
-    const shortId = Math.random().toString(36).substring(2, 8);
-    // שמור ב-Firestore
-    await db.collection("lists").doc(shortId).set({
-      list: sanitizedList,
-      created: new Date().toISOString(),
-      // Add expiration (30 days)
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    });
-    // צור קישור קצר - השתמש בכתובת קבועה
-    // בחר את הכתובת הקבועה הנכונה לפי הפלטפורמה
-    let baseUrl;
-    if (window.location.hostname.includes('vercel.app')) {
-      // Vercel - השתמש בכתובת קבועה
-      baseUrl = 'https://shopping-app-zeta-eight.vercel.app';
-    } else if (window.location.hostname.includes('netlify.app')) {
-      // Netlify - השתמש בכתובת קבועה (אם יש)
-      baseUrl = window.location.origin; // תצטרך להחליף אם יש domain קבוע
-    } else if (window.location.hostname.includes('github.io')) {
-      // GitHub Pages
-      baseUrl = 'https://hamalci.github.io/shopping-list';
-    } else {
-      // Local או domain אחר
-      baseUrl = window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '');
-    }
-    const url = baseUrl + "?list=" + shortId;
-    if (!silent) {
-      // הצג למשתמש (למקרה קריאה ישירה)
-      if (typeof showShareModal === 'function') showShareModal(url);
-    }
-    return url;
-  } catch (err) {
-    if (!silent) showToast("שגיאה בשמירה ל-Firebase: " + err.message, 'error', 5000);
-    console.error('[Firebase] Error saving to Firestore:', err);
-  }
-}
-
-function showShareModal(url) {
-  const modal = document.getElementById('shareModal');
-  const input = document.getElementById('shareLinkInput');
-  const copyBtn = document.getElementById('copyShareLinkBtn');
-  const smsBtn = document.getElementById('smsShareBtn');
-  const waBtn = document.getElementById('waShareBtn');
-  const closeBtn = document.getElementById('closeShareModal');
-  const status = document.getElementById('copyStatus');
-  if (!modal || !input || !copyBtn || !closeBtn || !smsBtn || !waBtn) return;
-  waBtn.onclick = function() {
-    const waText = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
-    window.open('https://wa.me/?text=' + waText, '_blank');
-  };
-  input.value = url;
-  status.textContent = '';
-  modal.style.display = 'block';
-  input.select();
-  copyBtn.onclick = async function() {
-    try {
-      await navigator.clipboard.writeText(url);
-      status.textContent = 'הקישור הועתק ללוח!';
-    } catch {
-      status.textContent = 'לא ניתן להעתיק אוטומטית, העתק ידנית.';
-    }
-  };
-  smsBtn.onclick = function() {
-    const smsBody = encodeURIComponent('הנה רשימת קניות לשיתוף: ' + url);
-    window.open('sms:?body=' + smsBody, '_blank');
-  };
-  closeBtn.onclick = function() { modal.style.display = 'none'; };
-  window.onclick = function(e) { if (e.target === modal) modal.style.display = 'none'; };
-}
-
-async function loadListFromFirebase(listId) {
-  try {
-    // Check if Firebase is available
-    const db = getDB();
-    if (!db) {
-      showToast("Firebase לא זמין. אנא רענן את הדף.", 'error');
-      console.error('Firebase DB not initialized');
-      return;
-    }
-    
-    const doc = await db.collection("lists").doc(listId).get();
-    if (!doc.exists) {
-      showToast("הרשימה לא נמצאה בענן", 'error');
-      return;
-    }
-    const data = doc.data();
-    if (data && Array.isArray(data.list) && data.list.length > 0) {
-      // אפשרות: גיבוי הרשימה המקומית לפני דריסה
-      const currentList = getShoppingList();
-      if (currentList.length > 0 && !confirm("טעינת רשימה משותפת תדרוס את הרשימה הנוכחית. להמשיך?")) return;
-      
-      // שמור את הרשימה ב-localStorage
-      saveShoppingList(data.list);
-      
-      // נקה את הרשימה הקיימת ב-UI
-      const listGrid = document.getElementById('listGrid');
-      const cartGrid = document.getElementById('cartGrid');
-      if (listGrid) listGrid.innerHTML = '';
-      if (cartGrid) cartGrid.innerHTML = '';
-      
-      // טען את הרשימה ל-UI
-      loadListFromStorage();
-      
-      showToast("הרשימה נטענה בהצלחה! ✨", 'success');
-    } else {
-      showToast("הרשימה בענן ריקה או לא תקינה", 'warning');
-    }
-  } catch (err) {
-    showToast("שגיאה בטעינה מ-Firebase: " + err.message, 'error', 5000);
-    console.error('[Firebase] Error loading from Firestore:', err);
-  }
-}
-/* script.js — גרסה מלאה משולבת
+﻿/* script.js — גרסה מלאה משולבת
    תומכת: choose grid, create items, localStorage, network/branch fetch,
    apiPrices + manualPrices, normalized matching (עברית), edit-on-click price,
    price layout currency+amount, total rendering, category toggle (mobile+desktop).
@@ -323,38 +14,25 @@ let rootFontPx = parseInt(localStorage.getItem("rootFontPx")) || 19;
 document.documentElement.style.fontSize = rootFontPx + "px";
 if (localStorage.getItem("viewMode") === "dark") document.body.classList.add("dark-mode");
 
-/* ====== DOM Cache ====== */
-// Cache frequently accessed DOM elements
-const DOM = {
-  listGrid: null,
-  chooseGrid: null,
-  totalAmount: null,
-  init() {
-    this.listGrid = document.getElementById("listGrid");
-    this.chooseGrid = document.getElementById("chooseGrid");
-    this.totalAmount = document.getElementById("totalAmount");
-  }
-};
-
 /* ====== categories + defaults ====== */
-// Categories are now managed dynamically from loadDefaultChooseItems()
-// The order and content will be extracted from categorizedItems
-let categoriesOrder = [];
-const categories = {};
+let categoriesOrder = JSON.parse(localStorage.getItem("categoriesOrder")) || [
+  "פירות וירקות","מוצרי חלב","מאפים ולחמים","בשר ועופות","מזווה ויבשים","אחרים"
+];
+const categories = {
+  "פירות וירקות": ["גזר","מלפפונים","עגבניות"],
+  "מוצרי חלב": ["חלב","גבינה"],
+  "מאפים ולחמים": ["לחם"],
+  "בשר ועופות": ["עוף"],
+  "מזווה ויבשים": ["אורז","קפה"]
+};
+const savedCategories = localStorage.getItem("categoriesMap");
+if (savedCategories) Object.assign(categories, JSON.parse(savedCategories));
 
 /* ====== store map דמה ====== */
 const storeMap = {
-  yohananof: [
-    { id: 'gd', name: 'יוחננוף גדרה' },
-    { id: 'bilu-ekron', name: 'יוחננוף בילו סנטר עקרון' },
-    { id: 'moti-kind-rehovot', name: 'יוחננוף מוטי קינד רחובות' }
-  ],
-  shufersal: [
-    { id: 'sheli-rehovot', name: 'שופרסל שלי רחובות החדשה' }
-  ],
-  rami: [
-    { id: 'moti-kind-rehovot', name: 'רמי לוי מוטי קינד רחובות' }
-  ]
+  yohananof: [{ id: 'gd', name: 'יוחננוף גדרה' }, { id: 'tlv', name: 'יוחננוף תל אביב' }],
+  shufersal: [{ id: 'rd', name: 'שופרסל רמת דוד' }],
+  rami: [{ id: 'hl', name: 'רמי לוי חולון' }]
 };
 
 /* ====== price maps (api/manual) ====== */
@@ -373,20 +51,15 @@ function loadManualPrices() { return JSON.parse(localStorage.getItem('manualPric
 })();
 
 /* ====== Normalization (Hebrew) + fuzzy helper ====== */
-// Character replacement map for better performance
-const HEBREW_FINAL_TO_NORMAL = {
-  'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ'
-};
-
 function normalizeName(s) {
   if (!s) return "";
   s = String(s).trim().toLowerCase();
   s = s.replace(/[\u0591-\u05C7]/g, ""); // remove nikud
-  // Replace final letters in one pass
-  s = s.replace(/[ךםןףץ]/g, m => HEBREW_FINAL_TO_NORMAL[m]);
+  s = s.replace(/ך/g, "כ").replace(/ם/g, "מ").replace(/ן/g, "נ").replace(/ף/g, "פ").replace(/ץ/g, "צ");
   s = s.replace(/[^א-ת0-9\s]/g, "");
   s = s.replace(/\s+/g, " ").trim();
-  s = s.replace(/ות$|ים$|יות$/,"");
+  s = s.replace(/ות$/,"").replace(/ים$/,"").replace(/יות$/,""
+  );
   s = s.replace(/^ה\s*/,"");
   return s;
 }
@@ -444,40 +117,22 @@ function getPriceForItem(name) {
 }
 
 /* ====== fetch prices for branch (saves apiPrices + normalized cache) ====== */
-// Configuration: Use Cloudflare Worker or local JSON files
-const USE_CLOUDFLARE_WORKER = true; // Set to true when Worker is deployed
-const WORKER_URL = 'https://shopping-list-prices.hamalci.workers.dev'; // Replace with your Worker URL
-
 async function fetchPricesForBranch(network, branchId) {
   if (!network || !branchId) return null;
-  
-  // Choose data source
-  const url = USE_CLOUDFLARE_WORKER 
-    ? `${WORKER_URL}/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}`
-    : `/data/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}.json`;
-  
+  const url = `/data/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}.json`;
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
-    
-    // Handle both formats: Worker format and local JSON format
-    const prices = json.prices || json;
-    if (!prices || typeof prices !== 'object') throw new Error("Invalid price data");
+    if (!json || !json.prices) throw new Error("Invalid price data");
 
-    saveApiPrices(prices);
-    const normMap = buildNormalizedPriceMap(prices);
+    saveApiPrices(json.prices || {});
+    const normMap = buildNormalizedPriceMap(json.prices || {});
     localStorage.setItem('apiPricesNormalized', JSON.stringify(normMap));
-    localStorage.setItem('lastFetchedPrices', JSON.stringify({ 
-      network, 
-      branchId, 
-      updated: json.updated || new Date().toISOString(),
-      source: USE_CLOUDFLARE_WORKER ? 'cloudflare-worker' : 'local-json',
-      cached: json.cached || false
-    }));
+    localStorage.setItem('lastFetchedPrices', JSON.stringify({ network, branchId, updated: json.updated || new Date().toISOString() }));
     renderAllPrices();
     renderTotal();
-    return prices;
+    return json.prices;
   } catch (err) {
     console.error("Failed to fetch prices for branch:", err);
     return null;
@@ -488,9 +143,7 @@ async function fetchPricesForBranch(network, branchId) {
 function makeChooseButton(item) {
   const btn = document.createElement("div");
   btn.className = "choose-item";
-  btn.setAttribute('data-icon', item.icon);
-  btn.setAttribute('data-unit', item.unit);
-  btn.textContent = item.name; // CSS displays icon via ::before pseudo-element
+  btn.textContent = `${item.icon} ${item.name}`;
 
   const badge = document.createElement("span");
   badge.className = "badge";
@@ -499,9 +152,8 @@ function makeChooseButton(item) {
   btn.appendChild(badge);
 
   btn.addEventListener("click", () => {
-    if (!DOM.listGrid) return;
-    
-    const existing = Array.from(DOM.listGrid.querySelectorAll(".item"))
+    const listGrid = document.getElementById("listGrid");
+    const existing = Array.from(listGrid.querySelectorAll(".item"))
       .find(el => el.querySelector(".name")?.textContent.includes(item.name));
 
     if (existing) {
@@ -521,21 +173,15 @@ function makeChooseButton(item) {
     btn.classList.add("selected", "pulse");
     setTimeout(() => btn.classList.remove("pulse"), 420);
     saveListToStorage();
-    
-    // Don't close the modal - allow multiple selections
-    // closeChooseModal();
     renderAllPrices();
     renderTotal();
   });
-
-  // Attach long press handler for context menu on choose items
-  attachLongPressToChooseItem(btn, item);
 
   return btn;
 }
 
 /* ====== createListItem (price as currency left, amount right inside fixed column) ====== */
-function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipSave = false, price = null, note = "") {
+function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipSave = false, price = null) {
   const cleanName = String(name || "").trim();
   const cleanIcon = String(icon || "🛒").trim();
   const num = parseFloat(quantity) || 1;
@@ -543,97 +189,20 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 
   const row = document.createElement("div");
   row.className = "item fade-in";
-  row.dataset.icon = cleanIcon; // Store icon for later retrieval
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
-  
-  // Check if icon is an image (base64)
-  if (cleanIcon.startsWith('data:image/')) {
-    const imgElement = document.createElement('img');
-    imgElement.src = cleanIcon;
-    imgElement.className = 'item-image-icon';
-    imgElement.style.width = '2em';
-    imgElement.style.height = '2em';
-    imgElement.style.objectFit = 'cover';
-    imgElement.style.borderRadius = '4px';
-    imgElement.style.marginLeft = '0.3em';
-    imgElement.style.verticalAlign = 'middle';
-    nameSpan.appendChild(imgElement);
-    nameSpan.appendChild(document.createTextNode(` ${cleanName}`));
-  } else {
-    // Regular emoji icon
-    nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
-  }
+  nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
 
   // qty+unit as a single span for compactness
   const qty = document.createElement("span");
-  qty.className = "qty";
+  qty.className = "qty-compact";
   qty.textContent = `${num} ${cleanUnit}`.trim();
 
-  // Note icon button
-  const noteIcon = document.createElement("span");
-  noteIcon.className = "note-icon";
-  noteIcon.textContent = "📝";
-  noteIcon.title = "הוסף הערה";
-  noteIcon.style.cursor = "pointer";
-  
-  // הערה קצרה - מוסתרת כברירת מחדל
-  const noteDiv = document.createElement("div");
-  noteDiv.className = "item-note-row";
-  if (!note || note.trim() === "") {
-    noteDiv.style.display = "none"; // מוסתר אם אין הערה
-  }
-  
-  const noteInput = document.createElement("input");
-  noteInput.className = "item-note";
-  noteInput.type = "text";
-  noteInput.placeholder = "הוסף הערה...";
-  noteInput.value = note || "";
-  noteInput.setAttribute("aria-label", "הערה לפריט");
-  
-  noteInput.addEventListener("change", () => {
-    // אם ההערה ריקה, הסתר את השדה
-    if (noteInput.value.trim() === "") {
-      noteDiv.style.display = "none";
-      noteIcon.textContent = "📝";
-    } else {
-      noteIcon.textContent = "📝✓";
-    }
-    saveListToStorage();
-  });
-  
-  noteInput.addEventListener("blur", () => {
-    // אם ההערה ריקה בעת איבוד פוקוס, הסתר
-    if (noteInput.value.trim() === "") {
-      noteDiv.style.display = "none";
-      noteIcon.textContent = "📝";
-    }
-  });
-  
-  noteDiv.appendChild(noteInput);
-  
-  // Toggle note visibility on icon click
-  noteIcon.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (noteDiv.style.display === "none") {
-      noteDiv.style.display = "flex";
-      noteInput.focus();
-    } else {
-      if (noteInput.value.trim() === "") {
-        noteDiv.style.display = "none";
-      }
-    }
-  });
-  
-  // Update icon if note exists
-  if (note && note.trim() !== "") {
-    noteIcon.textContent = "📝✓";
-  }
 
   // price element: amount and currency, compact
   const priceSpan = document.createElement("span");
-  priceSpan.className = "price";
+  priceSpan.className = "price-compact";
   const amountSpan = document.createElement("span");
   amountSpan.className = "amount";
   amountSpan.textContent = (price != null && price !== "") ? String(price) : "";
@@ -650,68 +219,33 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     const current = amountSpan.textContent || "";
     const p = prompt("הכנס מחיר בפריטים בשקלים (ללא סימן):", current);
     if (p === null) return;
-  const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
+    const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
     amountSpan.textContent = cleaned;
     savePriceForItem(cleanName, cleaned);
     renderAllPrices();
     renderTotal();
   });
 
-  // מבנה חדש: שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
+  // plus/minus quantity handlers (אם קיימים ככפתורים בתבנית שלך, עדכן אותם להפעיל שינוי זה)
+  // דוגמה: שינוי קליק על השורה מגדיר checked
   row.appendChild(nameSpan);
   row.appendChild(qty);
   row.appendChild(priceSpan);
-  row.appendChild(noteIcon);
-  row.appendChild(noteDiv);
 
   // שמירת נתונים ותוספות אירועים
   row.addEventListener("click", (e) => {
-    // אם אנחנו במצב בחירה, אל תבצע את הפעולה הרגילה
-    if (selectionMode || row.dataset.selectionMode) return;
-    
-    // אם לחצת על ה priceSpan או על כפתורי qty או note-icon, אל תטפל ב־toggle של השורה
-    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
-    
+    // אם לחצת על ה priceSpan או על כפתורי qty, אל תטפל ב־toggle של השורה
+    if (e.target.closest('.price') || e.target.closest('.qty')) return;
     row.classList.toggle("checked");
-    
-    // Move item to cart or back to list
-    const cartGrid = document.getElementById('cartGrid');
-    const cartSection = document.getElementById('cartSection');
-    
-    if (row.classList.contains("checked")) {
-      // Move to cart
-      row.classList.add("moving");
-      setTimeout(() => {
-        if (cartGrid) {
-          cartGrid.appendChild(row);
-          cartSection.style.display = 'block';
-        }
-        row.classList.remove("moving");
-        saveListToStorage();
-      }, 300);
-    } else {
-      // Move back to list
-      row.classList.add("moving");
-      setTimeout(() => {
-        if (DOM.listGrid) DOM.listGrid.appendChild(row);
-        row.classList.remove("moving");
-        // Hide cart section if empty
-        if (cartGrid && cartGrid.children.length === 0) {
-          cartSection.style.display = 'none';
-        }
-        saveListToStorage();
-      }, 300);
-    }
+    const listGrid = document.getElementById("listGrid");
+    row.classList.add("moving");
+    setTimeout(() => { listGrid.appendChild(row); row.classList.remove("moving"); saveListToStorage(); }, 300);
   });
 
-  if (DOM.listGrid) DOM.listGrid.appendChild(row);
-  
-  // Attach long press handler for context menu
-  attachLongPressToItem(row);
-  
-  if (!skipSave) {
-    saveListToStorage();
-  }
+  // אם יש פונקציות כפתורי + / - בהדרכה שלך, גם הן צריכות לעדכן qAmount.textContent ולקרוא saveListToStorage(), renderTotal()
+  // Append to DOM
+  document.getElementById("listGrid").appendChild(row);
+  if (!skipSave) saveListToStorage();
   renderAllPrices();
   renderTotal();
   return row;
@@ -720,9 +254,7 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 // ===== compute total (now price * quantity) =====
 function computeTotalFromDOM() {
   let total = 0;
-  const items = DOM.listGrid?.querySelectorAll('.item') || [];
-  
-  for (const el of items) {
+  document.querySelectorAll('#listGrid .item').forEach(el => {
     const amtText = el.querySelector('.price .amount')?.textContent || "";
     const price = parseFloat((amtText + "").replace(/[^\d.]/g,'')) || 0;
 
@@ -736,386 +268,64 @@ function computeTotalFromDOM() {
     }
 
     total += price * qty;
-  }
+  });
   return total;
 }
 
 // renderTotal unchanged except it calls computeTotalFromDOM
 function renderTotal() {
-  if (!DOM.totalAmount) return;
+  const el = document.getElementById('totalAmount');
+  if (!el) return;
   const total = computeTotalFromDOM();
   const display = Number.isInteger(total) ? `${total} ₪` : `${total.toFixed(2)} ₪`;
-  DOM.totalAmount.textContent = display;
-  
-  // Calculate cart total
-  renderCartTotal();
-}
-
-function renderCartTotal() {
-  const cartTotalEl = document.getElementById('cartTotalAmount');
-  if (!cartTotalEl) return;
-  
-  const cartGrid = document.getElementById('cartGrid');
-  if (!cartGrid) return;
-  
-  let cartTotal = 0;
-  const cartItems = cartGrid.querySelectorAll('.item');
-  cartItems.forEach(el => {
-    const name = el.querySelector('.name')?.textContent.split(' ').slice(1).join(' ') || '';
-    const price = getPriceForItem(name);
-    const qtyText = el.querySelector('.qty')?.textContent || '1';
-    const qty = parseFloat(qtyText.split(' ')[0]) || 1;
-    if (price) cartTotal += parseFloat(price) * qty;
-  });
-  
-  const display = Number.isInteger(cartTotal) ? `${cartTotal} ₪` : `${cartTotal.toFixed(2)} ₪`;
-  cartTotalEl.textContent = display;
+  el.textContent = display;
 }
 
 
 /* ====== load choose items ====== */
 function loadDefaultChooseItems() {
-  if (!DOM.chooseGrid) return;
-  DOM.chooseGrid.innerHTML = "";
+  const chooseGrid = document.getElementById("chooseGrid");
+  if (!chooseGrid) return;
+  chooseGrid.innerHTML = "";
 
-  // Organized items by categories
-  const categorizedItems = {
-    'פירות וירקות': [
-      { name:"גזר",icon:"🥕",unit:"ק\"ג" },
-      { name:"מלפפונים",icon:"🥒",unit:"ק\"ג" },
-      { name:"עגבניות",icon:"🍅",unit:"ק\"ג" },
-      { name:"חסה",icon:"🥬",unit:"יח'" },
-      { name:"בצל",icon:"🧅",unit:"ק\"ג" },
-      { name:"שום",icon:"🧄",unit:"אריזה" },
-      { name:"תפוחי אדמה",icon:"🥔",unit:"ק\"ג" },
-      { name:"תפוחים",icon:"🍎",unit:"ק\"ג" },
-      { name:"בננות",icon:"🍌",unit:"ק\"ג" },
-      { name:"תפוזים",icon:"🍊",unit:"ק\"ג" },
-      { name:"לימונים",icon:"🍋",unit:"ק\"ג" },
-      { name:"אבוקדו",icon:"🥑",unit:"יח'" },
-      { name:"פלפלים",icon:"🫑",unit:"ק\"ג" },
-      { name:"ברוקולי",icon:"🥦",unit:"יח'" },
-      { name:"כרובית",icon:"🥦",unit:"יח'" },
-      { name:"תירס",icon:"🌽",unit:"יח'" },
-      { name:"חציל",icon:"🍆",unit:"ק\"ג" },
-      { name:"דלעת",icon:"🎃",unit:"ק\"ג" },
-      { name:"תותים",icon:"🍓",unit:"אריזה" },
-      { name:"ענבים",icon:"🍇",unit:"ק\"ג" },
-      { name:"אבטיח",icon:"🍉",unit:"יח'" },
-      { name:"מלון",icon:"🍈",unit:"יח'" }
-    ],
-    'מוצרי חלב': [
-      { name:"חלב",icon:"🥛",unit:"ליטר" },
-      { name:"גבינה צהובה",icon:"🧀",unit:"אריזה" },
-      { name:"גבינה לבנה",icon:"🧀",unit:"אריזה" },
-      { name:"קוטג'",icon:"🥛",unit:"אריזה" },
-      { name:"יוגורט",icon:"🥛",unit:"יח'" },
-      { name:"שמנת",icon:"🥛",unit:"אריזה" },
-      { name:"חמאה",icon:"🧈",unit:"אריזה" },
-      { name:"ביצים",icon:"🥚",unit:"יח'" },
-      { name:"חלב שקדים",icon:"🥛",unit:"ליטר" },
-      { name:"חלב סויה",icon:"🥛",unit:"ליטר" }
-    ],
-    'מאפים ולחמים': [
-      { name:"לחם",icon:"🍞",unit:"יח'" },
-      { name:"חלה",icon:"🍞",unit:"יח'" },
-      { name:"לחמניות",icon:"🥖",unit:"אריזה" },
-      { name:"פיתות",icon:"🥙",unit:"אריזה" },
-      { name:"טורטייה",icon:"🌯",unit:"אריזה" },
-      { name:"בייגל",icon:"🥯",unit:"אריזה" },
-      { name:"קרואסון",icon:"🥐",unit:"אריזה" },
-      { name:"עוגיות",icon:"🍪",unit:"אריזה" },
-      { name:"עוגה",icon:"🎂",unit:"יח'" },
-      { name:"בורקס",icon:"🥐",unit:"אריזה" }
-    ],
-    'בשר ועופות': [
-      { name:"חזה עוף",icon:"🍗",unit:"ק\"ג" },
-      { name:"שניצל",icon:"🍗",unit:"ק\"ג" },
-      { name:"כרעיים עוף",icon:"🍗",unit:"ק\"ג" },
-      { name:"עוף שלם",icon:"🍗",unit:"ק\"ג" },
-      { name:"בשר טחון",icon:"🥩",unit:"ק\"ג" },
-      { name:"אנטריקוט",icon:"🥩",unit:"ק\"ג" },
-      { name:"סטייק",icon:"🥩",unit:"ק\"ג" },
-      { name:"נקניקיות",icon:"🌭",unit:"אריזה" },
-      { name:"נקניק",icon:"🌭",unit:"ק\"ג" },
-      { name:"קבב",icon:"🥩",unit:"ק\"ג" }
-    ],
-    'דגים': [
-      { name:"סלמון",icon:"🐟",unit:"ק\"ג" },
-      { name:"טונה",icon:"🐟",unit:"קופסא" },
-      { name:"דניס",icon:"🐟",unit:"ק\"ג" },
-      { name:"בורי",icon:"🐟",unit:"ק\"ג" },
-      { name:"פילה דג",icon:"🐟",unit:"ק\"ג" },
-      { name:"שרימפס",icon:"🦐",unit:"ק\"ג" }
-    ],
-    'מזווה ויבשים': [
-      { name:"אורז",icon:"🍚",unit:"ק\"ג" },
-      { name:"אורז מלא",icon:"🍚",unit:"ק\"ג" },
-      { name:"אורז בסמטי",icon:"🍚",unit:"ק\"ג" },
-      { name:"אורז יסמין",icon:"🍚",unit:"ק\"ג" },
-      { name:"פסטה",icon:"🍝",unit:"אריזה" },
-      { name:"קוסקוס",icon:"🍚",unit:"אריזה" },
-      { name:"בורגול",icon:"🍚",unit:"ק\"ג" },
-      { name:"קמח",icon:"🌾",unit:"ק\"ג" },
-      { name:"סוכר",icon:"🧂",unit:"ק\"ג" },
-      { name:"מלח",icon:"🧂",unit:"אריזה" },
-      { name:"שמן",icon:"🫒",unit:"ליטר" },
-      { name:"שמן זית",icon:"🫒",unit:"ליטר" },
-      { name:"קטשופ",icon:"🍅",unit:"בקבוק" },
-      { name:"מיונז",icon:"🥚",unit:"צנצנת" },
-      { name:"חומוס",icon:"🫘",unit:"אריזה" },
-      { name:"טחינה",icon:"🥫",unit:"צנצנת" },
-      { name:"ריבה",icon:"🫙",unit:"צנצנת" },
-      { name:"דבש",icon:"🍯",unit:"צנצנת" },
-      { name:"שוקולד ממרח",icon:"🍫",unit:"צנצנת" },
-      { name:"קפה",icon:"☕",unit:"אריזה" },
-      { name:"תה",icon:"🍵",unit:"אריזה" },
-      { name:"אבקת קקאו",icon:"☕",unit:"אריזה" }
-    ],
-    'משקאות': [
-      { name:"מים",icon:"💧",unit:"בקבוק" },
-      { name:"מים נביעות הגולן 1.5L",icon:"💧",unit:"בקבוק" },
-      { name:"מים עין גדי 1.5L",icon:"💧",unit:"בקבוק" },
-      { name:"מיץ",icon:"🧃",unit:"ליטר" },
-      { name:"מיץ פרימור 1L",icon:"🧃",unit:"ליטר" },
-      { name:"מיץ טרופיקנה 1L",icon:"🧃",unit:"ליטר" },
-      { name:"קולה",icon:"🥤",unit:"ליטר" },
-      { name:"קוקה קולה 1.5L",icon:"🥤",unit:"בקבוק" },
-      { name:"פפסי 1.5L",icon:"🥤",unit:"בקבוק" },
-      { name:"פחית קולה",icon:"🥤",unit:"יח'" },
-      { name:"בירה",icon:"🍺",unit:"בקבוק" },
-      { name:"בירה גולדסטאר",icon:"🍺",unit:"בקבוק" },
-      { name:"בירה קרלסברג",icon:"🍺",unit:"בקבוק" },
-      { name:"יין",icon:"🍷",unit:"בקבוק" },
-      { name:"יין ברקן",icon:"🍷",unit:"בקבוק" },
-      { name:"יין כרמל",icon:"🍷",unit:"בקבוק" },
-      { name:"יין גולן",icon:"🍷",unit:"בקבוק" },
-      { name:"אלכוהול",icon:"🥃",unit:"בקבוק" }
-    ],
-    'חטיפים וממתקים': [
-      { name:"שוקולד",icon:"🍫",unit:"יח'" },
-      { name:"שוקולד מילקה",icon:"🍫",unit:"יח'" },
-      { name:"שוקולד קינדר",icon:"🍫",unit:"יח'" },
-      { name:"ביסלי",icon:"🥔",unit:"שקית" },
-      { name:"במבה",icon:"🥜",unit:"שקית" },
-      { name:"במבה אסם",icon:"🥜",unit:"שקית" },
-      { name:"דובונים",icon:"🍬",unit:"שקית" },
-      { name:"סוכריות",icon:"🍭",unit:"שקית" },
-      { name:"גלידה",icon:"🍦",unit:"יח'" },
-      { name:"גלידה בן אנד ג'ריס",icon:"🍦",unit:"יח'" },
-      { name:"גלידה שטראוס",icon:"🍦",unit:"יח'" },
-      { name:"עוגיות",icon:"🍪",unit:"אריזה" },
-      { name:"עוגיות לוטוס",icon:"🍪",unit:"אריזה" },
-      { name:"פופקורן",icon:"🍿",unit:"אריזה" },
-      { name:"חטיף אנרגיה",icon:"🍫",unit:"יח'" },
-      { name:"אגוזים",icon:"🥜",unit:"שקית" }
-    ],
-    'מוצרי ניקיון': [
-      { name:"נייר טואלט",icon:"🧻",unit:"אריזה" },
-      { name:"מגבות נייר",icon:"🧻",unit:"אריזה" },
-      { name:"סבון כלים",icon:"🧽",unit:"בקבוק" },
-      { name:"אבקת כביסה",icon:"📦",unit:"אריזה" },
-      { name:"מרכך כביסה",icon:"🧴",unit:"בקבוק" },
-      { name:"אקונומיקה",icon:"🧴",unit:"בקבוק" },
-      { name:"שקיות זבל",icon:"🗑️",unit:"אריזה" },
-      { name:"ספוג",icon:"🧽",unit:"אריזה" },
-      { name:"מטליות",icon:"🧽",unit:"אריזה" },
-      { name:"סבון רצפה",icon:"🧴",unit:"בקבוק" }
-    ],
-    'מוצרי טיפוח': [
-      { name:"סבון רחצה",icon:"🧼",unit:"יח'" },
-      { name:"שמפו",icon:"🧴",unit:"בקבוק" },
-      { name:"מרכך שיער",icon:"🧴",unit:"בקבוק" },
-      { name:"משחת שיניים",icon:"🪥",unit:"יח'" },
-      { name:"מברשת שיניים",icon:"🪥",unit:"יח'" },
-      { name:"דאודורנט",icon:"🧴",unit:"יח'" },
-      { name:"תער",icon:"🪒",unit:"אריזה" },
-      { name:"קרם לחות",icon:"🧴",unit:"יח'" },
-      { name:"טישו",icon:"🧻",unit:"אריזה" }
-    ],
-    'מוצרי תינוק': [
-      { name:"חיתולים",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי האגיס 4-9 ק\"ג",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי האגיס פרידום דריי מידה 5+",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי כיפי מידה 4",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי פרה מגה פק",icon:"👶",unit:"אריזה" },
-      { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
-      { name:"מטליות לחות",icon:"🧻",unit:"אריזה" },
-      { name:"מטליות האגיס",icon:"🧻",unit:"אריזה" },
-      { name:"קרם לתינוק",icon:"🧴",unit:"יח'" },
-      { name:"שמפו לתינוק",icon:"🧴",unit:"בקבוק" }
-    ],
-    'קפואים': [
-      { name:"גלידה",icon:"🍦",unit:"יח'" },
-      { name:"ירקות קפואים",icon:"🧊",unit:"אריזה" },
-      { name:"פיצה קפואה",icon:"🍕",unit:"יח'" },
-      { name:"שניצל קפוא",icon:"🧊",unit:"אריזה" },
-      { name:"דגים קפואים",icon:"🧊",unit:"אריזה" }
-    ]
-  };
+  const items = [
+    { name:"גזר",icon:"🥕",unit:"ק\"ג" },
+    { name:"מלפפונים",icon:"🥒",unit:"ק\"ג" },
+    { name:"עגבניות",icon:"🍅",unit:"ק\"ג" },
+    { name:"גבינה",icon:"🧀",unit:"אריזה" },
+    { name:"חלב",icon:"🥛",unit:"ליטר" },
+    { name:"לחם",icon:"🍞",unit:"יח'" },
+    { name:"עוף",icon:"🍗",unit:"ק\"ג" },
+    { name:"אורז",icon:"🍚",unit:"ק\"ג" },
+    { name:"קפה",icon:"☕",unit:"אריזה" }
+  ];
 
-  // Populate categoriesOrder and categories from categorizedItems
-  categoriesOrder.length = 0; // Clear array
-  Object.keys(categorizedItems).forEach(cat => {
-    categoriesOrder.push(cat);
-    categories[cat] = categorizedItems[cat].map(item => item.name);
-  });
+  items.forEach(i => chooseGrid.appendChild(makeChooseButton(i)));
 
-  // Load custom items and merge with default categories
   const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
-  
-  // Group custom items by category
-  const customByCategory = {};
-  savedCustom.forEach(item => {
-    const cat = item.category || 'פריטים מותאמים אישית';
-    if (!customByCategory[cat]) customByCategory[cat] = [];
-    customByCategory[cat].push(item);
+  savedCustom.forEach(c => {
+    const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
+    chooseGrid.appendChild(makeChooseButton(safe));
   });
-
-  // Use DocumentFragment for better performance
-  const fragment = document.createDocumentFragment();
-
-  // Create categories with items and + button
-  Object.entries(categorizedItems).forEach(([categoryName, items]) => {
-    // Create category header with + button
-    const categoryHeader = document.createElement('div');
-    categoryHeader.className = 'choose-category-header';
-    categoryHeader.style.display = 'flex';
-    categoryHeader.style.justifyContent = 'space-between';
-    categoryHeader.style.alignItems = 'center';
-    categoryHeader.style.cursor = 'default';
-    
-    const categoryTitle = document.createElement('span');
-    categoryTitle.textContent = categoryName;
-    categoryHeader.appendChild(categoryTitle);
-    
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '➕';
-    addBtn.style.cssText = 'background: transparent; border: 1px solid rgba(76,175,80,0.4); color: #4CAF50; padding: 0.2rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 1.1rem; transition: all 0.2s;';
-    addBtn.title = `הוסף פריט ל${categoryName}`;
-    addBtn.addEventListener('mouseenter', () => {
-      addBtn.style.background = 'rgba(76,175,80,0.1)';
-      addBtn.style.transform = 'scale(1.1)';
-    });
-    addBtn.addEventListener('mouseleave', () => {
-      addBtn.style.background = 'transparent';
-      addBtn.style.transform = 'scale(1)';
-    });
-    addBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      addCustomItem(categoryName);
-    });
-    categoryHeader.appendChild(addBtn);
-    
-    fragment.appendChild(categoryHeader);
-
-    // Add default items for this category
-    items.forEach(item => {
-      fragment.appendChild(makeChooseButton(item));
-    });
-    
-    // Add custom items that belong to this category
-    if (customByCategory[categoryName]) {
-      customByCategory[categoryName].forEach(c => {
-        const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
-        fragment.appendChild(makeChooseButton(safe));
-      });
-    }
-  });
-
-  // Add custom items section if there are items without category
-  if (customByCategory['פריטים מותאמים אישית']) {
-    // Create dedicated custom items section
-    const customHeader = document.createElement('div');
-    customHeader.className = 'choose-category-header';
-    customHeader.style.display = 'flex';
-    customHeader.style.justifyContent = 'space-between';
-    customHeader.style.alignItems = 'center';
-    
-    const customTitle = document.createElement('span');
-    customTitle.textContent = 'פריטים מותאמים אישית';
-    customHeader.appendChild(customTitle);
-    
-    const addBtn = document.createElement('button');
-    addBtn.textContent = '➕';
-    addBtn.style.cssText = 'background: transparent; border: 1px solid rgba(76,175,80,0.4); color: #4CAF50; padding: 0.2rem 0.5rem; border-radius: 6px; cursor: pointer; font-size: 1.1rem; transition: all 0.2s;';
-    addBtn.title = 'הוסף פריט מותאם אישית';
-    addBtn.addEventListener('mouseenter', () => {
-      addBtn.style.background = 'rgba(76,175,80,0.1)';
-      addBtn.style.transform = 'scale(1.1)';
-    });
-    addBtn.addEventListener('mouseleave', () => {
-      addBtn.style.background = 'transparent';
-      addBtn.style.transform = 'scale(1)';
-    });
-    addBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      addCustomItem('פריטים מותאמים אישית');
-    });
-    customHeader.appendChild(addBtn);
-    
-    fragment.appendChild(customHeader);
-    
-    customByCategory['פריטים מותאמים אישית'].forEach(c => {
-      const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
-      fragment.appendChild(makeChooseButton(safe));
-    });
-  }
-  
-  // Append all items at once for better performance
-  if (DOM.chooseGrid) DOM.chooseGrid.appendChild(fragment);
 }
 
 /* ====== list persistence ====== */
 function saveListToStorage() {
-  if (!DOM.listGrid) return;
-  
   const items = [];
-  const listItems = DOM.listGrid.querySelectorAll(".item");
-  
-  for (const el of listItems) {
-    // Check if icon is stored in dataset (for images)
-    let icon = el.dataset.icon;
-    let pureName = "";
-    
-    if (!icon) {
-      // Old method - parse from text
-      const rawName = (el.querySelector(".name")?.textContent || "").trim();
-      const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-      icon = nameParts.length > 0 ? nameParts[0] : "🛒";
-      pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
-    } else {
-      // Get name from textContent, removing icon
-      const nameSpan = el.querySelector(".name");
-      if (nameSpan) {
-        // Check if it's an image icon or emoji
-        const imgIcon = nameSpan.querySelector('.item-image-icon');
-        if (imgIcon) {
-          // Image icon - get text after the image (skip the image node)
-          pureName = Array.from(nameSpan.childNodes)
-            .filter(node => node.nodeType === Node.TEXT_NODE)
-            .map(node => node.textContent)
-            .join('')
-            .trim();
-        } else {
-          // Emoji icon - remove the first emoji from the text
-          const fullText = nameSpan.textContent.trim();
-          // Split by spaces and remove the first part (icon)
-          const parts = fullText.split(' ');
-          pureName = parts.length > 1 ? parts.slice(1).join(' ') : parts[0];
-        }
-      }
-    }
+  document.querySelectorAll("#listGrid .item").forEach(el => {
+    const rawName = (el.querySelector(".name")?.textContent || "").trim();
+    const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
+    const icon = nameParts.length > 0 ? nameParts[0] : "🛒";
+    const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
 
     const rawQty = (el.querySelector(".qty")?.textContent || "").trim();
     const qtyParts = rawQty.split(" ").map(p => p.trim()).filter(p => p !== "");
     const qty = qtyParts.join(" ");
 
     const priceText = (el.querySelector(".price .amount")?.textContent || "").trim();
-    const noteText = (el.querySelector(".item-note")?.value || "").trim();
 
-    items.push({ icon, name: pureName, qty, price: priceText, checked: el.classList.contains("checked"), note: noteText });
-  }
+    items.push({ icon, name: pureName, qty, price: priceText, checked: el.classList.contains("checked") });
+  });
 
   localStorage.setItem("shoppingList", JSON.stringify(items));
   if (typeof sortListByCategories === "function") sortListByCategories();
@@ -1126,36 +336,13 @@ function loadListFromStorage(){
   const data = localStorage.getItem("shoppingList");
   if (!data) return;
   const items = JSON.parse(data);
-  
-  // CRITICAL: Initialize DOM FIRST before creating items
-  DOM.init();
-  
-  const cartGrid = document.getElementById('cartGrid');
-  const cartSection = document.getElementById('cartSection');
-  let hasCheckedItems = false;
-  
-  items.forEach((item) => {
+  items.forEach(item => {
     const [num, ...rest] = (item.qty || "").split(" ");
     const unit = rest.join(" ");
     const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
-    const note = item.note || "";
-    const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
-    
-    if (item.checked) {
-      row.classList.add("checked");
-      // Move to cart
-      if (cartGrid) {
-        cartGrid.appendChild(row);
-        hasCheckedItems = true;
-      }
-    }
+    const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null);
+    if (item.checked) row.classList.add("checked");
   });
-  
-  // Show cart section if there are checked items
-  if (cartSection && hasCheckedItems) {
-    cartSection.style.display = 'block';
-  }
-  
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
   renderTotal();
@@ -1192,32 +379,59 @@ function renderAllPrices() {
 
 /* ====== sorting by categories ====== */
 function sortListByCategories(){
-  if (!DOM.listGrid) return;
-  
-  const items = Array.from(DOM.listGrid.querySelectorAll(".item"));
-  DOM.listGrid.innerHTML = "";
+  const listGrid = document.getElementById("listGrid");
+  if (!listGrid) return;
+  const items = Array.from(listGrid.querySelectorAll(".item"));
+  listGrid.innerHTML = "";
 
-  // First, add unchecked items sorted by categories
   categoriesOrder.forEach(category => {
     const productNames = categories[category] || [];
     const catItems = items.filter(el => {
       const pureName = el.querySelector(".name").textContent.split(" ").slice(1).join(" ");
       return productNames.includes(pureName) && !el.classList.contains("checked");
     });
-    catItems.forEach(el => DOM.listGrid.appendChild(el));
+    catItems.forEach(el => listGrid.appendChild(el));
   });
 
-  // Then, add unchecked items that don't belong to any category
   const flatNames = Object.values(categories).flat();
   const others = items.filter(el => {
     const pureName = el.querySelector(".name").textContent.split(" ").slice(1).join(" ");
     return !flatNames.includes(pureName) && !el.classList.contains("checked");
   });
-  others.forEach(el => DOM.listGrid.appendChild(el));
+  others.forEach(el => listGrid.appendChild(el));
 
-  // Finally, add all checked items at the end
   const checkedItems = items.filter(el => el.classList.contains("checked"));
-  checkedItems.forEach(el => DOM.listGrid.appendChild(el));
+  checkedItems.forEach(el => listGrid.appendChild(el));
+}
+
+/* ====== categories UI ====== */
+function renderCategoriesList() {
+  const ul = document.getElementById("categoriesList");
+  if (!ul) return;
+  ul.innerHTML = "";
+  categoriesOrder.forEach((cat, index) => {
+    const li = document.createElement("li"); li.textContent = cat;
+    li.style.display = "flex"; li.style.justifyContent = "space-between"; li.style.alignItems = "center";
+    const controls = document.createElement("div");
+    const upBtn = document.createElement("button"); upBtn.textContent = "⬆"; upBtn.className = "btn-settings";
+    upBtn.addEventListener("click", () => {
+      if (index > 0) {
+        [categoriesOrder[index-1], categoriesOrder[index]] = [categoriesOrder[index], categoriesOrder[index-1]];
+        localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
+        renderCategoriesList(); sortListByCategories();
+      }
+    });
+    const downBtn = document.createElement("button"); downBtn.textContent = "⬇"; downBtn.className = "btn-settings";
+    downBtn.addEventListener("click", () => {
+      if (index < categoriesOrder.length - 1) {
+        [categoriesOrder[index+1], categoriesOrder[index]] = [categoriesOrder[index], categoriesOrder[index+1]];
+        localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
+        renderCategoriesList(); sortListByCategories();
+      }
+    });
+    controls.appendChild(upBtn); controls.appendChild(downBtn);
+    li.appendChild(controls); ul.appendChild(li);
+  });
 }
 
 /* ====== store UI ====== */
@@ -1243,14 +457,11 @@ function saveStoreSelection() {
 
   // fetch prices for branch (saves to apiPrices only)
   fetchPricesForBranch(network, branch).then(map => {
-    if (map) showToast('בחירת חנות נשמרה ומחירים נטענו 🛒', 'success');
-    else showToast('בחירת חנות נשמרה אך לא נמצאו מחירים לסניף זה', 'info');
+    if (map) alert('בחירת חנות נשמרה ומחירים נטענו');
+    else alert('בחירת חנות נשמרה אך לא נמצאו מחירים לסניף זה');
   });
   renderAllPrices();
   renderTotal();
-  // Close the dropdown after saving
-  const dd = document.getElementById('menuDropdown');
-  if (dd) dd.style.display = 'none';
 }
 
 function togglePriceDisplay(show) {
@@ -1260,1072 +471,567 @@ function togglePriceDisplay(show) {
 }
 
 /* ====== basic actions ====== */
-function resetChoiceBadges(){
-  // איפוס רק הסימונים והבדג'ים, לא את כל הטבלה
+function resetChoices(){
+  // איפוס הסימונים והבדג'ים
   document.querySelectorAll(".choose-item .badge").forEach(b => { b.textContent = "0"; b.style.display = "none"; });
   document.querySelectorAll(".choose-item.selected").forEach(btn => {
     btn.classList.add("resetting");
     setTimeout(() => { btn.classList.remove("selected", "resetting", "pulse"); }, 180);
   });
-}
-
-function resetChoices(){
-  // איפוס הסימונים והבדג'ים
-  resetChoiceBadges();
   
-  // בדיקה אם יש פריטים בטבלת הבחירה
+  // בדיקה אם יש פריטים בסקציית הבחירה
   const chooseGrid = document.getElementById("chooseGrid");
   if (!chooseGrid) return;
   
-  // אם אין פריטים בטבלת הבחירה, הצע לטעון את הפריטים הבסיסיים
+  // אם אין פריטים בסקציית הבחירה, הצע לטעון את הפריטים הבסיסיים
   if (chooseGrid.children.length === 0) {
-    if (confirm("טבלת 'בחר פריטים' ריקה. האם לטעון את הפריטים הבסיסיים?")) {
+    if (confirm("סקציית 'בחר פריטים' ריקה. האם לטעון את הפריטים הבסיסיים?")) {
       loadDefaultChooseItems();
     }
   } else {
     // אם יש פריטים, הצע לחזור לפריטים הבסיסיים
-    if (confirm("האם לאפס את טבלת הבחירה ולחזור לפריטים הבסיסיים?")) {
+    if (confirm("האם לאפס את סקציית הבחירה ולחזור לפריטים הבסיסיים?")) {
       chooseGrid.innerHTML = "";
       loadDefaultChooseItems();
     }
   }
 }
-
 function clearList(){
   const listGrid = document.getElementById("listGrid");
   if (listGrid) listGrid.innerHTML = "";
-  localStorage.setItem("shoppingList", "[]"); // מוחק את הרשימה מהאחסון
-  resetChoiceBadges();
-  renderAllPrices();
-  renderTotal();
-}
-
-function clearChecked(){
-  // הסרת הסימון מהפריטים (לא מחיקתם!)
-  document.querySelectorAll("#listGrid .item.checked").forEach(el => {
-    el.classList.remove("checked"); // הסרת הסימון בלבד
-  });
+  resetChoices();
   saveListToStorage();
   renderAllPrices();
   renderTotal();
 }
-/* ====== Smart category detection ====== */
-function detectCategory(itemName) {
-  const name = itemName.toLowerCase().trim();
-  
-  // Category keywords mapping
-  const categoryKeywords = {
-    'פירות וירקות': [
-      'גזר', 'מלפפון', 'עגבני', 'חסה', 'בצל', 'שום', 'תפוח', 'בננ', 'תפוז', 'לימון',
-      'אבוקדו', 'פלפל', 'ברוקולי', 'כרובית', 'תירס', 'חציל', 'דלעת', 'תות', 'ענב',
-      'אבטיח', 'מלון', 'ירק', 'פר', 'סלט', 'פטרוזיליה', 'כוסבר', 'נענע'
-    ],
-    'מוצרי חלב': [
-      'חלב', 'גבינ', 'קוטג', 'יוגורט', 'שמנת', 'חמא', 'ביצ', 'לבן', 'צהוב', 'בולגרי',
-      'שקד', 'סוי', 'אשל', 'תנובה', 'שטראוס', 'יטבתה'
-    ],
-    'מאפים ולחמים': [
-      'לחם', 'חלה', 'לחמני', 'פית', 'טורטי', 'בייגל', 'קרואסון', 'עוגי', 'עוג',
-      'בורקס', 'מאפ', 'כיכר', 'בגט'
-    ],
-    'בשר ועופות': [
-      'עוף', 'שניצל', 'כרעי', 'חזה', 'בשר', 'אנטריקוט', 'סטייק', 'נקניק', 'קבב',
-      'כבד', 'טחון', 'המבורגר', 'פרג'
-    ],
-    'דגים': [
-      'סלמון', 'טונה', 'דניס', 'בורי', 'פילה דג', 'שרימפ', 'דג', 'קרפיון', 'אמנון'
-    ],
-    'מזווה ויבשים': [
-      'אורז', 'פסטה', 'קוסקוס', 'בורגול', 'קמח', 'סוכר', 'מלח', 'שמן', 'קטשופ',
-      'מיונז', 'חומוס', 'טחינ', 'ריב', 'דבש', 'שוקולד ממרח', 'קפה', 'תה', 'קקאו',
-      'זית', 'שימור'
-    ],
-    'משקאות': [
-      'מים', 'מיץ', 'קולה', 'פחית', 'בירה', 'יין', 'אלכוהול', 'סודה', 'וויסקי',
-      'ליקר', 'בקבוק'
-    ],
-    'חטיפים וממתקים': [
-      'שוקולד', 'ביסלי', 'במבה', 'דובונ', 'סוכרי', 'גלידה', 'פופקורן', 'חטיף',
-      'אגוז', 'בוטנ', 'קשיו', 'שקד', 'צ\'יפס', 'ממתק', 'סניקרס', 'קיט קט'
-    ],
-    'מוצרי ניקיון': [
-      'נייר טואלט', 'מגבות נייר', 'סבון כלים', 'אבקת כביסה', 'מרכך', 'אקונומיקה',
-      'שקיות זבל', 'ספוג', 'מטלי', 'רצפה', 'ניקוי', 'חומר ניקוי', 'אקונומיקה'
-    ],
-    'מוצרי טיפוח': [
-      'סבון רחצה', 'שמפו', 'מרכך שיער', 'משחת שיניים', 'מברשת שיניים', 'דאודורנט',
-      'תער', 'קרם', 'טישו', 'טיפוח', 'ג\'ל', 'בושם', 'קולון'
-    ],
-    'מוצרי תינוק': [
-      'חיתול', 'מזון תינוק', 'מטליות לחות', 'תינוק', 'תינוקות', 'תרמיל', 'פמפרס'
-    ],
-    'קפואים': [
-      'קפוא', 'גלידה', 'ירקות קפוא', 'פיצה קפוא', 'שניצל קפוא', 'דגים קפוא'
-    ]
-  };
-  
-  // Check each category
-  for (const [category, keywords] of Object.entries(categoryKeywords)) {
-    for (const keyword of keywords) {
-      if (name.includes(keyword)) {
-        return category;
-      }
-    }
-  }
-  
-  return null; // No category detected
+function clearChecked(){
+  const listGrid = document.getElementById("listGrid");
+  document.querySelectorAll("#listGrid .item.checked").forEach(el => {
+    el.classList.remove("checked");
+    listGrid.appendChild(el);
+  });
+  resetChoices();
+  saveListToStorage();
+  renderAllPrices();
+  renderTotal();
 }
-
-// Smart icon detection based on item name
-function detectIcon(itemName) {
-  const name = itemName.toLowerCase().trim();
-  
-  // Icon mapping with keywords
-  const iconMap = {
-    // פירות
-    '🍎': ['תפוח'],
-    '🍊': ['תפוז', 'אשכולית'],
-    '🍋': ['לימון'],
-    '🍌': ['בננה'],
-    '🍉': ['אבטיח'],
-    '🍇': ['ענב', 'ענבים'],
-    '🍓': ['תות'],
-    '🥝': ['כיווי', 'קיווי'],
-    '🍑': ['אפרסק'],
-    '🥭': ['מנגו'],
-    '🍍': ['אננס'],
-    
-    // ירקות
-    '🥕': ['גזר'],
-    '🥒': ['מלפפון'],
-    '🍅': ['עגבני', 'עגבניות'],
-    '🥬': ['חסה', 'סלט', 'כרוב'],
-    '🧅': ['בצל'],
-    '🧄': ['שום'],
-    '🌶️': ['פלפל חריף'],
-    '🫑': ['פלפל'],
-    '🥦': ['ברוקולי'],
-    '🥔': ['תפוח אדמה', 'תפו"א'],
-    '🍆': ['חציל'],
-    '🌽': ['תירס'],
-    
-    // חלב וביצים
-    '🥛': ['חלב'],
-    '🧈': ['חמאה', 'חמא'],
-    '🧀': ['גבינה', 'גבינת', 'קוטג', 'צהובה', 'בולגרית'],
-    '🥚': ['ביצים', 'ביצה'],
-    '🍦': ['גלידה'],
-    
-    // לחמים ומאפים
-    '🍞': ['לחם', 'לחמנ'],
-    '🥐': ['קרואסון'],
-    '🥖': ['בגט'],
-    '🥯': ['בייגל'],
-    '🧇': ['וופל'],
-    '🥞': ['פנקייק'],
-    '🍕': ['פיצה'],
-    '🍰': ['עוגה', 'עוגת'],
-    '🧁': ['מאפין', 'קאפקייק'],
-    '🍪': ['עוגיות', 'עוגייה', 'ביסקוויט'],
-    
-    // בשר ודגים
-    '🍗': ['עוף', 'שניצל', 'כרעיים'],
-    '🥩': ['בשר', 'סטייק', 'אנטריקוט'],
-    '🍖': ['צלי'],
-    '🥓': ['בייקון'],
-    '🌭': ['נקניק'],
-    '🍤': ['שרימפ', 'פירות ים'],
-    '🐟': ['דג', 'סלמון', 'טונה', 'פילה'],
-    
-    // משקאות
-    '☕': ['קפה', 'נסקפה'],
-    '🍵': ['תה'],
-    '🥤': ['קולה', 'פפסי', 'משקה', 'סודה'],
-    '🧃': ['מיץ'],
-    '🍾': ['שמפניה'],
-    '🍷': ['יין'],
-    '🍺': ['בירה'],
-    '🥛': ['חלב', 'משקה חלב'],
-    
-    // חטיפים
-    '🍫': ['שוקולד'],
-    '🍬': ['סוכריות', 'ממתק'],
-    '🍭': ['סוכרייה'],
-    '🍿': ['פופקורן'],
-    '🥜': ['בוטנים', 'אגוזים'],
-    
-    // אחר
-    '🍚': ['אורז'],
-    '🍝': ['פסטה', 'ספגטי', 'מקרונ'],
-    '🥫': ['שימור', 'קופסת שימורים', 'קונסרב'],
-    '🍯': ['דבש'],
-    '🧂': ['מלח'],
-    '🧈': ['חמאה'],
-    '🥄': ['כף'],
-    '🍽️': ['צלחת'],
-    
-    // ניקיון וטיפוח
-    '🧻': ['נייר טואלט', 'נייר'],
-    '🧽': ['ספוג'],
-    '🧴': ['סבון', 'שמפו', 'מרכך', 'ג\'ל'],
-    '🧹': ['מטאטא', 'ניקיון'],
-    '🧺': ['כביסה'],
-    '🪥': ['מברשת שיניים'],
-    '🪒': ['תער'],
-    
-    // תינוק
-    '🍼': ['בקבוק תינוק', 'מזון תינוק'],
-    '👶': ['חיתול', 'תינוק']
-  };
-  
-  // Check each icon's keywords
-  for (const [icon, keywords] of Object.entries(iconMap)) {
-    for (const keyword of keywords) {
-      if (name.includes(keyword)) {
-        return icon;
-      }
-    }
-  }
-  
-  // Default icons by category
-  const category = detectCategory(itemName);
-  const categoryDefaultIcons = {
-    'פירות וירקות': '🥬',
-    'מוצרי חלב': '🥛',
-    'מאפים ולחמים': '🍞',
-    'בשר ועופות': '🍗',
-    'דגים': '🐟',
-    'מזווה ויבשים': '🥫',
-    'משקאות': '🥤',
-    'חטיפים וממתקים': '🍫',
-    'מוצרי ניקיון': '🧹',
-    'מוצרי טיפוח': '🧴',
-    'מוצרי תינוק': '🍼',
-    'קפואים': '🧊'
-  };
-  
-  return category ? categoryDefaultIcons[category] || '🛒' : '🛒';
-}
-
-// Global variable to store pending custom item data
-let pendingCustomItem = null;
-
-async function addCustomItem(suggestedCategory = null){
-  if (DEBUG_MODE) console.log('addCustomItem called with suggestedCategory:', suggestedCategory);
-  const rawName = await customPrompt("הכנס שם פריט חדש:");
+function addCustomItem(){
+  const rawName = prompt("הכנס שם פריט חדש:");
   if (!rawName) return;
   const name = String(rawName).trim();
-  const unit = String(await customPrompt("הכנס יחידת מידה (למשל: ק\"ג, יח', ליטר):", "יח'") || "יח'").trim();
-  
-  // Detect category or use suggested one
-  let targetCategory = suggestedCategory;
-  if (DEBUG_MODE) console.log('targetCategory before detection:', targetCategory);
-  if (!targetCategory) {
-    targetCategory = detectCategory(name);
-  }
-  
-  // If no category detected or suggested, ask user
-  if (!targetCategory) {
-    const categories = ['פירות וירקות', 'מוצרי חלב', 'מאפים ולחמים', 'בשר ועופות', 'דגים', 
-                       'מזווה ייבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
-                       'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
-    const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
-    const choice = await customPrompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר (או אישור לקטגוריה מותאמת אישית):`, String(categories.length));
-    if (!choice) return;
-    const index = parseInt(choice) - 1;
-    if (index >= 0 && index < categories.length) {
-      targetCategory = categories[index];
-    } else {
-      targetCategory = 'פריטים מותאמים אישית';
-    }
-  } else if (!suggestedCategory) {
-    // Only confirm if category was auto-detected (not when user clicked + on specific category)
-    const confirmMsg = window.confirm(`זיהינו שהפריט "${name}" שייך ל-"${targetCategory}". האם נכון?`);
-    if (!confirmMsg) {
-      const categories = ['פירות וירקות', 'מוצרי חלב', 'מאפים ולחמים', 'בשר ועופות', 'דגים', 
-                         'מזווה ויבשים', 'משקאות', 'חטיפים וממתקים', 'מוצרי ניקיון', 
-                         'מוצרי טיפוח', 'מוצרי תינוק', 'קפואים', 'פריטים מותאמים אישית'];
-      const categoryList = categories.map((c, i) => `${i + 1}. ${c}`).join('\n');
-      const choice = await customPrompt(`לאיזו קטגוריה להוסיף את "${name}"?\n\n${categoryList}\n\nהכנס מספר:`, '1');
-      if (!choice) return;
-      const index = parseInt(choice) - 1;
-      if (index >= 0 && index < categories.length) {
-        targetCategory = categories[index];
-      } else {
-        targetCategory = 'פריטים מותאמים אישית';
-      }
-    }
-  }
-  
-  if (DEBUG_MODE) console.log('Final targetCategory:', targetCategory);
-  
-  // Try to detect icon automatically
-  const detectedIcon = detectIcon(name);
-  
-  // Ask user if they want to use the detected icon or choose manually
-  const useDetected = confirm(`זיהינו את האייקון ${detectedIcon} עבור "${name}".\n\nלחץ אישור להשתמש באייקון זה, או ביטול לבחור אייקון אחר.`);
-  
-  if (useDetected) {
-    // Use detected icon directly
-    finishAddingCustomItem(detectedIcon);
-  } else {
-    // Store pending item data and open icon picker for manual selection
-    pendingCustomItem = { name, unit, category: targetCategory };
-    openIconPickerForCustomItem();
-  }
-}
-
-// Open icon picker for custom item
-function openIconPickerForCustomItem() {
-  // Set up icon picker in custom item mode
-  iconPickerMode = 'custom-item';
-  iconPickerTarget = null;
-  
-  // Show icon picker modal
-  const modal = document.getElementById('iconPickerModal');
-  if (modal) {
-    modal.style.display = 'flex';
-  }
-}
-
-// Finish adding custom item with selected icon
-function finishAddingCustomItem(icon) {
-  if (!pendingCustomItem) return;
-  
-  const { name, unit, category } = pendingCustomItem;
-  if (DEBUG_MODE) console.log('Finishing custom item with icon:', icon, 'category:', category);
-  
-  // Add to list
+  const unit = String(prompt("הכנס יחידת מידה (למשל: ק\"ג, יח', ליטר):", "יח'") || "יח'").trim();
+  const icon = String(prompt("בחר אייקון לפריט (למשל 🥑):", "🛒") || "🛒").trim();
   createListItem(name, icon, 1, unit);
-  
-  // Save to appropriate category
   const saved = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
   if (!saved.some(it => String(it.name || "").trim().toLowerCase() === name.toLowerCase())) {
-    const newItem = { name, icon, unit, category: category };
-    if (DEBUG_MODE) console.log('Saving new item:', newItem);
-    saved.push(newItem);
+    saved.push({ name, icon, unit });
     localStorage.setItem('customChooseItems', JSON.stringify(saved));
-    if (DEBUG_MODE) console.log('customChooseItems after save:', JSON.parse(localStorage.getItem('customChooseItems')));
   }
-  
-  // Reload choose items to show in correct category
-  loadDefaultChooseItems();
-  
-  // Clear pending item
-  pendingCustomItem = null;
-  
+  const chooseGrid = document.getElementById("chooseGrid");
+  if (chooseGrid) chooseGrid.appendChild(makeChooseButton({ name, icon, unit }));
   saveListToStorage();
   renderAllPrices();
   renderTotal();
 }
 
-/* ====== Barcode Scanner ====== */
-let barcodeScanner = null;
+/* ====== רשימות קניה מוכנות ====== */
+const presetLists = {
+  "ארוחת בוקר": [
+    { name: "חלב", icon: "🥛", unit: "ליטר" },
+    { name: "לחם", icon: "🍞", unit: "יח'" },
+    { name: "ביצים", icon: "🥚", unit: "יח'" },
+    { name: "גבינה צהובה", icon: "🧀", unit: "אריזה" },
+    { name: "חמאה", icon: "🧈", unit: "אריזה" },
+    { name: "יוגורט", icon: "🥛", unit: "יח'" },
+    { name: "בננה", icon: "🍌", unit: "ק\"ג" },
+    { name: "קפה", icon: "☕", unit: "אריזה" }
+  ],
+  "ארוחת ערב": [
+    { name: "עוף", icon: "🍗", unit: "ק\"ג" },
+    { name: "בשר בקר", icon: "🥩", unit: "ק\"ג" },
+    { name: "אורז", icon: "🍚", unit: "ק\"ג" },
+    { name: "פסטה", icon: "🍝", unit: "אריזה" },
+    { name: "עגבניות", icon: "🍅", unit: "ק\"ג" },
+    { name: "בצל", icon: "🧅", unit: "ק\"ג" },
+    { name: "שום", icon: "🧄", unit: "אריזה" },
+    { name: "פלפל", icon: "🌶️", unit: "ק\"ג" }
+  ],
+  "פירות וירקות": [
+    { name: "גזר", icon: "🥕", unit: "ק\"ג" },
+    { name: "מלפפונים", icon: "🥒", unit: "ק\"ג" },
+    { name: "עגבניות", icon: "🍅", unit: "ק\"ג" },
+    { name: "חסה", icon: "🥬", unit: "יח'" },
+    { name: "תפוחים", icon: "🍎", unit: "ק\"ג" },
+    { name: "בננה", icon: "🍌", unit: "ק\"ג" },
+    { name: "תפוזים", icon: "🍊", unit: "ק\"ג" },
+    { name: "אבוקדו", icon: "🥑", unit: "יח'" }
+  ],
+  "ניקיון ובית": [
+    { name: "נייר טואלט", icon: "🧻", unit: "אריזה" },
+    { name: "סבון כלים", icon: "🧽", unit: "בקבוק" },
+    { name: "מסיכות כביסה", icon: "🧴", unit: "אריזה" },
+    { name: "אבקת כביסה", icon: "📦", unit: "אריזה" },
+    { name: "מטליות", icon: "🧽", unit: "אריזה" },
+    { name: "שקיות זבל", icon: "🗑️", unit: "אריזה" },
+    { name: "מרכך כביסה", icon: "🧴", unit: "בקבוק" },
+    { name: "סבון רחצה", icon: "🧼", unit: "יח'" }
+  ],
+  "חטיפים וממתקים": [
+    { name: "שוקולד", icon: "🍫", unit: "יח'" },
+    { name: "ביסקוויטים", icon: "🍪", unit: "אריזה" },
+    { name: "פופקורן", icon: "🍿", unit: "אריזה" },
+    { name: "גלידה", icon: "🍦", unit: "יח'" },
+    { name: "ממתקים", icon: "🍬", unit: "שקית" },
+    { name: "צ'יפס", icon: "🥔", unit: "שקית" },
+    { name: "אגוזים", icon: "🥜", unit: "שקית" },
+    { name: "פירות יבשים", icon: "🥭", unit: "שקית" }
+  ],
+  "בסיסי שבת": [
+    { name: "יין", icon: "🍷", unit: "בקבוק" },
+    { name: "נרות שבת", icon: "🕯️", unit: "אריזה" },
+    { name: "חלה", icon: "🍞", unit: "יח'" },
+    { name: "בשר", icon: "🥩", unit: "ק\"ג" },
+    { name: "דגים", icon: "🐟", unit: "ק\"ג" },
+    { name: "ירקות לסלט", icon: "🥗", unit: "יח'" },
+    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
+    { name: "שמן זית", icon: "🫒", unit: "בקבוק" }
+  ],
+  "מוצרי תינוק": [
+    { name: "חיתולים", icon: "👶", unit: "אריזה" },
+    { name: "מזון תינוקות", icon: "🍼", unit: "יח'" },
+    { name: "מטליות לחות", icon: "🧻", unit: "אריזה" },
+    { name: "קרם לתינוק", icon: "🧴", unit: "יח'" },
+    { name: "שמפו לתינוק", icon: "🧴", unit: "בקבוק" },
+    { name: "אבקת כביסה לתינוק", icon: "📦", unit: "אריזה" },
+    { name: "כוסות הזנה", icon: "🍼", unit: "יח'" }
+  ],
+  "ביקור חולים": [
+    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
+    { name: "מיצים טבעיים", icon: "🧃", unit: "יח'" },
+    { name: "עוגיות דיאטטיות", icon: "🍪", unit: "אריזה" },
+    { name: "תה צמחים", icon: "🫖", unit: "אריזה" },
+    { name: "דבש", icon: "🍯", unit: "צנצנת" },
+    { name: "לימונים", icon: "🍋", unit: "ק\"ג" },
+    { name: "ג'לי רויאל", icon: "🍯", unit: "יח'" }
+  ],
+  "קיץ וחופש": [
+    { name: "מים מינרליים", icon: "💧", unit: "ליטר" },
+    { name: "גלידה", icon: "🍦", unit: "יח'" },
+    { name: "פופסיקל", icon: "🧊", unit: "אריזה" },
+    { name: "אבטיח", icon: "🍉", unit: "יח'" },
+    { name: "קרם הגנה", icon: "🧴", unit: "יח'" },
+    { name: "כובעים", icon: "🧢", unit: "יח'" },
+    { name: "משקאות קרים", icon: "🥤", unit: "יח'" },
+    { name: "פירות יבשים", icon: "🥭", unit: "שקית" }
+  ],
+  "אירוח": [
+    { name: "אורזים", icon: "🍚", unit: "ק\"ג" },
+    { name: "נפקינים", icon: "🧻", unit: "אריזה" },
+    { name: "כוסות חד-פעמיות", icon: "🥤", unit: "אריזה" },
+    { name: "צלחות חד-פעמיות", icon: "🍽️", unit: "אריזה" },
+    { name: "משקאות", icon: "🥤", unit: "יח'" },
+    { name: "ממתקים", icon: "🍬", unit: "שקית" },
+    { name: "פירות", icon: "🍎", unit: "ק\"ג" },
+    { name: "גבינות", icon: "🧀", unit: "אריזה" }
+  ]
+};
 
-function startBarcodeScanner() {
-  const modal = document.getElementById('barcodeScannerModal');
-  const viewport = document.getElementById('barcodeScannerViewport');
+function loadPresetList() {
+  // טעינת רשימות מותאמות אישית
+  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
+  const allLists = { ...presetLists, ...customLists };
   
-  if (!modal || !viewport) {
-    alert('שגיאה: לא נמצא אלמנט הסורק');
+  // יצירת רשימת האפשרויות
+  const listNames = Object.keys(allLists);
+  if (listNames.length === 0) {
+    alert('אין רשימות מוכנות זמינות.');
     return;
   }
   
-  // בדיקה אם הספרייה נטענה
-  if (typeof Quagga === 'undefined') {
-    alert('שגיאה: ספריית הסריקה לא נטענה. נסה לרענן את הדף.');
+  let optionsText = "בחר רשימת קניה מוכנה:\n\n";
+  listNames.forEach((name, index) => {
+    const isCustom = customLists[name] ? " (מותאם אישית)" : "";
+    optionsText += `${index + 1}. ${name} (${allLists[name].length} פריטים)${isCustom}\n`;
+  });
+  
+  const hasCustomLists = Object.keys(customLists).length > 0;
+  if (hasCustomLists) {
+    optionsText += `\n${listNames.length + 1}. ⚙️ נהל רשימות מותאמות אישית\n`;
+  }
+  
+  optionsText += "\nהכנס מספר הרשימה או שם הרשימה:";
+  
+  const choice = prompt(optionsText);
+  
+  if (!choice) return;
+  
+  // בדיקה אם בחר "נהל רשימות מותאמות אישית"
+  const choiceNum = parseInt(choice.trim());
+  if (!isNaN(choiceNum) && choiceNum === listNames.length + 1 && hasCustomLists) {
+    manageCustomLists();
     return;
   }
   
-  // בדיקת HTTPS (נדרש ב-iOS)
-  const isSecure = window.location.protocol === 'https:' || 
-                   window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
+  let selectedList = null;
+  let selectedName = "";
   
-  if (!isSecure) {
-    alert('⚠️ דרושה גישה מאובטחת!\n\nסורק הברקודים דורש HTTPS.\n\nפתרונות:\n1. העלה לשרת עם HTTPS\n2. השתמש ב-localhost\n3. השתמש ב-ngrok או Cloudflare Tunnel');
+  // בדיקה אם הקלט הוא מספר
+  if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= listNames.length) {
+    selectedName = listNames[choiceNum - 1];
+    selectedList = allLists[selectedName];
+  } else {
+    // בדיקה אם הקלט הוא שם רשימה
+    selectedName = choice.trim();
+    selectedList = allLists[selectedName];
+  }
+  
+  if (!selectedList) {
+    alert('רשימה לא נמצאה. אנא בחר מהרשימות הזמינות.');
     return;
   }
   
-  // בדיקה אם יש תמיכה במצלמה
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('⚠️ הדפדפן לא תומך בגישה למצלמה.\n\nוודא שאתה משתמש בדפדפן מעודכן (Safari, Chrome).');
-    return;
-  }
+  // הצגת תצוגה מקדימה של הרשימה
+  const preview = selectedList.map(item => `${item.icon} ${item.name}`).join('\n');
   
-  modal.style.display = 'flex';
-  viewport.innerHTML = ''; // נקה תוכן קודם
+  // בדיקה אם הרשימה הנוכחית ריקה או לא
+  const currentItems = document.querySelectorAll("#listGrid .item").length;
+  let actionChoice;
   
-  Quagga.init({
-    inputStream: {
-      name: "Live",
-      type: "LiveStream",
-      target: viewport,
-      constraints: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: "environment" // מצלמה אחורית
-      }
-    },
-    decoder: {
-      readers: [
-        "ean_reader",      // EAN-13 (הכי נפוץ בישראל)
-        "ean_8_reader",    // EAN-8
-        "code_128_reader", // Code 128
-        "code_39_reader",  // Code 39
-        "upc_reader"       // UPC
-      ],
-      debug: {
-        drawBoundingBox: true,
-        showFrequency: false,
-        drawScanline: true,
-        showPattern: false
-      }
-    },
-    locate: true,
-    numOfWorkers: navigator.hardwareConcurrency || 4,
-    frequency: 10
-  }, function(err) {
-    if (err) {
-      console.error("Barcode scanner initialization error:", err);
-      modal.style.display = 'none';
-      
-      // הודעת שגיאה מפורטת
-      let errorMsg = '❌ לא ניתן לפתוח מצלמה\n\n';
-      
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMsg += 'הרשאת מצלמה נדחתה.\n\nפתרון:\n';
-        errorMsg += '1. הגדרות Safari → מצלמה → אפשר\n';
-        errorMsg += '2. רענן את הדף\n';
-        errorMsg += '3. נסה שוב';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMsg += 'לא נמצאה מצלמה במכשיר.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        errorMsg += 'המצלמה בשימוש על ידי אפליקציה אחרת.\n\nסגור אפליקציות אחרות ונסה שוב.';
-      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-        errorMsg += 'הגדרות המצלמה אינן נתמכות.\n\nנסה דפדפן אחר.';
-      } else {
-        errorMsg += 'שגיאה: ' + (err.message || err.name || 'לא ידועה');
-        errorMsg += '\n\nוודא:\n';
-        errorMsg += '• האתר ב-HTTPS\n';
-        errorMsg += '• נתת הרשאת מצלמה\n';
-        errorMsg += '• המצלמה לא בשימוש';
-      }
-      
-      alert(errorMsg);
+  if (currentItems > 0) {
+    actionChoice = prompt(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nמה תרצה לעשות?\n1. להחליף את הרשימה הקיימת\n2. להוסיף לרשימה הקיימת\n3. לבטל\n\nהכנס 1, 2 או 3:`);
+    
+    if (!actionChoice || actionChoice.trim() === '3') return;
+    
+    if (actionChoice.trim() === '1') {
+      clearList();
+    } else if (actionChoice.trim() !== '2') {
+      alert('בחירה לא תקינה.');
       return;
     }
-    
-    if (DEBUG_MODE) console.log("Barcode scanner initialized successfully");
-    Quagga.start();
-  });
-
-  // כשברקוד מזוהה:
-  Quagga.onDetected(handleBarcodeDetected);
-  
-  barcodeScanner = true;
-}
-
-function stopBarcodeScanner() {
-  if (barcodeScanner && typeof Quagga !== 'undefined') {
-    Quagga.offDetected(handleBarcodeDetected);
-    Quagga.stop();
-    barcodeScanner = null;
-  }
-  const modal = document.getElementById('barcodeScannerModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function handleBarcodeDetected(result) {
-  if (!result || !result.codeResult) return;
-  
-  const barcode = result.codeResult.code;
-  if (DEBUG_MODE) console.log("Barcode detected:", barcode);
-  
-  // עצור סריקה
-  stopBarcodeScanner();
-  
-  // חפש מוצר לפי ברקוד
-  fetchProductByBarcode(barcode)
-    .then(product => {
-      if (product) {
-        // הוסף לרשימה
-        createListItem(product.name, product.icon, 1, product.unit);
-        saveListToStorage();
-        renderAllPrices();
-        renderTotal();
-        showToast(`✅ נוסף: ${product.name}` + (product.price ? ` - ${product.price}₪` : ''), 'success');
-      } else {
-        showToast(`ברקוד ${barcode} לא נמצא במערכת`, 'warning', 4000);
-      }
-    })
-    .catch(err => {
-      console.error("Error fetching product:", err);
-      showToast(`שגיאה בחיפוש מוצר`, 'error');
-    });
-}
-
-async function fetchProductByBarcode(barcode) {
-  const network = localStorage.getItem('selectedNetwork') || 'shufersal';
-  const url = `${WORKER_URL}/product/${encodeURIComponent(network)}/${encodeURIComponent(barcode)}`;
-  
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      if (DEBUG_MODE) console.log(`Product not found for barcode: ${barcode}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error("Failed to fetch product by barcode:", err);
-    return null;
-  }
-}
-
-/* ====== Voice Input ====== */
-let recognition = null;
-let isListening = false;
-let noSpeechTimeout = null;
-
-function startVoiceInput() {
-  // Check for Web Speech API support
-  const hasWebSpeech = ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
-  
-  if (!hasWebSpeech) {
-    alert('⚠️ הדפדפן לא תומך בזיהוי דיבור.\n\n' +
-          '✅ Chrome - תמיכה מלאה\n' +
-          '✅ Edge - תמיכה מלאה\n' +
-          '⚠️ Safari iOS - אין תמיכה\n' +
-          '⚠️ Safari macOS - תמיכה חלקית\n\n' +
-          'מומלץ להשתמש ב-Chrome על מכשיר Android או Windows.');
-    return;
-  }
-
-  // Detect Safari iOS (which has very limited support)
-  const isSafariIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) && 
-                      /Safari/.test(navigator.userAgent) && 
-                      !(/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent));
-  
-  if (isSafariIOS) {
-    alert('⚠️ Safari על iPhone אינו תומך בזיהוי דיבור!\n\n' +
-          'פתרונות:\n' +
-          '1. התקן את דפדפן Chrome על iPhone\n' +
-          '2. פתח את האתר דרך Chrome\n' +
-          '3. לחץ על כפתור 🎤 שוב\n\n' +
-          'או השתמש בסורק הברקוד במקום 📷');
-    return;
-  }
-
-  const voiceBtn = document.getElementById('btnVoiceInput');
-  
-  if (isListening) {
-    // Stop listening
-    if (DEBUG_MODE) console.log('🛑 User stopped listening manually');
-    
-    if (recognition) {
-      recognition.stop();
-    }
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
-    
-    return;
-  }
-
-  // Check for HTTPS
-  const isSecure = window.location.protocol === 'https:' || 
-                   window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
-  
-  if (!isSecure) {
-    alert('⚠️ דרושה גישה מאובטחת!\n\nזיהוי דיבור דורש HTTPS.\n\nפתח את האתר דרך:\nhttps://hamalci.github.io/shopping-list/');
-    return;
-  }
-
-  // Test microphone permission first
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions.query({ name: 'microphone' }).then(result => {
-      if (DEBUG_MODE) console.log('🎤 Microphone permission:', result.state);
-      if (result.state === 'denied') {
-        alert('🔒 המיקרופון חסום!\n\n' +
-              'לפתוח:\n' +
-              '1. לחץ על 🔒 בשורת הכתובת\n' +
-              '2. מצא "מיקרופון"\n' +
-              '3. בחר "אפשר"\n' +
-              '4. רענן את הדף');
-        return;
-      }
-    }).catch(e => {
-      if (DEBUG_MODE) console.log('Permission API not supported:', e);
-    });
-  }
-
-  // Initialize recognition - must be sync with user gesture
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  
-  recognition.lang = 'he-IL'; // Hebrew first, will fallback if needed
-  recognition.continuous = false; // SIMPLE: One phrase at a time - fast and reliable
-  recognition.interimResults = false; // Only final results - no confusion
-  recognition.maxAlternatives = 5; // Get more alternatives
-
-  // Add event handlers BEFORE starting
-  recognition.onstart = () => {
-    if (DEBUG_MODE) console.log('🎤 Recognition started - speak now!');
-    isListening = true;
-    voiceBtn.classList.add('listening');
-    voiceBtn.textContent = '🔴';
-    
-    // Set timeout for no speech detected
-    noSpeechTimeout = setTimeout(() => {
-      if (isListening) {
-        if (DEBUG_MODE) console.log('⏱️ Timeout: No speech detected');
-        recognition.stop();
-        alert('⏱️ לא זוהה דיבור!\n\n' +
-              'טיפים:\n' +
-              '1. דבר קרוב למיקרופון\n' +
-              '2. דבר בקול רם וברור\n' +
-              '3. נסה להגיד: "חלב" או "לחם"\n' +
-              '4. ודא שהמיקרופון עובד במכשיר\n\n' +
-              '💡 אפשר גם להקליד או לסרוק ברקוד 📷');
-      }
-    }, 8000); // 8 seconds timeout
-  };
-
-  recognition.onspeechstart = () => {
-    if (DEBUG_MODE) console.log('🗣️ Speech detected!');
-    // Clear timeout when speech is detected
-    if (noSpeechTimeout) {
-      clearTimeout(noSpeechTimeout);
-      noSpeechTimeout = null;
-    }
-  };
-
-  recognition.onresult = (event) => {
-    if (DEBUG_MODE) console.log('📝 Voice recognized!');
-    
-    // Get the final transcript
-    let transcript = '';
-    for (let i = 0; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
-    transcript = transcript.trim();
-    
-    if (DEBUG_MODE) console.log('✅ Recognized text:', transcript);
-    
-    // Clear no-speech timeout
-    if (noSpeechTimeout) {
-      clearTimeout(noSpeechTimeout);
-      noSpeechTimeout = null;
-    }
-    
-    // Stop recognition
-    recognition.stop();
-    isListening = false;
-    
-    // Search for the product
-    const product = findProductByVoice(transcript);
-    
-    if (product) {
-      // Show success feedback
-      voiceBtn.textContent = '✅';
-      voiceBtn.classList.remove('listening');
-      
-      // Create the item
-      createListItem(product.name, product.icon, 1, product.unit);
-      
-      // Reset button after delay
-      setTimeout(() => {
-        voiceBtn.textContent = '🎤';
-      }, 1500);
-      
+  } else {
+    if (confirm(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nהאם לטעון את הרשימה?`)) {
+      actionChoice = '1';
     } else {
-      // Product not found - add as custom item
-      voiceBtn.textContent = '❓';
-      voiceBtn.classList.remove('listening');
-      
-      setTimeout(() => {
-        if (confirm(`לא מצאתי "${transcript}" ברשימה.\n\nהאם להוסיף כפריט חדש?`)) {
-          const icon = detectIconByName(transcript);
-          
-          // Save to custom items in localStorage
-          const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
-          const newItem = {
-            name: transcript,
-            icon: icon,
-            unit: 'יח\'',
-            category: 'פריטים מותאמים אישית'
-          };
-          
-          // Check if item already exists
-          const exists = savedCustom.some(item => item.name === transcript);
-          if (!exists) {
-            savedCustom.push(newItem);
-            localStorage.setItem('customChooseItems', JSON.stringify(savedCustom));
-            
-            // Reload choose grid to show new item
-            loadDefaultChooseItems();
-            
-            if (DEBUG_MODE) console.log(`✅ המוצר "${transcript}" נשמר בקטגוריות`);
-          }
-          
-          // Add to shopping list
-          createListItem(transcript, icon, 1, 'יח\'');
-        }
-        voiceBtn.textContent = '🎤';
-      }, 100);
+      return;
     }
-  };
-
-  recognition.onerror = (event) => {
-    console.error('Voice recognition error:', event.error);
-    
-    // Clear timeout
-    if (noSpeechTimeout) {
-      clearTimeout(noSpeechTimeout);
-      noSpeechTimeout = null;
-    }
-    
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
-    
-    let errorMsg = '❌ שגיאה בזיהוי דיבור\n\n';
-    
-    // Check if Safari
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-    
-    switch (event.error) {
-      case 'not-allowed':
-      case 'permission-denied':
-      case 'service-not-allowed':
-        if (isSafari) {
-          errorMsg += '🍎 Safari אינו תומך בזיהוי דיבור!\n\n';
-          errorMsg += 'פתרונות:\n';
-          errorMsg += '1. התקן Chrome על iPhone/iPad\n';
-          errorMsg += '2. פתח דרך Chrome במקום Safari\n';
-          errorMsg += '3. השתמש בסורק ברקוד � במקום\n\n';
-          errorMsg += 'Chrome זמין בחינם ב-App Store';
-        } else {
-          errorMsg += '�🔒 גישה למיקרופון נדחתה!\n\n';
-          errorMsg += 'פתרונות:\n';
-          errorMsg += '1. בדפדפן: לחץ על סמל המנעול 🔒 ליד הכתובת\n';
-          errorMsg += '2. בחר "הגדרות אתר" / "Site Settings"\n';
-          errorMsg += '3. אפשר גישה למיקרופון\n';
-          errorMsg += '4. רענן את הדף';
-        }
-        break;
-      case 'no-speech':
-        errorMsg += 'לא זוהה דיבור.\n\nנסה שוב ודבר בבירור.';
-        break;
-      case 'network':
-        errorMsg += 'בעיית רשת.\n\nבדוק את החיבור לאינטרנט.';
-        break;
-      default:
-        errorMsg += `שגיאה: ${event.error}\n\n`;
-        if (isSafari) {
-          errorMsg += 'Safari יכול לא לתמוך בזיהוי דיבור.\nנסה Chrome במקום.';
-        }
-    }
-    
-    alert(errorMsg);
-  };
-
-  recognition.onend = () => {
-    // Clear timeouts
-    if (noSpeechTimeout) {
-      clearTimeout(noSpeechTimeout);
-      noSpeechTimeout = null;
-    }
-    if (finalResultTimeout) {
-      clearTimeout(finalResultTimeout);
-      finalResultTimeout = null;
-    }
-    
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    // Don't reset button text if it was already changed to ✅ or ❓
-    if (voiceBtn.textContent === '🔴' || voiceBtn.textContent === '⏹️' || voiceBtn.textContent === '⏳') {
-      voiceBtn.textContent = '🎤';
-    }
-    if (DEBUG_MODE) console.log('🛑 Voice recognition ended');
-  };
-
-  // Start listening (must be after defining handlers)
-  try {
-    if (DEBUG_MODE) console.log('Starting recognition...');
-    recognition.start();
-  } catch (err) {
-    console.error('Failed to start recognition:', err);
-    alert('❌ לא ניתן להפעיל זיהוי דיבור.\n\nודא שנתת הרשאה למיקרופון בהגדרות הדפדפן.');
-    isListening = false;
-    voiceBtn.classList.remove('listening');
-    voiceBtn.textContent = '🎤';
   }
-}
-
-function findProductByVoice(voiceText) {
-  // Normalize: remove ALL types of whitespace AND directional marks (RTL/LTR)
-  const searchText = voiceText
-    .replace(/[\u200E\u200F]/g, '') // Remove LTR/RTL marks (8206, 8207)
-    .toLowerCase()
-    .trim()
-    .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
   
-  if (DEBUG_MODE) console.log('🔍 Searching for:', `"${searchText}"`);
-  if (DEBUG_MODE) console.log('📚 Categories available:', Object.keys(categories));
-  
-  let exactMatch = null;
-  let partialMatch = null;
-  
-  // FIRST PASS: Search for EXACT match in ALL categories
-  for (const [categoryName, categoryProducts] of Object.entries(categories)) {
-    for (const productName of categoryProducts) {
-      // Normalize product name - remove directional marks and whitespace
-      const productLower = productName
-        .replace(/[\u200E\u200F]/g, '')
-        .toLowerCase()
-        .trim()
-        .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
+  // הוסף את הפריטים מהרשימה המוכנה
+  selectedList.forEach(item => {
+    // בדוק אם הפריט כבר קיים ברשימה (רק אם מוסיפים)
+    if (actionChoice.trim() === '2') {
+      const existing = Array.from(document.querySelectorAll("#listGrid .item")).find(el => {
+        const rawName = (el.querySelector(".name")?.textContent || "").trim();
+        const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
+        const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+        return pureName.toLowerCase() === item.name.toLowerCase();
+      });
       
-      if (productLower === searchText) {
-        if (DEBUG_MODE) console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
-        exactMatch = productName;
-        break;
+      if (existing) {
+        // הגדל כמות במקום ליצור פריט חדש
+        const qtyEl = existing.querySelector(".qty .q-amount");
+        if (qtyEl) {
+          const currentQty = parseInt(qtyEl.textContent || "1");
+          qtyEl.textContent = String(currentQty + 1);
+        }
+        return; // דלג על יצירת פריט חדש
       }
     }
-    if (exactMatch) break;
+    
+    createListItem(item.name, item.icon, 1, item.unit);
+  });
+  
+  saveListToStorage();
+  renderAllPrices();
+  renderTotal();
+  
+  const actionText = actionChoice.trim() === '1' ? 'נטענה' : 'נוספה לרשימה';
+  alert(`רשימת "${selectedName}" ${actionText} בהצלחה עם ${selectedList.length} פריטים!`);
+}
+
+function manageCustomLists() {
+  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
+  const customListNames = Object.keys(customLists);
+  
+  if (customListNames.length === 0) {
+    alert('אין רשימות מותאמות אישית זמינות.');
+    return;
   }
   
-  // SECOND PASS: If no exact match, search for partial match
-  if (!exactMatch) {
-    for (const [categoryName, categoryProducts] of Object.entries(categories)) {
-      for (const productName of categoryProducts) {
-        const productLower = productName
-          .replace(/[\u200E\u200F]/g, '')
-          .toLowerCase()
-          .trim()
-          .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
-        
-        // Partial match: product contains search text (not vice versa!)
-        if (productLower.includes(searchText)) {
-          if (DEBUG_MODE) console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
-          partialMatch = productName;
-          break;
-        }
-      }
-      if (partialMatch) break;
+  let optionsText = "נהל רשימות מותאמות אישית:\n\n";
+  customListNames.forEach((name, index) => {
+    optionsText += `${index + 1}. ${name} (${customLists[name].length} פריטים)\n`;
+  });
+  optionsText += "\nהכנס מספר הרשימה למחיקה או 'ביטול' לחזרה:";
+  
+  const choice = prompt(optionsText);
+  
+  if (!choice || choice.trim().toLowerCase() === 'ביטול') return;
+  
+  const choiceNum = parseInt(choice.trim());
+  if (isNaN(choiceNum) || choiceNum < 1 || choiceNum > customListNames.length) {
+    alert('מספר לא תקין.');
+    return;
+  }
+  
+  const listToDelete = customListNames[choiceNum - 1];
+  
+  if (confirm(`האם למחוק את הרשימה "${listToDelete}"? פעולה זו לא ניתנת לביטול.`)) {
+    delete customLists[listToDelete];
+    localStorage.setItem('customPresetLists', JSON.stringify(customLists));
+    alert(`רשימת "${listToDelete}" נמחקה בהצלחה.`);
+  }
+}
+
+function saveCurrentListAsPreset() {
+  const listGrid = document.getElementById("listGrid");
+  const currentItems = [];
+  
+  // אסוף את כל הפריטים מהרשימה הנוכחית
+  document.querySelectorAll("#listGrid .item").forEach(el => {
+    const rawName = (el.querySelector(".name")?.textContent || "").trim();
+    const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
+    const icon = nameParts.length > 0 ? nameParts[0] : "🛒";
+    const pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+    
+    const rawQty = (el.querySelector(".qty")?.textContent || "").trim();
+    const qtyParts = rawQty.split(" ").map(p => p.trim()).filter(p => p !== "");
+    const unit = qtyParts.length > 1 ? qtyParts.slice(1).join(" ") : "יח'";
+    
+    if (pureName) {
+      currentItems.push({ name: pureName, icon, unit });
+    }
+  });
+  
+  if (currentItems.length === 0) {
+    alert('הרשימה הנוכחית ריקה. אין מה לשמור.');
+    return;
+  }
+  
+  const listName = prompt(`הכנס שם לרשימה המוכנה החדשה:\n(הרשימה כוללת ${currentItems.length} פריטים)`);
+  
+  if (!listName || !listName.trim()) {
+    return;
+  }
+  
+  const cleanName = listName.trim();
+  
+  // טען רשימות מותאמות אישית קיימות
+  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
+  
+  // בדוק אם השם כבר קיים
+  if (customLists[cleanName] || presetLists[cleanName]) {
+    if (!confirm(`רשימה בשם "${cleanName}" כבר קיימת. האם להחליף אותה?`)) {
+      return;
     }
   }
   
-  const foundProduct = exactMatch || partialMatch;
-  if (DEBUG_MODE) console.log('🎯 Final result:', foundProduct ? `"${foundProduct}"` : 'NOT FOUND');
+  // שמור את הרשימה החדשה
+  customLists[cleanName] = currentItems;
+  localStorage.setItem('customPresetLists', JSON.stringify(customLists));
   
-  if (!foundProduct) return null;
-  
-  // Find the product details from chooseGrid
-  const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
-    btn => btn.textContent.trim() === foundProduct || btn.textContent.includes(foundProduct)
-  );
-  
-  if (chooseItem) {
-    // Extract icon and unit from data attributes
-    const icon = chooseItem.getAttribute('data-icon') || '🛒';
-    const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
-    if (DEBUG_MODE) console.log(`  📦 Product details: icon="${icon}", unit="${unit}"`);
-    return { name: foundProduct, icon, unit };
-  }
-  
-  return null;
+  alert(`רשימת "${cleanName}" נשמרה בהצלחה עם ${currentItems.length} פריטים!`);
 }
 
-function detectIconByName(name) {
-  const lowerName = name.toLowerCase();
+function loadChooseItems() {
+  // טעינת רשימות מותאמות אישית
+  const customLists = JSON.parse(localStorage.getItem('customPresetLists') || '{}');
+  const allLists = { ...presetLists, ...customLists };
   
-  // Icon mapping by keywords
-  const iconMap = {
-    'חלב': '🥛', 'גבינה': '🧀', 'יוגורט': '🥛', 'ביצים': '🥚', 'חמאה': '🧈',
-    'לחם': '🍞', 'חלה': '🍞', 'פיתה': '🥙', 'בורקס': '🥐',
-    'עוף': '🍗', 'בשר': '🥩', 'נקניק': '🌭',
-    'דג': '🐟', 'סלמון': '🐟', 'טונה': '🐟',
-    'גזר': '🥕', 'מלפפון': '🥒', 'עגבני': '🍅', 'בצל': '🧅', 'שום': '🧄',
-    'תפוח': '🍎', 'בננה': '🍌', 'תפוז': '🍊', 'לימון': '🍋', 'אבוקדו': '🥑',
-    'אורז': '🍚', 'פסטה': '🍝', 'קמח': '🌾',
-    'מים': '💧', 'מיץ': '🧃', 'קולה': '🥤', 'בירה': '🍺', 'יין': '🍷',
-    'שוקולד': '🍫', 'במבה': '🥜', 'ביסלי': '🥔', 'גלידה': '🍦', 'עוגיות': '🍪',
-    'נייר טואלט': '🧻', 'סבון': '🧴', 'אבקת כביסה': '📦',
-    'חיתול': '👶', 'מטליות': '🧻'
-  };
+  // יצירת רשימת האפשרויות
+  const listNames = Object.keys(allLists);
+  if (listNames.length === 0) {
+    alert('אין רשימות מוכנות זמינות.');
+    return;
+  }
   
-  for (const [keyword, icon] of Object.entries(iconMap)) {
-    if (lowerName.includes(keyword)) {
-      return icon;
+  let optionsText = "בחר רשימה לטעינה בסקציית 'בחר פריטים':\n\n";
+  listNames.forEach((name, index) => {
+    const isCustom = customLists[name] ? " (מותאם אישית)" : "";
+    optionsText += `${index + 1}. ${name} (${allLists[name].length} פריטים)${isCustom}\n`;
+  });
+  optionsText += "\nהכנס מספר הרשימה או שם הרשימה:";
+  
+  const choice = prompt(optionsText);
+  
+  if (!choice) return;
+  
+  let selectedList = null;
+  let selectedName = "";
+  
+  // בדיקה אם הקלט הוא מספר
+  const choiceNum = parseInt(choice.trim());
+  if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= listNames.length) {
+    selectedName = listNames[choiceNum - 1];
+    selectedList = allLists[selectedName];
+  } else {
+    // בדיקה אם הקלט הוא שם רשימה
+    selectedName = choice.trim();
+    selectedList = allLists[selectedName];
+  }
+  
+  if (!selectedList) {
+    alert('רשימה לא נמצאה. אנא בחר מהרשימות הזמינות.');
+    return;
+  }
+  
+  // הצגת תצוגה מקדימה של הרשימה
+  const preview = selectedList.map(item => `${item.icon} ${item.name}`).join('\n');
+  
+  // בדיקה אם יש פריטים בסקציית הבחירה
+  const chooseGrid = document.getElementById("chooseGrid");
+  const hasExistingItems = chooseGrid && chooseGrid.children.length > 0;
+  
+  let actionChoice;
+  if (hasExistingItems) {
+    actionChoice = prompt(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nמה תרצה לעשות?\n1. להחליף את הפריטים הקיימים\n2. להוסיף לפריטים הקיימים\n3. לבטל\n\nהכנס 1, 2 או 3:`);
+    
+    if (!actionChoice || actionChoice.trim() === '3') return;
+    
+    if (actionChoice.trim() === '1') {
+      // נקה את הפריטים הקיימים בסקציית הבחירה
+      if (chooseGrid) chooseGrid.innerHTML = "";
+      // לא נטען את הפריטים הבסיסיים - רק נוסיף את הפריטים החדשים
+    } else if (actionChoice.trim() !== '2') {
+      alert('בחירה לא תקינה.');
+      return;
+    }
+  } else {
+    if (confirm(`רשימת "${selectedName}" כוללת את הפריטים הבאים:\n\n${preview}\n\nהאם לטעון את הפריטים לבחירה?`)) {
+      actionChoice = '1';
+    } else {
+      return;
     }
   }
   
-  return '🛒'; // Default icon
+  // הוסף את הפריטים לסקציית הבחירה
+  selectedList.forEach(item => {
+    if (chooseGrid) {
+      chooseGrid.appendChild(makeChooseButton(item));
+    }
+  });
+  
+  const actionText = actionChoice.trim() === '1' ? 'נטענו' : 'נוספו';
+  alert(`פריטי רשימת "${selectedName}" ${actionText} בהצלחה לסקציית הבחירה!`);
 }
-
-/* ====== Selection Mode & Context Menu ====== */
 
 /* ====== init ====== */
 document.addEventListener("DOMContentLoaded", () => {
-  // Initialize DOM cache
-  DOM.init();
-  
   loadDefaultChooseItems();
-  
-  // Check for shared Firebase list in URL (?list=xxxxx)
-  const params = new URLSearchParams(window.location.search);
-  const listId = params.get('list');
-  if (listId && listId.trim() !== '') {
-    // Load from Firebase
-    loadListFromFirebase(listId).then(() => {
-      // Remove the list parameter from URL after loading
-      window.history.replaceState({}, document.title, window.location.pathname);
-    });
-  } else {
-    // Load local list if no shared list
-    loadListFromStorage();
-  }
+  loadListFromStorage();
 
-  // Open choose modal button
-  document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
+  const visible = localStorage.getItem("chooseSectionVisible");
+  const section = document.getElementById("chooseSection");
+  const btnToggle = document.getElementById("toggleChoose");
+  if (visible === "false" && section) { section.classList.add("hidden"); if (btnToggle) btnToggle.textContent = "הצג"; }
 
-  // Barcode scanner button
-  document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
-  document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
-  document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
+  document.getElementById("btnResetChoices")?.addEventListener("click", resetChoices);
+  document.getElementById("btnAddCustom")?.addEventListener("click", addCustomItem);
+  document.getElementById("btnLoadChooseItems")?.addEventListener("click", loadChooseItems);
+  document.getElementById("btnLoadPreset")?.addEventListener("click", loadPresetList);
+  document.getElementById("btnClearList")?.addEventListener("click", () => { if (confirm("האם למחוק את כל הרשימה?")) clearList(); });
+  document.getElementById("btnClearChecked")?.addEventListener("click", clearChecked);
+  document.getElementById("btnSaveAsPreset")?.addEventListener("click", saveCurrentListAsPreset);
 
-  // Voice input button
-  document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
+  document.getElementById("btnSaveCategories")?.addEventListener("click", () => {
+    localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
+    alert("✅ סדר הקטגוריות נשמר!");
+    sortListByCategories();
+  });
 
-  // Share List button (main button next to "הרשימה שלי")
-  const shareBtn = document.getElementById('btnShareList');
-  if (shareBtn) {
-    shareBtn.addEventListener('click', async function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // בדוק אם יש רשימה לפני שמתחילים
-      const list = getShoppingList();
-      if (!list || list.length === 0) {
-        showToast("אין רשימה לשיתוף. הוסף פריטים לרשימה כדי לשתף", 'warning', 4000);
-        return;
-      }
-      
-      // משוב ויזואלי מיידי
-      const img = shareBtn.querySelector('img');
-      const originalTitle = shareBtn.title;
-      if (img) {
-        img.style.opacity = '0.6';
-        img.style.transform = 'scale(0.9)';
-      }
-      shareBtn.title = 'שומר...';
-      shareBtn.style.pointerEvents = 'none'; // מונע לחיצות כפולות
-      
-      try {
-        const url = await saveListToFirebase(true); // true = silent
-        if (url) showShareModal(url);
-      } catch (err) {
-        console.error('Share error:', err);
-        showToast("שגיאה בשיתוף הרשימה", 'error');
-      }
-      
-      // החזר למצב רגיל
-      if (img) {
-        img.style.opacity = '1';
-        img.style.transform = 'scale(1)';
-      }
-      shareBtn.title = originalTitle;
-      shareBtn.style.pointerEvents = 'auto';
-    }, { passive: false });
-  }
+  document.getElementById("btnAddCategory")?.addEventListener("click", () => {
+    const newCat = prompt("הכנס שם קטגוריה חדשה:");
+    if (!newCat) return;
+    if (categoriesOrder.includes(newCat)) { alert("⚠️ קטגוריה זו כבר קיימת!"); return; }
+    categoriesOrder.push(newCat); categories[newCat] = [];
+    localStorage.setItem("categoriesOrder", JSON.stringify(categoriesOrder));
+    localStorage.setItem("categoriesMap", JSON.stringify(categories));
+    renderCategoriesList(); sortListByCategories();
+  });
 
-  // Removed: btnHdrResetChoices and btnHdrAddCustom - no longer needed with + buttons in categories
-  // header 'רשימות' button and old clear/save buttons removed; footer will handle actions
-  // Categories settings UI removed - categories now managed directly in loadDefaultChooseItems()
+  document.getElementById("btnAssignItem")?.addEventListener("click", () => {
+    if (categoriesOrder.length === 0) { alert("אין קטגוריות זמינות. צור קטגוריה חדשה קודם."); return; }
+    const itemName = prompt("הכנס שם פריט לשיוך:");
+    if (!itemName) return;
+    const category = prompt("לאיזו קטגוריה לשייך את הפריט?\n" + categoriesOrder.join(", "));
+    if (!category || !categoriesOrder.includes(category)) { alert("⚠️ קטגוריה לא קיימת!"); return; }
+    if (!categories[category]) categories[category] = [];
+    if (!categories[category].includes(itemName)) categories[category].push(itemName);
+    localStorage.setItem("categoriesMap", JSON.stringify(categories));
+    sortListByCategories();
+  });
 
-  // Helper function to close main menu
-  function closeMainMenu() {
-    const menu = document.getElementById('menuDropdown');
-    if (menu) menu.style.display = 'none';
-  }
+  document.getElementById("btnCategoriesSettings")?.addEventListener("click", () => {
+    const settingsSection = document.getElementById("settingsSection");
+    if (!settingsSection) return;
+    settingsSection.style.display = settingsSection.style.display === "block" ? "none" : "block";
+    if (settingsSection.style.display === "block") {
+      settingsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      renderCategoriesList();
+    }
+  });
+
+  document.getElementById("closeSettings")?.addEventListener("click", () => {
+    document.getElementById("settingsSection").style.display = "none";
+  });
+  document.getElementById("btnCloseCategories")?.addEventListener("click", () => {
+    const section = document.getElementById("settingsSection");
+    if (!section) return;
+    section.style.display = "none";
+    document.querySelector('.app-header')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  document.getElementById("toggleChoose")?.addEventListener("click", () => {
+    const sec = document.getElementById("chooseSection");
+    const btn = document.getElementById("toggleChoose");
+    if (!sec || !btn) return;
+    if (sec.classList.contains("hidden")) { sec.classList.remove("hidden"); btn.textContent = "הסתר"; localStorage.setItem("chooseSectionVisible","true"); }
+    else { sec.classList.add("hidden"); btn.textContent = "הצג"; localStorage.setItem("chooseSectionVisible","false"); }
+  });
 
   document.getElementById("menuButton")?.addEventListener("click", () => {
     const menu = document.getElementById("menuDropdown");
     if (!menu) return;
     menu.style.display = menu.style.display === "block" ? "none" : "block";
   });
-  
-  // Close button inside menu
-  document.querySelector('#menuDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMainMenu();
-  });
-  
   document.addEventListener("click", (e) => {
     if (!e.target.closest(".menu-container")) {
-      closeMainMenu();
+      const menu = document.getElementById("menuDropdown");
+      if (menu) menu.style.display = "none";
     }
   });
 
-  // Close dropdowns on Escape
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeMainMenu();
-    }
+  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
+    rootFontPx = Math.min(rootFontPx + 1, 30);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+  });
+  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
+    rootFontPx = Math.max(rootFontPx - 1, 12);
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
+  });
+  document.getElementById("btnFontReset")?.addEventListener("click", () => {
+    rootFontPx = 19;
+    document.documentElement.style.fontSize = rootFontPx + "px";
+    localStorage.setItem("rootFontPx", rootFontPx);
   });
 
-  // Auto-close menu after actions - view mode
-  document.getElementById('btnViewMode')?.addEventListener('click', () => {
+  document.getElementById("btnViewMode")?.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
     localStorage.setItem("viewMode", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    // ensure panels get panel class so dark CSS applies
     if (document.body.classList.contains('dark-mode')) {
       document.querySelectorAll('#chooseSection, #settingsSection, #categoriesList, .choose-item, .list-footer').forEach(el => {
         if (el && !el.classList.contains('panel')) el.classList.add('panel');
       });
     }
-    closeMainMenu();
-  });
-
-  // Font controls
-  document.getElementById("btnFontIncrease")?.addEventListener("click", () => {
-    rootFontPx = Math.min(rootFontPx + 1, 30);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-  
-  document.getElementById("btnFontDecrease")?.addEventListener("click", () => {
-    rootFontPx = Math.max(rootFontPx - 1, 12);
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-  
-  document.getElementById("btnFontReset")?.addEventListener("click", () => {
-    rootFontPx = 19;
-    document.documentElement.style.fontSize = rootFontPx + "px";
-    localStorage.setItem("rootFontPx", rootFontPx);
-    closeMainMenu();
-  });
-
-  // Categories settings
-  document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
-    closeMainMenu();
   });
 
   /* store UI wiring */
   document.getElementById('networkSelect')?.addEventListener('change', (e) => populateBranches(e.target.value));
-  document.getElementById('btnSaveStore')?.addEventListener('click', () => {
-    saveStoreSelection();
-    closeMainMenu();
-  });
-  document.getElementById('togglePrices')?.addEventListener('change', (e) => {
-    togglePriceDisplay(e.target.checked);
-    // Don't close menu - let user save the store selection too
-  });
+  document.getElementById('btnSaveStore')?.addEventListener('click', saveStoreSelection);
+  document.getElementById('togglePrices')?.addEventListener('change', (e) => togglePriceDisplay(e.target.checked));
 
   /* init store UI */
   (function initStoreUI(){
@@ -2378,1329 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ===== List Menu (next to "הרשימה שלי") =====
-  function closeListMenu() {
-    const menu = document.getElementById('listMenuDropdown');
-    if (menu) menu.style.display = 'none';
-  }
-
-  document.getElementById("listMenuButton")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById("listMenuDropdown");
-    if (!menu) return;
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-  });
-  
-  // Close button inside list menu
-  document.querySelector('#listMenuDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeListMenu();
-  });
-  
-  // Close list menu on outside click
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".list-header") && !e.target.closest("#listMenuDropdown")) {
-      closeListMenu();
-    }
-  });
-
-  // List menu actions
-  document.getElementById('btnListClear')?.addEventListener('click', () => {
-    if (confirm('האם למחוק את כל הרשימה?')) clearList();
-    closeListMenu();
-  });
-  
-  document.getElementById('btnListClearChecked')?.addEventListener('click', () => {
-    clearChecked();
-    closeListMenu();
-  });
-  
-  document.getElementById('btnClearCart')?.addEventListener('click', () => {
-    const cartGrid = document.getElementById('cartGrid');
-    const cartSection = document.getElementById('cartSection');
-    if (cartGrid && confirm('האם לנקות את העגלה? (הפריטים יחזרו לרשימה)')) {
-      // Move all cart items back to list
-      const items = Array.from(cartGrid.children);
-      items.forEach(item => {
-        item.classList.remove('checked');
-        if (DOM.listGrid) DOM.listGrid.appendChild(item);
-      });
-      // Hide cart section
-      if (cartSection) cartSection.style.display = 'none';
-      saveListToStorage();
-    }
-  });
-  
-  document.getElementById('btnListShare')?.addEventListener('click', () => {
-    shareCurrentList();
-    closeListMenu();
-  });
-  
-  document.getElementById('btnListShareWA')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-    window.open(waUrl, '_blank');
-    closeListMenu();
-  });
-  
-  document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
-    window.open(smsUrl, '_blank');
-    closeListMenu();
-  });
-
   // Initial UI render calls if functions exist
   if (typeof renderAllPrices === 'function') renderAllPrices();
   if (typeof renderTotal === 'function') renderTotal();
-
-  // ===== Menu actions wiring =====
-  document.getElementById('btnFooterClear')?.addEventListener('click', () => {
-    if (confirm('האם למחוק את כל הרשימה?')) clearList();
-    closeMainMenu();
-  });
-  
-  document.getElementById('btnFooterClearChecked')?.addEventListener('click', () => {
-    clearChecked();
-    closeMainMenu();
-  });
-  
-  document.getElementById('btnFooterShare')?.addEventListener('click', () => {
-    shareCurrentList();
-    closeMainMenu();
-  });
-  
-  document.getElementById('btnFooterShareWA')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-    window.open(waUrl, '_blank');
-    closeMainMenu();
-  });
-  
-  document.getElementById('btnFooterShareSMS')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
-    window.open(smsUrl, '_blank');
-    closeMainMenu();
-  });
 });
-
-// ===== Share current list (Web Share API + clipboard fallback) =====
-async function shareCurrentList() {
-  // Get current list as JSON
-  const data = localStorage.getItem("shoppingList") || "";
-  if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-  // Encode as URI component
-  const encoded = encodeURIComponent(data);
-  const url = `${location.origin}${location.pathname}?list=${encoded}`;
-
-  // Try Web Share API
-  try {
-    if (navigator.share) {
-      await navigator.share({ title: 'רשימת קניות', url });
-      return;
-    }
-  } catch (e) {}
-
-  // Fallback: copy link to clipboard
-  try {
-    await navigator.clipboard.writeText(url);
-    showToast('קישור הרשימה הועתק ללוח! 📋', 'success');
-  } catch (e) {
-    const ta = document.createElement('textarea');
-    ta.value = url;
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); showToast('הקישור הועתק ללוח! 📋', 'success'); }
-    catch { showToast(url, 'info', 6000); }
-    document.body.removeChild(ta);
-  }
-}
-
-// ===== Service Worker Update Handler =====
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/service-worker.js').then(registration => {
-    // Check for updates every time the page loads
-    registration.update();
-    
-    // Listen for new service worker waiting to activate
-    registration.addEventListener('updatefound', () => {
-      const newWorker = registration.installing;
-      
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          // New service worker available - show update notification
-          showToast('עדכון זמין! רענן את הדף לגרסה החדשה 🔄', 'info', 8000);
-          
-          // Auto-reload after 3 seconds
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
-        }
-      });
-    });
-  });
-  
-  // Force reload when service worker updates
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
-  });
-}
-
-/* ====== Context Menu for List Items (Long Press) ====== */
-let longPressTimer = null;
-let longPressTarget = null;
-const contextMenu = document.getElementById('itemContextMenu');
-
-// Multi-selection mode variables
-let selectionMode = false;
-let selectedItems = new Set();
-
-// Prevent default context menu on list items and choose items
-document.addEventListener('contextmenu', (e) => {
-  if (e.target.closest('.item') || e.target.closest('.choose-item')) {
-    e.preventDefault();
-    return false;
-  }
-});
-
-// Prevent text selection during long press
-document.addEventListener('selectstart', (e) => {
-  if (longPressTimer && (e.target.closest('.item') || e.target.closest('.choose-item'))) {
-    e.preventDefault();
-    return false;
-  }
-});
-
-// Add long press listeners to all list items
-function attachLongPressToItem(itemElement) {
-  let startX, startY;
-  const longPressDuration = 500; // 500ms for long press
-
-  itemElement.addEventListener('touchstart', (e) => {
-    // Ignore if touching price, qty, or note input
-    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) return;
-    
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    longPressTarget = itemElement;
-    
-    longPressTimer = setTimeout(() => {
-      showContextMenu(touch.clientX, touch.clientY, itemElement);
-    }, longPressDuration);
-  });
-
-  itemElement.addEventListener('touchmove', (e) => {
-    const touch = e.touches[0];
-    const moveX = Math.abs(touch.clientX - startX);
-    const moveY = Math.abs(touch.clientY - startY);
-    
-    // Cancel long press if finger moves too much
-    if (moveX > 10 || moveY > 10) {
-      clearTimeout(longPressTimer);
-    }
-  });
-
-  itemElement.addEventListener('touchend', () => {
-    clearTimeout(longPressTimer);
-  });
-
-  itemElement.addEventListener('touchcancel', () => {
-    clearTimeout(longPressTimer);
-  });
-}
-
-// Show context menu at position
-function showContextMenu(x, y, itemElement) {
-  longPressTarget = itemElement;
-  
-  // Always show context menu for list items
-  showRegularContextMenu(x, y, itemElement);
-}
-
-// Show regular context menu (for single item actions)
-function showRegularContextMenu(x, y, itemElement) {
-  // Position menu far from the touch point to avoid accidental clicks
-  const menuWidth = 150;
-  const menuHeight = 200; // Increased for new button
-  const offset = 80; // Larger distance from touch point
-  
-  // Try to position menu to the right and above the touch point
-  let left = x + offset;
-  let top = y - menuHeight - offset;
-  
-  // If menu goes off right edge, position to the left
-  if (left + menuWidth > window.innerWidth - 10) {
-    left = x - menuWidth - offset;
-  }
-  
-  // If menu goes off left edge, center it horizontally
-  if (left < 10) {
-    left = Math.max(10, (window.innerWidth - menuWidth) / 2);
-  }
-  
-  // If menu goes off top edge, position below touch point
-  if (top < 10) {
-    top = y + offset;
-  }
-  
-  // If menu goes off bottom edge, position above
-  if (top + menuHeight > window.innerHeight - 10) {
-    top = y - menuHeight - offset;
-  }
-  
-  // Final bounds check
-  top = Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10));
-  left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
-  
-  contextMenu.style.left = left + 'px';
-  contextMenu.style.top = top + 'px';
-  
-  // Add highlight to selected item
-  itemElement.style.backgroundColor = 'rgba(33, 150, 243, 0.1)';
-  
-  // Disable pointer events briefly to prevent accidental clicks when releasing finger
-  contextMenu.style.pointerEvents = 'none';
-  setTimeout(() => {
-    contextMenu.style.display = 'block';
-    contextMenu.style.pointerEvents = 'auto';
-  }, 150);
-}
-
-// Hide context menu
-function hideContextMenu() {
-  contextMenu.style.display = 'none';
-  if (longPressTarget) {
-    longPressTarget.style.backgroundColor = '';
-    longPressTarget = null;
-  }
-}
-
-/* ====== Multi-Selection Mode ====== */
-function enterSelectionMode(firstItem) {
-  if (selectionMode) return; // Already in selection mode
-  
-  selectionMode = true;
-  selectedItems.clear();
-  
-  // Add selection toolbar to page
-  createSelectionToolbar();
-  
-  // Add selection class to all items and attach selection click handler
-  const allItems = document.querySelectorAll('#listGrid .item');
-  allItems.forEach(item => {
-    item.classList.add('selection-mode-item');
-    item.dataset.selectionMode = 'active'; // Flag to prevent normal click behavior
-  });
-  
-  // Select the first item
-  if (firstItem) {
-    selectedItems.add(firstItem);
-    firstItem.classList.add('selected-for-action');
-  }
-  
-  // Add global click handler for selection mode
-  document.addEventListener('click', handleSelectionClick);
-  
-  updateSelectionToolbar();
-}
-
-function handleSelectionClick(e) {
-  if (!selectionMode) return;
-  
-  const item = e.target.closest('#listGrid .item');
-  if (!item) return;
-  
-  // Ignore clicks on interactive elements
-  if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note')) {
-    return;
-  }
-  
-  e.preventDefault();
-  e.stopPropagation();
-  
-  toggleItemSelection(item);
-}
-
-function toggleItemSelection(item) {
-  if (selectedItems.has(item)) {
-    selectedItems.delete(item);
-    item.classList.remove('selected-for-action');
-  } else {
-    selectedItems.add(item);
-    item.classList.add('selected-for-action');
-  }
-  updateSelectionToolbar();
-}
-
-function selectAllItems() {
-  const allItems = document.querySelectorAll('#listGrid .item');
-  selectedItems.clear();
-  allItems.forEach(item => {
-    selectedItems.add(item);
-    item.classList.add('selected-for-action');
-  });
-  updateSelectionToolbar();
-}
-
-function deselectAllItems() {
-  selectedItems.forEach(item => {
-    item.classList.remove('selected-for-action');
-  });
-  selectedItems.clear();
-  updateSelectionToolbar();
-}
-
-function exitSelectionMode() {
-  selectionMode = false;
-  
-  // Remove selection classes and flags
-  const allItems = document.querySelectorAll('#listGrid .item');
-  allItems.forEach(item => {
-    item.classList.remove('selection-mode-item', 'selected-for-action');
-    delete item.dataset.selectionMode;
-  });
-  
-  selectedItems.clear();
-  
-  // Hide toolbar
-  const toolbar = document.getElementById('selectionToolbar');
-  if (toolbar) toolbar.style.display = 'none';
-  
-  // Remove global selection click handler
-  document.removeEventListener('click', handleSelectionClick);
-}
-
-function createSelectionToolbar() {
-  const toolbar = document.getElementById('selectionToolbar');
-  if (toolbar) {
-    toolbar.style.display = 'flex';
-  }
-  
-  // Add event listeners if not already added
-  const btnSelectAll = document.getElementById('btnSelectAll');
-  const btnDeselectAll = document.getElementById('btnDeselectAll');
-  const btnDeleteSelected = document.getElementById('btnDeleteSelected');
-  const btnCancelSelection = document.getElementById('btnCancelSelection');
-  
-  if (btnSelectAll && !btnSelectAll.dataset.listenerAdded) {
-    btnSelectAll.addEventListener('click', selectAllItems);
-    btnSelectAll.dataset.listenerAdded = 'true';
-  }
-  
-  if (btnDeselectAll && !btnDeselectAll.dataset.listenerAdded) {
-    btnDeselectAll.addEventListener('click', deselectAllItems);
-    btnDeselectAll.dataset.listenerAdded = 'true';
-  }
-  
-  if (btnDeleteSelected && !btnDeleteSelected.dataset.listenerAdded) {
-    btnDeleteSelected.addEventListener('click', deleteSelectedItems);
-    btnDeleteSelected.dataset.listenerAdded = 'true';
-  }
-  
-  if (btnCancelSelection && !btnCancelSelection.dataset.listenerAdded) {
-    btnCancelSelection.addEventListener('click', exitSelectionMode);
-    btnCancelSelection.dataset.listenerAdded = 'true';
-  }
-}
-
-function updateSelectionToolbar() {
-  const countSpan = document.getElementById('selectedCount');
-  if (countSpan) {
-    countSpan.textContent = selectedItems.size;
-  }
-  
-  const deleteBtn = document.getElementById('btnDeleteSelected');
-  if (deleteBtn) {
-    deleteBtn.disabled = selectedItems.size === 0;
-  }
-}
-
-function deleteSelectedItems() {
-  if (selectedItems.size === 0) return;
-  
-  const count = selectedItems.size;
-  if (confirm(`האם למחוק ${count} פריטים נבחרים?`)) {
-    selectedItems.forEach(item => {
-      item.remove();
-    });
-    saveListToStorage();
-    exitSelectionMode();
-    renderAllPrices();
-    renderTotal();
-  }
-}
-
-// Context menu button handlers
-document.getElementById('contextEdit').addEventListener('click', () => {
-  if (!longPressTarget) return;
-  
-  const nameSpan = longPressTarget.querySelector('.name');
-  if (!nameSpan) return;
-  
-  const currentText = nameSpan.textContent.trim();
-  // Remove emoji icon if exists
-  const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
-  
-  const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
-  if (newName && newName.trim() !== '') {
-    // Keep the icon, update the name
-    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
-    nameSpan.textContent = `${icon} ${newName.trim()}`;
-    saveListToStorage();
-  }
-  
-  hideContextMenu();
-});
-
-document.getElementById('contextDelete').addEventListener('click', () => {
-  if (!longPressTarget) return;
-  
-  const nameSpan = longPressTarget.querySelector('.name');
-  const itemName = nameSpan ? nameSpan.textContent.trim() : 'פריט זה';
-  
-  if (confirm(`האם למחוק את "${itemName}"?`)) {
-    longPressTarget.remove();
-    saveListToStorage();
-  }
-  
-  hideContextMenu();
-});
-
-document.getElementById('contextIcon').addEventListener('click', () => {
-  if (!longPressTarget) return;
-  hideContextMenu();
-  
-  // Open icon picker in 'list-item' mode
-  iconPickerMode = 'list-item';
-  iconPickerTargetItem = longPressTarget;
-  
-  const modal = document.getElementById('iconPickerModal');
-  if (modal) {
-    modal.style.display = 'block';
-    const searchInput = document.getElementById('iconSearch');
-    if (searchInput) searchInput.value = '';
-    filterIcons('');
-  }
-});
-
-document.getElementById('contextSelect').addEventListener('click', () => {
-  hideContextMenu();
-  enterSelectionMode(longPressTarget);
-});
-
-document.getElementById('contextCancel').addEventListener('click', () => {
-  hideContextMenu();
-});
-
-// Close context menu on outside click
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('#itemContextMenu') && contextMenu.style.display === 'block') {
-    hideContextMenu();
-  }
-});
-
-// Close context menu on scroll
-document.addEventListener('scroll', () => {
-  if (contextMenu.style.display === 'block') {
-    hideContextMenu();
-  }
-});
-
-/* ====== Long Press for Choose Items (Edit/Delete from menu) ====== */
-let longPressChooseItem = null;
-
-function attachLongPressToChooseItem(chooseItemElement, itemData) {
-  let startX, startY;
-  const longPressDuration = 500;
-
-  chooseItemElement.addEventListener('touchstart', (e) => {
-    // Don't trigger if touching the badge
-    if (e.target.closest('.badge')) return;
-    
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    longPressChooseItem = { element: chooseItemElement, data: itemData };
-    
-    longPressTimer = setTimeout(() => {
-      e.preventDefault();
-      e.stopPropagation();
-      showContextMenuForChooseItem(touch.clientX, touch.clientY, chooseItemElement, itemData);
-    }, longPressDuration);
-  });
-
-  chooseItemElement.addEventListener('touchmove', (e) => {
-    const touch = e.touches[0];
-    const moveX = Math.abs(touch.clientX - startX);
-    const moveY = Math.abs(touch.clientY - startY);
-    
-    if (moveX > 10 || moveY > 10) {
-      clearTimeout(longPressTimer);
-    }
-  });
-
-  chooseItemElement.addEventListener('touchend', () => {
-    clearTimeout(longPressTimer);
-  });
-
-  chooseItemElement.addEventListener('touchcancel', () => {
-    clearTimeout(longPressTimer);
-  });
-}
-
-function showContextMenuForChooseItem(x, y, element, itemData) {
-  longPressChooseItem = { element, data: itemData };
-  
-  // Position menu far from the touch point to avoid accidental clicks
-  const menuWidth = 150;
-  const menuHeight = 150;
-  const offset = 80; // Larger distance from touch point
-  
-  // Try to position menu to the right and above the touch point
-  let left = x + offset;
-  let top = y - menuHeight - offset;
-  
-  // If menu goes off right edge, position to the left
-  if (left + menuWidth > window.innerWidth - 10) {
-    left = x - menuWidth - offset;
-  }
-  
-  // If menu goes off left edge, center it horizontally
-  if (left < 10) {
-    left = Math.max(10, (window.innerWidth - menuWidth) / 2);
-  }
-  
-  // If menu goes off top edge, position below touch point
-  if (top < 10) {
-    top = y + offset;
-  }
-  
-  // If menu goes off bottom edge, position above
-  if (top + menuHeight > window.innerHeight - 10) {
-    top = y - menuHeight - offset;
-  }
-  
-  // Final bounds check
-  top = Math.max(10, Math.min(top, window.innerHeight - menuHeight - 10));
-  left = Math.max(10, Math.min(left, window.innerWidth - menuWidth - 10));
-  
-  contextMenu.style.left = left + 'px';
-  contextMenu.style.top = top + 'px';
-  
-  element.style.backgroundColor = 'rgba(33, 150, 243, 0.15)';
-  element.style.transform = 'scale(1.02)';
-  
-  // Disable pointer events briefly to prevent accidental clicks when releasing finger
-  contextMenu.style.pointerEvents = 'none';
-  setTimeout(() => {
-    contextMenu.style.display = 'block';
-    contextMenu.style.pointerEvents = 'auto';
-  }, 150);
-}
-
-// Update the context menu handlers to work with both list items and choose items
-const originalEditHandler = document.getElementById('contextEdit').onclick;
-const originalDeleteHandler = document.getElementById('contextDelete').onclick;
-
-document.getElementById('contextEdit').onclick = null;
-document.getElementById('contextDelete').onclick = null;
-
-document.getElementById('contextEdit').addEventListener('click', () => {
-  // Handle choose item edit
-  if (longPressChooseItem) {
-    const { element, data } = longPressChooseItem;
-    const currentText = element.textContent.trim().replace(/\d+$/, '').trim(); // Remove badge number
-    const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
-    
-    const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
-    if (newName && newName.trim() !== '') {
-      // Update the element - use textContent to prevent XSS
-      data.name = sanitizeInput(newName.trim());
-      const badge = element.querySelector('.badge');
-      element.textContent = `${data.icon} ${data.name}`;
-      if (badge) element.appendChild(badge);
-      
-      // Save to localStorage
-      saveChooseItemsToStorage();
-    }
-    
-    longPressChooseItem.element.style.backgroundColor = '';
-    longPressChooseItem.element.style.transform = '';
-    longPressChooseItem = null;
-    hideContextMenu();
-    return;
-  }
-  
-  // Handle list item edit (original logic)
-  if (!longPressTarget) return;
-  
-  const nameSpan = longPressTarget.querySelector('.name');
-  if (!nameSpan) return;
-  
-  const currentText = nameSpan.textContent.trim();
-  const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
-  
-  const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
-  if (newName && newName.trim() !== '') {
-    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
-    nameSpan.textContent = `${icon} ${newName.trim()}`;
-    saveListToStorage();
-  }
-  
-  hideContextMenu();
-});
-
-document.getElementById('contextDelete').addEventListener('click', () => {
-  // Handle choose item delete
-  if (longPressChooseItem) {
-    const { element, data } = longPressChooseItem;
-    const itemName = `${data.icon} ${data.name}`;
-    
-    if (confirm(`האם למחוק את "${itemName}" מתפריט הבחירה?`)) {
-      element.remove();
-      saveChooseItemsToStorage();
-    }
-    
-    longPressChooseItem.element.style.backgroundColor = '';
-    longPressChooseItem.element.style.transform = '';
-    longPressChooseItem = null;
-    hideContextMenu();
-    return;
-  }
-  
-  // Handle list item delete (original logic)
-  if (!longPressTarget) return;
-  
-  const nameSpan = longPressTarget.querySelector('.name');
-  const itemName = nameSpan ? nameSpan.textContent.trim() : 'פריט זה';
-  
-  if (confirm(`האם למחוק את "${itemName}"?`)) {
-    longPressTarget.remove();
-    saveListToStorage();
-  }
-  
-  hideContextMenu();
-});
-
-// Update hideContextMenu to handle both types
-const originalHideContextMenu = hideContextMenu;
-hideContextMenu = function() {
-  originalHideContextMenu();
-  if (longPressChooseItem) {
-    longPressChooseItem.element.style.backgroundColor = '';
-    longPressChooseItem.element.style.transform = '';
-    longPressChooseItem = null;
-  }
-};
-
-// Helper function to save choose items to localStorage
-function saveChooseItemsToStorage() {
-  const chooseGrid = document.getElementById('chooseGrid');
-  const items = Array.from(chooseGrid.querySelectorAll('.choose-item')).map(btn => {
-    const text = btn.textContent.trim().replace(/\d+$/, '').trim(); // Remove badge number
-    const iconMatch = text.match(/^([\u{1F300}-\u{1F9FF}])\s*(.+)/u);
-    if (iconMatch) {
-      return {
-        icon: iconMatch[1],
-        name: iconMatch[2],
-        unit: 'יח\''
-      };
-    }
-    return {
-      icon: '🛒',
-      name: text,
-      unit: 'יח\''
-    };
-  });
-  
-  localStorage.setItem('chooseItems', JSON.stringify(items));
-}
-
-/* ====== Inline Add Item Functionality ====== */
-// Add item to choose menu
-const addItemChooseInput = document.getElementById('addItemChooseInput');
-if (addItemChooseInput) {
-  addItemChooseInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && addItemChooseInput.value.trim() !== '') {
-      const itemName = addItemChooseInput.value.trim();
-      const newItem = {
-        name: itemName,
-        icon: '🛒',
-        unit: 'יח\''
-      };
-      
-      // Add to choose grid
-      const chooseGrid = document.getElementById('chooseGrid');
-      const newBtn = makeChooseButton(newItem);
-      chooseGrid.appendChild(newBtn);
-      
-      // Save to storage
-      saveChooseItemsToStorage();
-      
-      // Clear input
-      addItemChooseInput.value = '';
-      addItemChooseInput.blur();
-      
-      // Show feedback
-      newBtn.classList.add('pulse');
-      setTimeout(() => newBtn.classList.remove('pulse'), 420);
-    }
-  });
-  
-  // Also allow blur to add (optional)
-  addItemChooseInput.addEventListener('blur', () => {
-    if (addItemChooseInput.value.trim() !== '') {
-      // Trigger enter
-      const event = new KeyboardEvent('keydown', { key: 'Enter' });
-      addItemChooseInput.dispatchEvent(event);
-    }
-  });
-}
-
-// Add item to list
-const addItemListInput = document.getElementById('addItemListInput');
-if (addItemListInput) {
-  addItemListInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && addItemListInput.value.trim() !== '') {
-      const itemName = addItemListInput.value.trim();
-      
-      // Add to list
-      createListItem(itemName, '🛒', 1, 'יח\'');
-      
-      // Clear input
-      addItemListInput.value = '';
-      addItemListInput.blur();
-      
-      // Scroll to see the new item
-      const listGrid = document.getElementById('listGrid');
-      setTimeout(() => {
-        listGrid.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }, 100);
-    }
-  });
-  
-  // Also allow blur to add (optional)
-  addItemListInput.addEventListener('blur', () => {
-    if (addItemListInput.value.trim() !== '') {
-      // Trigger enter
-      const event = new KeyboardEvent('keydown', { key: 'Enter' });
-      addItemListInput.dispatchEvent(event);
-    }
-  });
-}
-
-/* ====== Icon Picker Functionality ====== */
-// Comprehensive icon list organized by categories
-const iconCategories = {
-  'פירות': ['🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝'],
-  'ירקות': ['🥕', '🌽', '🥒', '🥬', '🥦', '🍅', '🧄', '🧅', '🫑', '🌶️', '🥔', '🍆', '🥗'],
-  'לחם ומאפים': ['🍞', '🥖', '🥐', '🥯', '🧇', '🥞', '🍰', '🎂', '🧁', '🥧', '🍪', '🍩'],
-  'בשר ודגים': ['🥩', '🍖', '🍗', '🥓', '🍤', '🦐', '🦞', '🦀', '🐟', '🐠'],
-  'חלבי': ['🥛', '🧀', '🧈', '🥚', '🍳'],
-  'תבלינים ובישול': ['🧂', '🫚', '🌿', '🍃', '🧄', '🧅', '🌶️', '🫒', '🥫', '🫙', '🍯', '🫘', '🍚', '🌾'],
-  'משקאות': ['☕', '🍵', '🧃', '🥤', '🧋', '🍷', '🍺', '🥂', '🧉'],
-  'מזון מוכן': ['🍕', '🍔', '🌭', '🌮', '🌯', '🥙', '🥪', '🍝', '🍜', '🍲', '🥘', '🥟', '🍱', '🍛', '🍣', '🍚', '🥡'],
-  'חטיפים': ['🍿', '🍫', '🍬', '🍭', '🥜', '🌰'],
-  'ניקיון': ['🧼', '🧽', '🧹', '🧺', '🧴', '🧻', '🪥'],
-  'מוצרי טיפוח': ['🧴', '💄', '💅', '🪒', '🧖'],
-  'תינוקות': ['🍼', '👶', '🧷', '🧸'],
-  'בעלי חיים': ['🐕', '🐈', '🐦', '🐠', '🐹'],
-  'אחר': ['🛒', '📦', '🎁', '💊', '🌡️', '🔋', '💡', '🕯️', '📱', '💻', '🎒', '👕', '👖', '👗', '🧦', '👟', '⚽', '🎾', '🏀']
-};
-
-// Icon names mapping for search (Hebrew names for each icon)
-const iconNames = {
-  '🍎': 'תפוח תפוחים אדום',
-  '🍊': 'תפוז תפוזים כתום',
-  '🍋': 'לימון לימונים צהוב חמוץ',
-  '🍌': 'בננה בננות',
-  '🍉': 'אבטיח',
-  '🍇': 'ענבים',
-  '🍓': 'תות תותים',
-  '🫐': 'אוכמניות',
-  '🍈': 'מלון',
-  '🍒': 'דובדבן דובדבנים',
-  '🍑': 'אפרסק אפרסקים',
-  '🥭': 'מנגו',
-  '🍍': 'אננס',
-  '🥥': 'קוקוס',
-  '🥝': 'קיווי',
-  '🥕': 'גזר',
-  '🌽': 'תירס',
-  '🥒': 'מלפפון מלפפונים',
-  '🥬': 'חסה ירוק עלים',
-  '🥦': 'ברוקולי',
-  '🍅': 'עגבניה עגבניות',
-  '🧄': 'שום',
-  '🧅': 'בצל',
-  '🫑': 'פלפל ירוק',
-  '🌶️': 'פלפל חריף',
-  '🥔': 'תפוח אדמה תפוחי אדמה',
-  '🍆': 'חציל',
-  '🥗': 'סלט',
-  '🍞': 'לחם',
-  '🥖': 'באגט לחם צרפתי',
-  '🥐': 'קרואסון',
-  '🥯': 'בייגל בגל',
-  '🧇': 'ופל',
-  '🥞': 'פנקייק',
-  '🍰': 'עוגה',
-  '🎂': 'עוגת יום הולדת',
-  '🧁': 'מאפין קאפקייק',
-  '🥧': 'פאי',
-  '🍪': 'עוגיה עוגיות',
-  '🍩': 'סופגניה דונאט',
-  '🥩': 'בשר סטייק',
-  '🍖': 'בשר על עצם',
-  '🍗': 'עוף רגל עוף',
-  '🥓': 'בייקון',
-  '🍤': 'שרימפס',
-  '🦐': 'שרימפס קטן',
-  '🦞': 'לובסטר',
-  '🦀': 'סרטן',
-  '🐟': 'דג דגים',
-  '🐠': 'דג טרופי',
-  '🥛': 'חלב',
-  '🧀': 'גבינה',
-  '🧈': 'חמאה',
-  '🥚': 'ביצה ביצים',
-  '🍳': 'ביצה מטוגנת',
-  '🧂': 'מלח',
-  '🫚': 'ג\'ינג\'ר זנגביל',
-  '🌿': 'עשבי תיבול הרבס',
-  '🍃': 'עלים',
-  '🫒': 'זית זיתים',
-  '🥫': 'שימורים',
-  '🫙': 'צנצנת ריבה',
-  '🍯': 'דבש',
-  '🫘': 'שעועית קטניות עדשים',
-  '🍚': 'אורז',
-  '🌾': 'חיטה קמח דגנים',
-  '☕': 'קפה',
-  '🍵': 'תה',
-  '🧃': 'מיץ קופסא',
-  '🥤': 'משקה קר',
-  '🧋': 'באבל טי',
-  '🍷': 'יין',
-  '🍺': 'בירה',
-  '🥂': 'שמפניה',
-  '🧉': 'מטה',
-  '🍕': 'פיצה',
-  '🍔': 'המבורגר',
-  '🌭': 'נקניק הוט דוג',
-  '🌮': 'טאקו',
-  '🌯': 'בוריטו',
-  '🥙': 'פיתה',
-  '🥪': 'כריך סנדוויץ',
-  '🍝': 'פסטה ספגטי',
-  '🍜': 'מרק נודלס',
-  '🍲': 'תבשיל',
-  '🥘': 'פאייה',
-  '🥟': 'כופתאות',
-  '🍱': 'בנטו',
-  '🍛': 'קארי',
-  '🍣': 'סושי',
-  '🥡': 'אוכל סיני',
-  '🍿': 'פופקורן',
-  '🍫': 'שוקולד',
-  '🍬': 'סוכריה',
-  '🍭': 'סוכריה על מקל',
-  '🥜': 'בוטנים',
-  '🌰': 'אגוזים',
-  '🧼': 'סבון',
-  '🧽': 'ספוג',
-  '🧹': 'מטאטא',
-  '🧺': 'סל כביסה',
-  '🧴': 'בקבוק שמפו',
-  '🧻': 'נייר טואלט',
-  '🪥': 'מברשת שיניים',
-  '💄': 'שפתון',
-  '💅': 'לק',
-  '🪒': 'סכין גילוח',
-  '🧖': 'ספא',
-  '🍼': 'בקבוק תינוק',
-  '👶': 'תינוק',
-  '🧷': 'סיכת ביטחון',
-  '🧸': 'דובי',
-  '🐕': 'כלב',
-  '🐈': 'חתול',
-  '🐦': 'ציפור',
-  '🐠': 'דג',
-  '🐹': 'אוגר',
-  '🛒': 'עגלת קניות',
-  '📦': 'חבילה קופסא',
-  '🎁': 'מתנה',
-  '💊': 'תרופה כדור',
-  '🌡️': 'מדחום',
-  '🔋': 'סוללה',
-  '💡': 'נורה',
-  '🕯️': 'נר',
-  '📱': 'טלפון',
-  '💻': 'מחשב',
-  '🎒': 'תיק',
-  '👕': 'חולצה',
-  '👖': 'מכנסיים',
-  '👗': 'שמלה',
-  '🧦': 'גרביים',
-  '👟': 'נעליים',
-  '⚽': 'כדורגל',
-  '🎾': 'טניס',
-  '🏀': 'כדורסל'
-};
-
-let iconPickerTarget = null; // The item being edited
-let iconPickerMode = null; // 'list', 'choose', 'list-item', or 'custom-item'
-let iconPickerTargetItem = null; // For changing icon of existing list item
-
-// Initialize icon picker
-function initIconPicker() {
-  const iconGrid = document.getElementById('iconGrid');
-  
-  // Create icon grid with categories
-  Object.entries(iconCategories).forEach(([category, icons]) => {
-    const categoryDiv = document.createElement('div');
-    categoryDiv.className = 'icon-category';
-    
-    const categoryTitle = document.createElement('h3');
-    categoryTitle.textContent = category;
-    categoryTitle.style.fontSize = '1.1rem';
-    categoryTitle.style.fontWeight = '700';
-    categoryTitle.style.marginTop = '1rem';
-    categoryTitle.style.marginBottom = '0.5rem';
-    categoryTitle.style.textAlign = 'right';
-    categoryTitle.style.color = 'var(--text-color, #333)';
-    categoryDiv.appendChild(categoryTitle);
-    
-    const iconsContainer = document.createElement('div');
-    iconsContainer.style.display = 'grid';
-    iconsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(60px, 1fr))';
-    iconsContainer.style.gap = '0.5rem';
-    iconsContainer.style.marginBottom = '1rem';
-    
-    icons.forEach(icon => {
-      const iconBtn = document.createElement('div');
-      iconBtn.className = 'icon-option';
-      iconBtn.textContent = icon;
-      iconBtn.addEventListener('click', () => selectIcon(icon));
-      iconsContainer.appendChild(iconBtn);
-    });
-    
-    categoryDiv.appendChild(iconsContainer);
-    iconGrid.appendChild(categoryDiv);
-  });
-}
-
-// Show icon picker
-function showIconPicker(targetElement, mode) {
-  iconPickerTarget = targetElement;
-  iconPickerMode = mode;
-  document.getElementById('iconPickerModal').style.display = 'flex';
-}
-
-// Select icon and update item
-function selectIcon(icon) {
-  if (iconPickerMode === 'custom-item') {
-    // Custom item mode - finish adding the custom item
-    finishAddingCustomItem(icon);
-    closeIconPicker();
-    return;
-  }
-  
-  if (iconPickerMode === 'list-item' && iconPickerTargetItem) {
-    // Update existing list item icon
-    const nameSpan = iconPickerTargetItem.querySelector('.name');
-    if (nameSpan) {
-      const currentText = nameSpan.textContent.trim();
-      const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
-      nameSpan.textContent = `${icon} ${textWithoutIcon}`;
-      saveListToStorage();
-    }
-    iconPickerTargetItem = null;
-    closeIconPicker();
-    return;
-  }
-  
-  if (!iconPickerTarget) return;
-  
-  if (iconPickerMode === 'list') {
-    // Update list item
-    const nameSpan = iconPickerTarget.querySelector('.name');
-    if (nameSpan) {
-      const currentText = nameSpan.textContent.trim();
-      const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
-      nameSpan.textContent = `${icon} ${textWithoutIcon}`;
-      saveListToStorage();
-    }
-  } else if (iconPickerMode === 'choose') {
-    // Update choose item
-    const badge = iconPickerTarget.querySelector('.badge');
-    const currentText = iconPickerTarget.textContent.trim().replace(/\d+$/, '').trim();
-    const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '').replace(/^[\u{2600}-\u{26FF}]\s*/u, '');
-    
-    iconPickerTarget.textContent = `${icon} ${textWithoutIcon}`;
-    if (badge) {
-      iconPickerTarget.appendChild(badge);
-    }
-    saveChooseItemsToStorage();
-  }
-  
-  closeIconPicker();
-}
-
-// Close icon picker
-function closeIconPicker() {
-  document.getElementById('iconPickerModal').style.display = 'none';
-  iconPickerTarget = null;
-  iconPickerMode = null;
-}
-
-// Event listeners
-document.getElementById('closeIconPicker').addEventListener('click', closeIconPicker);
-
-// Click outside to close
-document.getElementById('iconPickerModal').addEventListener('click', (e) => {
-  if (e.target.id === 'iconPickerModal') {
-    closeIconPicker();
-  }
-});
-
-// Image upload functionality
-const btnUploadImage = document.getElementById('btnUploadImage');
-const iconImageUpload = document.getElementById('iconImageUpload');
-
-btnUploadImage.addEventListener('click', () => {
-  iconImageUpload.click();
-});
-
-iconImageUpload.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  // Check file size (max 500KB to avoid localStorage issues)
-  if (file.size > 500 * 1024) {
-    showToast('התמונה גדולה מדי. בחר תמונה קטנה מ-500KB', 'warning', 4000);
-    return;
-  }
-  
-  // Check if it's an image
-  if (!file.type.startsWith('image/')) {
-    showToast('אנא בחר קובץ תמונה', 'warning');
-    return;
-  }
-  
-  // Read the file and convert to base64
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const imageData = event.target.result;
-    
-    // Create a preview and confirm with user
-    const img = new Image();
-    img.onload = () => {
-      // Resize image if needed (max 100x100)
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      let width = img.width;
-      let height = img.height;
-      const maxSize = 100;
-      
-      if (width > height) {
-        if (width > maxSize) {
-          height *= maxSize / width;
-          width = maxSize;
-        }
-      } else {
-        if (height > maxSize) {
-          width *= maxSize / height;
-          height = maxSize;
-        }
-      }
-      
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // Get optimized base64
-      const optimizedImageData = canvas.toDataURL('image/jpeg', 0.8);
-      
-      // Use the image as icon
-      if (iconPickerMode === 'custom-item') {
-        finishAddingCustomItem(optimizedImageData);
-      } else if (iconPickerTarget) {
-        iconPickerTarget.querySelector('.item-icon').textContent = '';
-        const imgElement = document.createElement('img');
-        imgElement.src = optimizedImageData;
-        imgElement.style.width = '100%';
-        imgElement.style.height = '100%';
-        imgElement.style.objectFit = 'cover';
-        imgElement.style.borderRadius = '4px';
-        iconPickerTarget.querySelector('.item-icon').appendChild(imgElement);
-        iconPickerTarget.dataset.icon = optimizedImageData;
-        saveListToStorage();
-      }
-      
-      closeIconPicker();
-      iconImageUpload.value = ''; // Reset input
-    };
-    img.src = imageData;
-  };
-  reader.readAsDataURL(file);
-});
-
-// Icon search functionality
-const iconSearchInput = document.getElementById('iconSearch');
-iconSearchInput.addEventListener('input', (e) => {
-  const searchTerm = e.target.value.trim().toLowerCase();
-  const categories = document.querySelectorAll('.icon-category');
-  
-  if (searchTerm === '') {
-    // Show all categories and icons
-    categories.forEach(cat => {
-      cat.style.display = 'block';
-      const icons = cat.querySelectorAll('.icon-option');
-      icons.forEach(icon => icon.style.display = 'block');
-    });
-    return;
-  }
-  
-  // Filter categories and icons
-  categories.forEach(cat => {
-    const categoryTitle = cat.querySelector('h3').textContent.toLowerCase();
-    const icons = cat.querySelectorAll('.icon-option');
-    let hasVisibleIcons = false;
-    
-    // Check if category name matches
-    const categoryMatches = categoryTitle.includes(searchTerm);
-    
-    // Check each icon
-    icons.forEach(icon => {
-      const iconEmoji = icon.textContent.trim();
-      const iconName = iconNames[iconEmoji] || '';
-      const iconMatches = iconName.toLowerCase().includes(searchTerm);
-      
-      if (categoryMatches || iconMatches) {
-        icon.style.display = 'block';
-        hasVisibleIcons = true;
-      } else {
-        icon.style.display = 'none';
-      }
-    });
-    
-    // Show category only if it has visible icons
-    cat.style.display = hasVisibleIcons ? 'block' : 'none';
-  });
-  
-  // If no results, show a message
-  const hasResults = Array.from(categories).some(cat => cat.style.display !== 'none');
-  
-  if (!hasResults) {
-    // Could add a "no results" message here if desired
-    if (DEBUG_MODE) console.log('No icons found for:', searchTerm);
-  }
-});
-
-// Clear search when opening picker
-function showIconPicker(targetElement, mode) {
-  iconPickerTarget = targetElement;
-  iconPickerMode = mode;
-  document.getElementById('iconPickerModal').style.display = 'flex';
-  
-  // Clear search and show all icons
-  iconSearchInput.value = '';
-  const categories = document.querySelectorAll('.icon-category');
-  categories.forEach(cat => {
-    cat.style.display = 'block';
-  });
-  
-  // Focus search input for easy typing
-  setTimeout(() => iconSearchInput.focus(), 100);
-}
-
-// Add to context menu
-document.getElementById('contextIcon').addEventListener('click', () => {
-  if (longPressChooseItem) {
-    showIconPicker(longPressChooseItem.element, 'choose');
-    hideContextMenu();
-  } else if (longPressTarget) {
-    showIconPicker(longPressTarget, 'list');
-    hideContextMenu();
-  }
-});
-
-// Initialize on page load
-initIconPicker();
-
-/* ====== Choose Items Modal Functionality ====== */
-function openChooseModal() {
-  const modal = document.getElementById('chooseItemsModal');
-  if (!modal) return;
-  
-  modal.style.display = 'flex';
-  
-  // Clear search
-  const searchInput = document.getElementById('chooseSearch');
-  if (searchInput) {
-    searchInput.value = '';
-    filterChooseItems('');
-    // Don't auto-focus on mobile to prevent keyboard popup
-    // User can tap search field if they want to search
-  }
-}
-
-function closeChooseModal() {
-  const modal = document.getElementById('chooseItemsModal');
-  if (!modal) return;
-  modal.style.display = 'none';
-}
-
-// Close choose modal listeners
-document.getElementById('closeChooseModal')?.addEventListener('click', closeChooseModal);
-
-document.getElementById('chooseItemsModal')?.addEventListener('click', (e) => {
-  if (e.target.id === 'chooseItemsModal') {
-    closeChooseModal();
-  }
-});
-
-// Choose search functionality
-const chooseSearchInput = document.getElementById('chooseSearch');
-if (chooseSearchInput) {
-  chooseSearchInput.addEventListener('input', (e) => {
-    const searchTerm = e.target.value.trim().toLowerCase();
-    filterChooseItems(searchTerm);
-  });
-}
-
-function filterChooseItems(searchTerm) {
-  const items = document.querySelectorAll('.choose-item');
-  
-  items.forEach(item => {
-    const text = item.textContent.toLowerCase();
-    const badge = item.querySelector('.badge');
-    const textWithoutBadge = badge ? text.replace(badge.textContent, '').trim() : text;
-    
-    if (searchTerm === '' || textWithoutBadge.includes(searchTerm)) {
-      item.style.display = '';
-    } else {
-      item.style.display = 'none';
-    }
-  });
-}

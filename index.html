@@ -1,57 +1,13 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <!-- Force Vercel rebuild: 2025-11-03 -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#4CAF50" />
-  <title>רשימת קניות חכמה | Shopping List PWA</title>
-  <meta name="description" content="אפליקציית רשימת קניות חכמה בעברית עם מחירים בזמן אמת, שיתוף רשימות, סורק ברקוד וזיהוי קולי. עובדת אופליין ללא התקנה.">
-  <meta name="keywords" content="רשימת קניות, shopping list, מחירים, סופרמרקט, ברקוד, PWA, אפליקציה">
-  
-  <!-- Preconnect to external resources for faster loading -->
-  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
-  
-  <link rel="stylesheet" href="style.css?v=7.0.2" />
-  <link rel="stylesheet" href="icons.css" />
+  <title>רשימת קניות</title>
+  <link rel="stylesheet" href="style.css" />
 
-  <!-- Quagga Barcode Scanner Library -->
-  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
-
-  <!-- Firebase App (the core Firebase SDK) -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <!-- Add Firebase products that you want to use -->
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-  <!-- TODO: עדכן את הערכים שלך מה-Firebase Console -->
-  <script>
-    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-    const firebaseConfig = {
-      apiKey: "AIzaSyDuc3Cx7GnbOOUzWSazB_nnHO6wHE4gIoQ",
-      authDomain: "shopping-3a351.firebaseapp.com",
-      projectId: "shopping-3a351",
-      storageBucket: "shopping-3a351.firebasestorage.app",
-      messagingSenderId: "1035612983793",
-      appId: "1:1035612983793:web:d7741772c29439403d7450",
-      measurementId: "G-NM9ZNPTNDS"
-    };
-    firebase.initializeApp(firebaseConfig);
-    window.db = firebase.firestore(); // Make db globally accessible
-  </script>
   <script src="script.js" defer></script>
-  
-  <!-- PWA & SEO Meta Tags -->
-  <link rel="icon" type="image/png" href="icons/favicon.png">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <link rel="manifest" href="manifest.json">
-  
-  <!-- Open Graph for social sharing -->
-  <meta property="og:title" content="רשימת קניות חכמה">
-  <meta property="og:description" content="אפליקציית רשימת קניות בעברית עם מחירים, שיתוף וסורק ברקוד">
-  <meta property="og:type" content="website">
-  <meta property="og:image" content="https://shopping-app-zeta-eight.vercel.app/icons/icon-512.png">
-
+  <link rel="icon" href="favicon.ico" type="ico">
   <style>
     /* Force compact size for the Save Store selection button */
     #btnSaveStore {
@@ -66,44 +22,13 @@
 
 </head>
 <body>
-  <!-- Share Modal -->
-  <div id="shareModal" class="modal" style="display:none;">
-    <div class="modal-content" style="max-width:400px;text-align:center;position:relative;">
-      <span class="close-modal" id="closeShareModal" style="position:absolute;top:0.3em;right:0.3em;font-size:1.5em;cursor:pointer;z-index:10;background:rgba(255,255,255,0.7);border-radius:50%;width:1.4em;height:1.4em;line-height:1.4em;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:0;text-align:center;">&times;</span>
-      <h2 style="margin-top:1.2em;">קישור לשיתוף הרשימה</h2>
-      <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" aria-label="קישור לשיתוף הרשימה" />
-  <button id="copyShareLinkBtn" class="btn-action" aria-label="העתק את הקישור ללוח">📋 העתק קישור</button>
-  <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;" aria-label="שלח את הקישור ב-SMS">📱 שלח ב-SMS</button>
-  <button id="waShareBtn" class="btn-action" style="margin-right:0.5em;background:#25d366;color:#fff;" aria-label="שתף את הקישור ב-WhatsApp">🟢 שתף ב-WhatsApp</button>
-  <div id="copyStatus" style="margin-top:0.5em;color:green;font-size:0.95em;"></div>
-    </div>
-  </div>
   <header class="app-header">
     <h1>רשימת קניות</h1>
-    <div class="header-controls">
-  <div class="menu-container">
-  <button id="menuButton" class="header-btn menu-icon icon-menu" title="תפריט והגדרות" aria-label="תפריט והגדרות"></button>
+    <div class="menu-container">
+      <button id="menuButton" class="menu-icon">≡</button>
       <div id="menuDropdown" class="menu-dropdown">
-        <button class="dropdown-close icon-close" aria-label="סגור"></button>
-        
-        <!-- קטגוריה: תצוגה -->
-        <div class="menu-section">
-          <div class="menu-section-title">תצוגה</div>
-          <button id="btnViewMode" class="menu-item">🌙☀️ מצב לילה/יום</button>
-          <button id="btnFontIncrease" class="menu-item">🔼 הגדל פונט</button>
-          <button id="btnFontDecrease" class="menu-item">🔽 הקטן פונט</button>
-          <button id="btnFontReset" class="menu-item">↩️ פונט ברירת מחדל</button>
-        </div>
-
-        <!-- קטגוריה: ניהול פריטים -->
-        <!-- Removed: Items management section - no longer needed with + buttons in categories -->
-
-        <!-- קטגוריה: פעולות על הרשימה -->
-        <!-- Removed: Actions moved to list menu next to "הרשימה שלי" -->
-
-        <!-- קטגוריה: הגדרות מתקדמות -->
-        <div class="menu-section">
-          <div class="menu-section-title">הגדרות</div>
+        <button id="btnViewMode">🖥 מצב תצוגה</button>
+        <button id="btnCategoriesSettings">⚙️ סדר קטגוריות</button>
         <!-- Store selector and price toggle (הדבק בתוך ה-header או settings) -->
 <div id="storeSelector" class="store-selector">
   <div class="store-group">
@@ -131,149 +56,74 @@
     <button id="btnSaveStore" class="btn">שמור בחירה</button>
   </div>
 </div>
-        </div>
       </div>
+    </div>
+    <div class="menu-container font-menu-container">
+      <button id="fontMenuButton" class="menu-icon" title="גודל טקסט">A±</button>
+      <div id="fontDropdown" class="menu-dropdown">
+        <button id="btnFontIncrease">🔎 הגדל פונט</button>
+        <button id="btnFontDecrease">🔍 הקטן פונט</button>
+        <button id="btnFontReset">↩️ פונט ברירת מחדל</button>
       </div>
     </div>
   </header>
 
   <main class="app-content">
-    <!-- Button to open choose modal -->
-    <div class="choose-modal-trigger">
-      <button id="btnOpenChooseModal" class="btn-open-choose" aria-label="פתח חלון בחירת פריטים מהקטגוריות">
-        בחר פריטים מהקטגוריה
-      </button>
+    <div class="choose-header">
+     <h2>בחר פריטים</h2>
+     <button id="btnLoadChooseItems" class="btn-action">📥 טען פריטים</button>
+    <button id="toggleChoose" class="btn-action">הסתר</button>
+
     </div>
+
+    <section id="chooseSection">
+      <div id="chooseGrid"></div>
+      <div class="choose-buttons">
+        <button id="btnResetChoices">🔄 איפוס</button>
+        <button id="btnAddCustom">➕ הוספת פריט</button>
+      </div>
+    </section>
 
     <section id="listSection">
       <div class="list-header">
-  <h2>📃 הרשימה שלי</h2>
-  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן" aria-label="שתף את הרשימה דרך Firebase">
-  <img src="icons/share_icon2.png" alt="שתף רשימה" style="width:3.2em;height:3.2em;filter:drop-shadow(0 0 2px #fff);transition:transform 0.12s;">
-  </button>
-  <button id="listMenuButton" class="header-btn menu-icon icon-menu" title="תפריט רשימה" aria-label="תפריט רשימה"></button>
-      </div>
-      
-      <!-- List Menu Dropdown -->
-      <div id="listMenuDropdown" class="menu-dropdown" style="display:none;">
-        <button class="dropdown-close icon-close" aria-label="סגור"></button>
-        
-        <div class="menu-section">
-          <div class="menu-section-title">פעולות</div>
-          <button id="btnListClear" class="menu-item">🗑️ נקה רשימה</button>
-          <button id="btnListShare" class="menu-item">📤 שתף רשימה</button>
-          <button id="btnListShareWA" class="menu-item">💬 שתף ב-WhatsApp</button>
-          <button id="btnListShareSMS" class="menu-item">📱 שתף ב-SMS</button>
-        </div>
-      </div>
-      
-      <div class="add-item-inline" id="addItemList">
-        <input type="text" placeholder="➕ הוסף פריט לרשימה..." class="add-item-input" id="addItemListInput" aria-label="הוסף פריט חדש לרשימה">
-        <button id="btnVoiceInput" class="voice-input-btn" title="הוסף בדיבור" aria-label="הוסף פריט באמצעות זיהוי קולי">🎤</button>
-        <button id="btnScanBarcode" class="scan-barcode-btn" title="סרוק ברקוד" aria-label="סרוק ברקוד להוספת מוצר">📷</button>
+        <h2>📃 הרשימה שלי</h2>
+        <button id="btnLoadPreset" class="btn-action">📋 רשימות</button>
       </div>
       <div id="listGrid"></div>
       <div id="listFooter" class="list-footer">
         <div class="total-row">
+          <button id="btnSaveAsPreset" class="btn-action">💾שמור רשימה</button>
           <span class="total-label">סה"כ:</span>
           <span id="totalAmount" class="total-amount">₪ 0</span>
         </div>
       </div>
-      
-    </section>
-
-    <!-- Cart Section for Purchased Items -->
-    <section id="cartSection" style="display:none;">
-      <div>
-        <div class="list-header">
-          <h2>🛒 עגלה</h2>
-          <button id="btnClearCart" class="clear-cart-btn" title="נקה עגלה">נקה עגלה</button>
-        </div>
-        <div id="cartGrid"></div>
-        <div class="cart-total">
-          <span>סה"כ עגלה:</span>
-          <span id="cartTotalAmount">₪ 0</span>
-        </div>
+      <div class="clean-buttons">
+        <button id="btnClearList" class="btn-action">🧹 נקה רשימה</button>
+        <button id="btnClearChecked" class="btn-action">✔️ נקה סימונים</button>
+        
       </div>
     </section>
 
-    <!-- Context Menu for List Items -->
-    <div id="itemContextMenu" class="context-menu" style="display:none;">
-      <button id="contextEdit" class="context-menu-btn">✏️ ערוך</button>
-      <button id="contextIcon" class="context-menu-btn">🎨 שנה אייקון</button>
-      <button id="contextDelete" class="context-menu-btn delete">🗑️ מחק</button>
-      <button id="contextSelect" class="context-menu-btn select">☑️ בחר</button>
-      <button id="contextCancel" class="context-menu-btn">❌ ביטול</button>
-    </div>
-    
-    <!-- Selection Mode Toolbar -->
-    <div id="selectionToolbar" class="selection-toolbar" style="display:none;">
-      <button id="btnSelectAll" class="context-menu-btn">✅ בחר הכל</button>
-      <button id="btnDeselectAll" class="context-menu-btn">⬜ בטל בחירה</button>
-      <button id="btnDeleteSelected" class="context-menu-btn delete">🗑️ מחק נבחרים (<span id="selectedCount">0</span>)</button>
-      <button id="btnCancelSelection" class="context-menu-btn">❌ ביטול</button>
-    </div>
-
-    <!-- Barcode Scanner Modal -->
-    <div id="barcodeScannerModal" class="modal" style="display:none;">
-      <div class="modal-content barcode-scanner-content">
-        <span class="close-modal" id="closeBarcodeScanner">&times;</span>
-        <h2 class="modal-title">סרוק ברקוד</h2>
-        <div class="scanner-info">כוון את המצלמה לברקוד על המוצר</div>
-        <div id="barcodeScannerViewport" class="barcode-viewport"></div>
-        <div class="scanner-controls">
-          <button id="btnCancelScan" class="btn btn-secondary">ביטול</button>
-        </div>
+    <section id="settingsSection" style="display:none; padding:0.625rem;">
+      <div class="settings-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2>⚙️ הגדרות קטגוריות</h2>
+        <button id="closeSettings" class="toggle-btn">סגור</button>
       </div>
-    </div>
 
-    <!-- Custom Prompt Modal -->
-    <div id="customPromptModal" class="modal" style="display:none;">
-      <div class="modal-content" style="max-width:400px;">
-        <span class="close-modal" id="closeCustomPrompt">&times;</span>
-        <h2 class="modal-title" id="customPromptTitle">הכנס ערך</h2>
-        <p id="customPromptMessage" style="margin-bottom:1rem;text-align:right;"></p>
-        <input type="text" id="customPromptInput" class="custom-prompt-input" style="width:100%;padding:0.7rem;font-size:1rem;border:2px solid #ddd;border-radius:8px;text-align:right;direction:rtl;margin-bottom:1rem;">
-        <div style="display:flex;gap:0.5rem;justify-content:center;">
-          <button id="customPromptCancel" class="btn" style="background:#e0e0e0;color:#333;">ביטול</button>
-          <button id="customPromptOk" class="btn" style="background:#6366f1;color:white;">אישור</button>
-        </div>
-      </div>
-    </div>
+      <p>סדר את הקטגוריות לפי סדר ההליכה בסופר:</p>
+      <ul id="categoriesList"></ul>
 
-    <!-- Icon Picker Modal -->
-    <div id="iconPickerModal" class="modal" style="display:none;">
-      <div class="modal-content icon-picker-content">
-        <span class="close-modal" id="closeIconPicker">&times;</span>
-        <h2 class="modal-title">בחר אייקון</h2>
-        <div class="icon-search-container">
-          <input type="text" id="iconSearch" class="icon-search-input" placeholder="🔍 חפש אייקון...">
-        </div>
-        <div class="icon-upload-container">
-          <input type="file" id="iconImageUpload" accept="image/*" style="display:none;">
-          <button id="btnUploadImage" class="btn-upload-image">📷 העלה תמונה אישית</button>
-        </div>
-        <div id="iconGrid" class="icon-grid"></div>
+      <div class="settings-controls">
+        <button id="btnAddCategory" class="btn-settings add">➕ קטגוריה חדשה</button>
+        <button id="btnCloseCategories" class="toggle-btn">סגור</button>
       </div>
-    </div>
 
-    <!-- Choose Items Modal -->
-    <div id="chooseItemsModal" class="modal" style="display:none;">
-      <div class="modal-content choose-items-modal-content">
-        <span class="close-modal" id="closeChooseModal">&times;</span>
-        <h2 class="modal-title">בחר פריט</h2>
-        <div class="choose-search-container">
-          <input type="text" id="chooseSearch" class="choose-search-input" placeholder="🔍 חפש פריט...">
-        </div>
-        <div id="chooseGrid" class="choose-grid"></div>
-        <div class="add-item-inline-modal">
-          <input type="text" placeholder="➕ הוסף פריט חדש..." class="add-item-input" id="addItemChooseInput">
-        </div>
+      <div class="settings-actions">
+        <button id="btnAssignItem" class="btn-settings assign">📌 שייך פריט לקטגוריה</button>
+        <button id="btnSaveCategories" class="btn-settings save">שמור</button>
       </div>
-    </div>
+    </section>
   </main>
-
-  <!-- Footer removed - all actions moved to menu -->
 
   <script>
     (function(){
@@ -291,10 +141,6 @@
         }
       });
     })();
-
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
-    }
   </script>
   </body>
 </html>

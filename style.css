@@ -319,7 +319,7 @@ body.dark-mode .header-btn::after {
 }
 .menu-container { position: relative; display: inline-block; }
 .menu-dropdown {
-  display: none; position: absolute; top: 2.125rem; left: 0;
+  display: none; position: absolute; top: 2.125rem; right: 0;
   background: white; border: 1px solid #ccc; border-radius: 0.375rem;
   min-width: 13rem; max-height: 85vh; overflow-y: auto;
   box-shadow: 0 0.125rem 0.375rem rgba(0,0,0,0.15); z-index:1000;
@@ -2256,14 +2256,6 @@ body.dark-mode .icon-option:hover {
   letter-spacing: 0.5px;
   position: relative;
   overflow: hidden;
-}
-
-.btn-open-choose::before {
-  content: '🛒';
-  font-size: 1.3rem;
-  margin-left: 0.5rem;
-  display: inline-block;
-  transition: transform 0.3s ease;
 }
 
 .btn-open-choose:hover {
