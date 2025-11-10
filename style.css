@@ -2842,7 +2842,7 @@ body.dark-mode .scan-barcode-btn {
 /* ===== Toast Notification System ===== */
 #toast-container {
   position: fixed;
-  top: 5rem;
+  bottom: 5rem;
   right: 1rem;
   z-index: 99999;
   display: flex;
@@ -2916,7 +2916,7 @@ body.dark-mode .toast-message {
 /* Mobile responsive */
 @media (max-width: 600px) {
   #toast-container {
-    top: 4rem;
+    bottom: 4rem;
     right: 0.5rem;
     left: 0.5rem;
     align-items: stretch;
@@ -2926,7 +2926,7 @@ body.dark-mode .toast-message {
     min-width: unset;
     max-width: unset;
     width: 100%;
-    transform: translateY(-100px);
+    transform: translateY(100px);
   }
   
   .toast-show {
