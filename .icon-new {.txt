@@ -1,6 +1,0 @@
-.icon-new {
-  background-image: url('icons/new-icon.png');
-  background-size: 60%;
-  background-repeat: no-repeat;
-  background-position: center;
-}

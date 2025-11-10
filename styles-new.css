@@ -58,9 +58,6 @@ body.dark-mode .item-note:focus {
 
 /* CLEANED - footer button styles removed */
 @media (max-width: 600px) {
-  #btnSaveAsPreset {
-    margin-right: 1rem
-  }
   .item-note {
     font-size: 0.95rem;
     padding: 0.4rem 0.5rem;
@@ -716,25 +713,6 @@ body.dark-mode #toggleChoose.active {
   white-space: nowrap;
   display: inline-block;
 }
-#btnResetChoices { background:#ff9800; color:white; }
-#btnAddCustom { background:#2196F3; color:white; }
-#btnLoadPreset {
-  background: #4CAF50;
-  color: white;
-  font-size: 0.92rem;
-  font-weight: 600;
-  padding: 0.36rem 0.7rem;
-  border-radius: 7px;
-  margin: 0.25rem;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-  display: inline-block;
-}
-#btnLoadChooseItems { background:#607D8B; color:white; }
-#btnClearList { background:#f44336; color:white; }
-#btnClearChecked { background:#9C27B0; color:white; }
-#btnSaveAsPreset { background:#FF9800; color:white; }
 /* CLEANED - header button specific styles removed */
 
 /* בחירה חזותית לפריטי 'בחר פריטים' */
@@ -755,19 +733,6 @@ body.dark-mode #toggleChoose.active {
 /* הסרנו את הבלוק הכפול - משתמשים בהגדרה למעלה */
 
 
-
-/* סגנון אחיד לכפתורי הגדרות */
-.btn-settings {
-  background:#888; color:white; border:none; padding:0.5rem 0.625rem; border-radius:0.375rem; cursor:pointer; font-weight:700;
-}
-.btn-settings:hover { background:#666; }
-/* צבעים לפי תפקיד */
-.btn-settings.add { background:#4CAF50; }
-.btn-settings.assign { background:#FF9800; }
-.btn-settings.save { background:#2196F3; }
-.btn-settings.add:hover { background:#45a049; }
-.btn-settings.assign:hover { background:#e68900; }
-.btn-settings.save:hover { background:#1976d2; }
 
 /* Settings header */
 .settings-header {
@@ -1318,9 +1283,7 @@ body.dark-mode .panel, body.dark-mode .card, body.dark-mode .choose-item, body.d
 body.dark-mode .choose-item { background: rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.04); color:#f5f5f5; }
 body.dark-mode .choose-item.selected { background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)); border-color: rgba(255,255,255,0.06); }
 body.dark-mode .choose-section-title, body.dark-mode .section-title, body.dark-mode .app-header h2, body.dark-mode .app-header .subtitle { color:#f1f1f1; text-shadow:0 1px 0 rgba(0,0,0,0.22); }
-body.dark-mode .controls button, body.dark-mode .btn-action, body.dark-mode .choose-buttons button, body.dark-mode .clean-buttons button,
-body.dark-mode button#btnAddCustom, body.dark-mode button#btnResetChoices, body.dark-mode button#btnLoadPreset, 
-body.dark-mode button#btnLoadChooseItems, body.dark-mode button#btnClearList, body.dark-mode button#btnClearChecked, body.dark-mode button#btnSaveAsPreset { 
+body.dark-mode .controls button, body.dark-mode .btn-action, body.dark-mode .choose-buttons button, body.dark-mode .clean-buttons button { 
   background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.06)); 
   border: 1px solid rgba(255,255,255,0.04); 
   color: #f7f7f7; 
@@ -1356,18 +1319,6 @@ body.dark-mode .item .price:hover { background: rgba(255,255,255,0.06); }
   #listGrid .item .name { font-size: 1.35rem !important; }
   #listGrid .item .price { font-size: 1.35rem !important; }
   .choose-header h2 { font-size: 1.5rem !important; font-weight: 700 !important; }
-}
-
-/* הזזת btnSaveAsPreset לימין מוחלט בתוך .total-row */
-.total-row {
-  display: flex;
-  gap: 1.2rem;
-  align-items: center;
-  font-weight: 700;
-}
-#btnSaveAsPreset {
-  margin-right: auto;
-  order: -1;
 }
 
 /* בוטל: שינוי גודל כפתור טען פריטים במובייל */

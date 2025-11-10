@@ -1,6 +1,0 @@
-/* Add border to emoji icon only, not button */
-.footer-btn[class*="icon-"]::before,
-.header-btn[class*="icon-"]::before {
-  border: 2px solid var(--accent, #d1d5db);
-  background: transparent;
-}

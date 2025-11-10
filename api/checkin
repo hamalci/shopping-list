@@ -1,0 +1,13 @@
+{
+  "message": "NFC Attendance API",
+  "instructions": "Use: ?employee_id=emp001",
+  "endpoints": {
+    "checkin": "/api/checkin?employee_id=emp001",
+    "status": "/api/status"
+  },
+  "employees": [
+    {"id": "emp001", "name": "עובד ראשון"},
+    {"id": "emp002", "name": "עובד שני"},
+    {"id": "emp003", "name": "עובד שלישי"}
+  ]
+}

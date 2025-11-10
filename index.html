@@ -5,6 +5,24 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#4CAF50" />
+  
+  <!-- Enhanced Security Headers -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https://images.unsplash.com https://unsplash.com;
+    connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+  ">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  
   <title>רשימת קניות חכמה | Shopping List PWA</title>
   <meta name="description" content="אפליקציית רשימת קניות חכמה בעברית עם מחירים בזמן אמת, שיתוף רשימות, סורק ברקוד וזיהוי קולי. עובדת אופליין ללא התקנה.">
   <meta name="keywords" content="רשימת קניות, shopping list, מחירים, סופרמרקט, ברקוד, PWA, אפליקציה">
@@ -12,9 +30,10 @@
   <!-- Preconnect to external resources for faster loading -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   
-  <link rel="stylesheet" href="style.css?v=7.0.2" />
+  <link rel="stylesheet" href="style.css?v=7.1.0" />
   <link rel="stylesheet" href="icons.css" />
 
   <!-- Quagga Barcode Scanner Library -->
@@ -101,6 +120,15 @@
         <!-- קטגוריה: פעולות על הרשימה -->
         <!-- Removed: Actions moved to list menu next to "הרשימה שלי" -->
 
+        <!-- קטגוריה: גיבוי ונתונים -->
+        <div class="menu-section">
+          <div class="menu-section-title">💾 גיבוי ונתונים</div>
+          <button id="btnExportData" class="menu-item">📤 ייצא נתונים</button>
+          <button id="btnImportData" class="menu-item">📥 ייבא נתונים</button>
+          <button id="btnBackupData" class="menu-item">🔄 גבה אוטומטית</button>
+          <button id="btnClearData" class="menu-item">🗑️ נקה כל הנתונים</button>
+        </div>
+
         <!-- קטגוריה: הגדרות מתקדמות -->
         <div class="menu-section">
           <div class="menu-section-title">⚙️ הגדרות</div>
@@ -129,6 +157,10 @@
       <span class="toggle-label">הצג מחירים</span>
     </label>
     <button id="btnSaveStore" class="btn">שמור בחירה</button>
+    <!-- Emergency clean button (hidden by default, appears on long-press) -->
+    <button id="btnEmergencyClean" class="btn btn-emergency" style="display:none; background-color: #ff6b6b; color: white; margin-top: 8px;" title="ניקוי חירום של נתונים פגומים">
+      🧹 ניקוי יסודי
+    </button>
   </div>
 </div>
         </div>
@@ -142,6 +174,9 @@
     <div class="choose-modal-trigger">
       <button id="btnOpenChooseModal" class="btn-open-choose" aria-label="פתח חלון קטגוריות">
         קטגוריות
+      </button>
+      <button id="btnToggleDarkMode" class="btn-dark-toggle" aria-label="מעבר בין מצב יום ולילה" title="מצב לילה">
+        🌙
       </button>
     </div>
 
@@ -229,11 +264,11 @@
 
     <!-- Custom Prompt Modal -->
     <div id="customPromptModal" class="modal" style="display:none;">
-      <div class="modal-content" style="max-width:400px;">
+      <div class="modal-content" style="max-width:90vw; width:100%; max-width:600px;">
         <span class="close-modal" id="closeCustomPrompt">&times;</span>
         <h2 class="modal-title" id="customPromptTitle">הכנס ערך</h2>
         <p id="customPromptMessage" style="margin-bottom:1rem;text-align:right;"></p>
-        <input type="text" id="customPromptInput" class="custom-prompt-input" style="width:100%;padding:0.7rem;font-size:1rem;border:2px solid #ddd;border-radius:8px;text-align:right;direction:rtl;margin-bottom:1rem;">
+        <input type="text" id="customPromptInput" class="custom-prompt-input" style="width:100%;max-width:100%;box-sizing:border-box;padding:0.7rem;font-size:1rem;border:2px solid #ddd;border-radius:8px;text-align:right;direction:rtl;margin-bottom:1rem;">
         <div style="display:flex;gap:0.5rem;justify-content:center;">
           <button id="customPromptCancel" class="btn" style="background:#e0e0e0;color:#333;">ביטול</button>
           <button id="customPromptOk" class="btn" style="background:#6366f1;color:white;">אישור</button>
@@ -252,10 +287,17 @@
         <div class="icon-upload-container">
           <input type="file" id="iconImageUpload" accept="image/*" style="display:none;">
           <button id="btnUploadImage" class="btn-upload-image">📷 העלה תמונה אישית</button>
+          <div class="url-input-container" style="margin-top: 0.5rem;">
+            <input type="url" id="iconUrlInput" class="icon-url-input" placeholder="🌐 הכנס קישור לתמונה מהרשת...">
+            <button id="btnUseUrl" class="btn-use-url">✓ השתמש</button>
+          </div>
         </div>
         <div id="iconGrid" class="icon-grid"></div>
       </div>
     </div>
+
+    <!-- Hidden file input for data import -->
+    <input type="file" id="importFileInput" accept=".json" style="display: none;">
 
     <!-- Choose Items Modal -->
     <div id="chooseItemsModal" class="modal" style="display:none;">
