@@ -1063,8 +1063,8 @@ function makeChooseButton(item) {
       badge.textContent = String(num);
       badge.style.display = "inline-flex";
     } else {
-      // Fix icon for corrupted data when creating list item  
-      let iconToUse = item.icon;
+      // Get the current icon from data-icon attribute (most up-to-date)
+      let iconToUse = btn.getAttribute('data-icon') || item.icon;
       if (iconToUse && iconToUse.length > 10 && 
           !iconToUse.startsWith('data:image/') && 
           !iconToUse.startsWith('http://') && 
@@ -4030,18 +4030,35 @@ function saveChooseItemsToStorage() {
   const chooseGrid = document.getElementById('chooseGrid');
   const items = Array.from(chooseGrid.querySelectorAll('.choose-item')).map(btn => {
     const text = btn.textContent.trim().replace(/\d+$/, '').trim(); // Remove badge number
+    const dataIcon = btn.getAttribute('data-icon');
+    const dataUnit = btn.getAttribute('data-unit') || 'יח\'';
+    
+    if (dataIcon) {
+      // Use data attributes for accurate icon and unit
+      const iconMatch = text.match(/^([\u{1F300}-\u{1F9FF}])\s*(.+)/u);
+      const name = iconMatch ? iconMatch[2] : text.replace(/^[^\s]+\s*/, ''); // Remove first word if it's emoji
+      
+      return {
+        icon: dataIcon,
+        name: name.trim() || text.trim(),
+        unit: dataUnit
+      };
+    }
+    
+    // Fallback to old logic for backwards compatibility
     const iconMatch = text.match(/^([\u{1F300}-\u{1F9FF}])\s*(.+)/u);
     if (iconMatch) {
       return {
         icon: iconMatch[1],
         name: iconMatch[2],
-        unit: 'יח\''
+        unit: dataUnit
       };
     }
+    
     return {
       icon: '🛒',
       name: text,
-      unit: 'יח\''
+      unit: dataUnit
     };
   });
   
