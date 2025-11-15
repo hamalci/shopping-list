@@ -84,199 +84,6 @@ const rateLimiter = {
   }
 };
 
-// === BACKUP AND DATA MANAGEMENT ===
-const DataManager = {
-  // Export all app data
-  exportData() {
-    if (!rateLimiter.canPerform('export')) {
-      showToast('יותר מדי ניסיונות ייצוא. נסה שוב מאוחר יותר.', 'error');
-      return;
-    }
-    
-    try {
-      const data = {
-        version: '1.0.0',
-        timestamp: new Date().toISOString(),
-        shoppingList: JSON.parse(localStorage.getItem('shoppingList') || '[]'),
-        chooseItems: JSON.parse(localStorage.getItem('chooseItems') || '{}'),
-        settings: {
-          darkMode: document.body.classList.contains('dark-mode'),
-          selectedStore: localStorage.getItem('selectedStore') || '',
-          selectedNetwork: localStorage.getItem('selectedNetwork') || '',
-          fontSize: localStorage.getItem('fontSize') || 'medium'
-        }
-      };
-      
-      const dataStr = JSON.stringify(data, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(dataBlob);
-      link.download = `shopping-list-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-      
-      showToast('הנתונים יוצאו בהצלחה! 📤', 'success');
-    } catch (error) {
-      console.error('Export failed:', error);
-      showToast('שגיאה בייצוא הנתונים', 'error');
-    }
-  },
-
-  // Import data from file
-  importData() {
-    if (!rateLimiter.canPerform('import')) {
-      showToast('יותר מדי ניסיונות יבוא. נסה שוב מאוחר יותר.', 'error');
-      return;
-    }
-    
-    const input = document.getElementById('importFileInput');
-    input.onchange = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      
-      if (file.type !== 'application/json' && !file.name.endsWith('.json')) {
-        showToast('יש לבחור קובץ JSON בלבד', 'error');
-        return;
-      }
-      
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
-        showToast('הקובץ גדול מדי (מקסימום 10MB)', 'error');
-        return;
-      }
-      
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const data = JSON.parse(event.target.result);
-          this.validateAndImportData(data);
-        } catch (error) {
-          console.error('Import failed:', error);
-          showToast('קובץ לא תקין או פגום', 'error');
-        }
-      };
-      reader.readAsText(file);
-      input.value = ''; // Reset input
-    };
-    input.click();
-  },
-
-  // Validate and import data
-  validateAndImportData(data) {
-    if (!data || typeof data !== 'object') {
-      throw new Error('Invalid data format');
-    }
-    
-    // Validate structure
-    if (!data.shoppingList || !Array.isArray(data.shoppingList)) {
-      throw new Error('Missing or invalid shopping list data');
-    }
-    
-    if (data.chooseItems && typeof data.chooseItems !== 'object') {
-      throw new Error('Invalid choose items data');
-    }
-    
-    // Confirm with user
-    if (!confirm(`האם לייבא נתונים מ-${data.timestamp || 'תאריך לא ידוע'}? פעולה זו תדרוס את הנתונים הקיימים.`)) {
-      return;
-    }
-    
-    try {
-      // Import shopping list
-      if (data.shoppingList.length > 0) {
-        localStorage.setItem('shoppingList', JSON.stringify(data.shoppingList));
-      }
-      
-      // Import choose items
-      if (data.chooseItems && Object.keys(data.chooseItems).length > 0) {
-        localStorage.setItem('chooseItems', JSON.stringify(data.chooseItems));
-      }
-      
-      // Import settings
-      if (data.settings) {
-        if (data.settings.selectedStore) {
-          localStorage.setItem('selectedStore', data.settings.selectedStore);
-        }
-        if (data.settings.selectedNetwork) {
-          localStorage.setItem('selectedNetwork', data.settings.selectedNetwork);
-        }
-        if (data.settings.fontSize) {
-          localStorage.setItem('fontSize', data.settings.fontSize);
-        }
-        if (data.settings.darkMode !== undefined) {
-          document.body.classList.toggle('dark-mode', data.settings.darkMode);
-          localStorage.setItem('darkMode', data.settings.darkMode);
-        }
-      }
-      
-      // Reload the page to apply changes
-      showToast('הנתונים יובאו בהצלחה! האפליקציה תתרענן...', 'success');
-      setTimeout(() => location.reload(), 1500);
-      
-    } catch (error) {
-      console.error('Data import failed:', error);
-      showToast('שגיאה ביבוא הנתונים', 'error');
-    }
-  },
-
-  // Auto backup to localStorage with compression
-  autoBackup() {
-    try {
-      const backup = {
-        timestamp: new Date().toISOString(),
-        data: {
-          shoppingList: localStorage.getItem('shoppingList') || '[]',
-          chooseItems: localStorage.getItem('chooseItems') || '{}',
-        }
-      };
-      
-      localStorage.setItem('autoBackup', JSON.stringify(backup));
-      
-      // Keep only last 5 backups
-      const backups = JSON.parse(localStorage.getItem('backupHistory') || '[]');
-      backups.unshift(backup);
-      localStorage.setItem('backupHistory', JSON.stringify(backups.slice(0, 5)));
-      
-    } catch (error) {
-      console.error('Auto backup failed:', error);
-    }
-  },
-
-  // Clear all data
-  clearAllData() {
-    if (!confirm('האם אתה בטוח שברצונך למחוק את כל הנתונים? פעולה זו בלתי הפיכה!')) {
-      return;
-    }
-    
-    if (!confirm('זוהי אזהרה אחרונה! כל הרשימות והקטגוריות יימחקו לצמיתות.')) {
-      return;
-    }
-    
-    try {
-      // Create final backup before clearing
-      this.exportData();
-      
-      // Clear all localStorage data
-      const keysToKeep = ['fontSize', 'darkMode']; // Keep UI preferences
-      const allKeys = Object.keys(localStorage);
-      allKeys.forEach(key => {
-        if (!keysToKeep.includes(key)) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      showToast('כל הנתונים נמחקו. האפליקציה תתרענן...', 'info');
-      setTimeout(() => location.reload(), 1500);
-      
-    } catch (error) {
-      console.error('Clear data failed:', error);
-      showToast('שגיאה במחיקת הנתונים', 'error');
-    }
-  }
-};
-
 // Validate data size for Firebase
 function validateDataSize(data) {
   const jsonString = JSON.stringify(data);
@@ -597,6 +404,263 @@ const DOM = {
 let categoriesOrder = [];
 const categories = {};
 
+// Global categorized items - used by loadDefaultChooseItems and syncImagesFromPhotoprism
+const CATEGORIZED_ITEMS = {
+  'פירות וירקות': [
+    { name:"תפוח",icon:"🍎",unit:"ק\"ג" },
+    { name:"בננה",icon:"🍌",unit:"ק\"ג" },
+    { name:"תפוז",icon:"🍊",unit:"ק\"ג" },
+    { name:"אבטיח",icon:"🍉",unit:"יח'" },
+    { name:"מלון",icon:"🍈",unit:"יח'" },
+    { name:"ענבים",icon:"🍇",unit:"ק\"ג" },
+    { name:"תות",icon:"🍓",unit:"אריזה" },
+    { name:"אננס",icon:"🍍",unit:"יח'" },
+    { name:"אפרסק",icon:"🍑",unit:"ק\"ג" },
+    { name:"שזיף",icon:"🍇",unit:"ק\"ג" },
+    { name:"קלמנטינה",icon:"🍊",unit:"ק\"ג" },
+    { name:"קיווי",icon:"🥝",unit:"ק\"ג" },
+    { name:"מנגו",icon:"🥭",unit:"יח'" },
+    { name:"רימון",icon:"🍎",unit:"ק\"ג" },
+    { name:"אפרסמון",icon:"🍊",unit:"ק\"ג" },
+    { name:"אגס",icon:"🍐",unit:"ק\"ג" },
+    { name:"אבוקדו",icon:"🥑",unit:"יח'" },
+    { name:"לימון",icon:"🍋",unit:"ק\"ג" },
+    { name:"תמר",icon:"🫒",unit:"ק\"ג" },
+    { name:"דובדבן",icon:"🍒",unit:"ק\"ג" },
+    { name:"פטל",icon:"🫐",unit:"אריזה" },
+    { name:"אוכמניות",icon:"🫐",unit:"אריזה" },
+    { name:"גזר",icon:"🥕",unit:"ק\"ג" },
+    { name:"עגבניה",icon:"🍅",unit:"ק\"ג" },
+    { name:"מלפפון",icon:"🥒",unit:"ק\"ג" },
+    { name:"חסה",icon:"🥬",unit:"יח'" },
+    { name:"כרוב",icon:"🥬",unit:"יח'" },
+    { name:"ברוקולי",icon:"🥦",unit:"יח'" },
+    { name:"כרובית",icon:"🥦",unit:"יח'" },
+    { name:"בצל",icon:"🧅",unit:"ק\"ג" },
+    { name:"שום",icon:"🧄",unit:"ק\"ג" },
+    { name:"תפוח אדמה",icon:"🥔",unit:"ק\"ג" },
+    { name:"בטטה",icon:"🍠",unit:"ק\"ג" },
+    { name:"קישוא",icon:"🥒",unit:"ק\"ג" },
+    { name:"חצילים",icon:"🍆",unit:"ק\"ג" },
+    { name:"פלפל אדום",icon:"🫑",unit:"ק\"ג" },
+    { name:"פלפל ירוק",icon:"🫑",unit:"ק\"ג" },
+    { name:"פלפל צהוב",icon:"🫑",unit:"ק\"ג" },
+    { name:"קולרבי",icon:"🥬",unit:"ק\"ג" },
+    { name:"סלרי",icon:"🥬",unit:"אגד" },
+    { name:"פטרוזיליה",icon:"🌿",unit:"אגד" },
+    { name:"כוסברה",icon:"🌿",unit:"אגד" },
+    { name:"שבת",icon:"🌿",unit:"אגד" },
+    { name:"כרישה",icon:"🥬",unit:"אגד" },
+    { name:"תרד",icon:"🥬",unit:"אריזה" },
+    { name:"נבטים",icon:"🌱",unit:"אריזה" },
+    { name:"קייל",icon:"🥬",unit:"אריזה" },
+    { name:"ג'ינג'ר",icon:"🫚",unit:"ק\"ג" },
+    { name:"נענע",icon:"🌿",unit:"אגד" },
+    { name:"בזיליקום",icon:"🌿",unit:"אגד" },
+    { name:"לוף",icon:"🥒",unit:"יח'" }
+  ],
+  'מוצרי חלב': [
+    { name:"חלב",icon:"🥛",unit:"ליטר" },
+    { name:"גבינה צהובה",icon:"🧀",unit:"אריזה" },
+    { name:"גבינה לבנה",icon:"🧀",unit:"אריזה" },
+    { name:"קוטג'",icon:"🥛",unit:"אריזה" },
+    { name:"יוגורט",icon:"🥛",unit:"יח'" },
+    { name:"שמנת",icon:"🥛",unit:"אריזה" },
+    { name:"חמאה",icon:"🧈",unit:"אריזה" },
+    { name:"ביצים",icon:"🥚",unit:"יח'" },
+    { name:"חלב שקדים",icon:"🥛",unit:"ליטר" },
+    { name:"חלב סויה",icon:"🥛",unit:"ליטר" },
+    { name:"משקה יוגורט",icon:"🥛",unit:"יח'" },
+    { name:"מעדני חלב",icon:"🍮",unit:"יח'" },
+    { name:"גבינת שמנת",icon:"🧀",unit:"אריזה" },
+    { name:"גבינה קשה",icon:"🧀",unit:"ק\"ג" },
+    { name:"מרגרינה",icon:"🧈",unit:"אריזה" }
+  ],
+  'מאפים ולחמים': [
+    { name:"לחם",icon:"🍞",unit:"יח'" },
+    { name:"חלה",icon:"🍞",unit:"יח'" },
+    { name:"לחמניות",icon:"🍞",unit:"אריזה" },
+    { name:"פיתות",icon:"🫓",unit:"אריזה" },
+    { name:"טורטייה",icon:"🌯",unit:"אריזה" },
+    { name:"בייגל",icon:"🥯",unit:"אריזה" },
+    { name:"קרואסון",icon:"🥐",unit:"אריזה" },
+    { name:"עוגיות",icon:"🍪",unit:"אריזה" },
+    { name:"עוגה",icon:"🎂",unit:"יח'" },
+    { name:"בורקס",icon:"🥐",unit:"אריזה" },
+    { name:"פריכיות",icon:"🍪",unit:"אריזה" }
+  ],
+  'בשר ועופות': [
+    { name:"חזה עוף",icon:"🍗",unit:"ק\"ג" },
+    { name:"שניצל",icon:"🍗",unit:"ק\"ג" },
+    { name:"כרעיים עוף",icon:"🍗",unit:"ק\"ג" },
+    { name:"עוף שלם",icon:"🍗",unit:"ק\"ג" },
+    { name:"בשר טחון",icon:"🥩",unit:"ק\"ג" },
+    { name:"אנטריקוט",icon:"🥩",unit:"ק\"ג" },
+    { name:"סטייק",icon:"🥩",unit:"ק\"ג" },
+    { name:"נקניקיות",icon:"🌭",unit:"אריזה" },
+    { name:"נקניק",icon:"🌭",unit:"ק\"ג" },
+    { name:"קבב",icon:"🥩",unit:"ק\"ג" }
+  ],
+  'דגים': [
+    { name:"סלמון",icon:"🐟",unit:"ק\"ג" },
+    { name:"טונה",icon:"🥫",unit:"קופסא" },
+    { name:"דניס",icon:"🐟",unit:"ק\"ג" },
+    { name:"בורי",icon:"🐟",unit:"ק\"ג" },
+    { name:"פילה דג",icon:"🐟",unit:"ק\"ג" },
+    { name:"שרימפס",icon:"🦐",unit:"ק\"ג" }
+  ],
+  'מזווה ויבשים': [
+    { name:"אורז",icon:"🍚",unit:"ק\"ג" },
+    { name:"אורז מלא",icon:"🍚",unit:"ק\"ג" },
+    { name:"אורז בסמטי",icon:"🍚",unit:"ק\"ג" },
+    { name:"אורז יסמין",icon:"🍚",unit:"ק\"ג" },
+    { name:"פסטה",icon:"🍝",unit:"אריזה" },
+    { name:"קוסקוס",icon:"🍚",unit:"אריזה" },
+    { name:"בורגול",icon:"🍚",unit:"ק\"ג" },
+    { name:"קמח",icon:"🌾",unit:"ק\"ג" },
+    { name:"סוכר",icon:"🧂",unit:"ק\"ג" },
+    { name:"מלח",icon:"🧂",unit:"אריזה" },
+    { name:"שמן",icon:"🫒",unit:"ליטר" },
+    { name:"שמן זית",icon:"🫒",unit:"ליטר" },
+    { name:"קטשופ",icon:"🍅",unit:"בקבוק" },
+    { name:"מיונז",icon:"🥚",unit:"צנצנת" },
+    { name:"חומוס",icon:"🥫",unit:"אריזה" },
+    { name:"טחינה",icon:"🥫",unit:"צנצנת" },
+    { name:"ריבה",icon:"🍓",unit:"צנצנת" },
+    { name:"דבש",icon:"🍯",unit:"צנצנת" },
+    { name:"שוקולד ממרח",icon:"🍫",unit:"צנצנת" },
+    { name:"קפה",icon:"☕",unit:"אריזה" },
+    { name:"תה",icon:"🍵",unit:"אריזה" },
+    { name:"אבקת קקאו",icon:"☕",unit:"אריזה" },
+    { name:"רוטב סויה",icon:"🥫",unit:"בקבוק" },
+    { name:"רוטב צ'ילי",icon:"🌶️",unit:"בקבוק" },
+    { name:"רוטב טריאקי",icon:"🥫",unit:"בקבוק" },
+    { name:"רטבים לסלט",icon:"🥗",unit:"בקבוק" },
+    { name:"חרדל",icon:"🥫",unit:"צנצנת" },
+    { name:"חומץ",icon:"🫒",unit:"בקבוק" },
+    { name:"קוואקר",icon:"🥣",unit:"אריזה" },
+    { name:"תבלינים",icon:"🌶️",unit:"צנצנת" },
+    { name:"סילאן",icon:"🍯",unit:"בקבוק" },
+    { name:"מוזלי",icon:"🥣",unit:"אריזה" },
+    { name:"גרנולה",icon:"🥣",unit:"אריזה" },
+    { name:"שוקולית",icon:"🍫",unit:"בקבוק" },
+    { name:"קקאו",icon:"☕",unit:"אריזה" },
+    { name:"אבקת אפייה",icon:"🧂",unit:"אריזה" },
+    { name:"סודה לשתייה",icon:"🧂",unit:"אריזה" },
+    { name:"שמרים",icon:"🍞",unit:"אריזה" },
+    { name:"תחליף סוכר",icon:"🧂",unit:"אריזה" },
+    { name:"פצפוצי אורז",icon:"🍚",unit:"אריזה" },
+    { name:"נייר אפייה",icon:"📄",unit:"גליל" },
+    { name:"שקיות זילוף",icon:"📦",unit:"אריזה" },
+    { name:"סוכריות צבעוניות",icon:"🍭",unit:"אריזה" },
+    { name:"קוקוס",icon:"🥥",unit:"אריזה" },
+    { name:"אינסטנט פודינג",icon:"🍮",unit:"אריזה" }
+  ],
+  'משקאות': [
+    { name:"מים",icon:"💧",unit:"בקבוק" },
+    { name:"מים נביעות הגולן 1.5L",icon:"💧",unit:"בקבוק" },
+    { name:"מים עין גדי 1.5L",icon:"💧",unit:"בקבוק" },
+    { name:"מיץ",icon:"🧃",unit:"ליטר" },
+    { name:"מיץ פרימור 1L",icon:"🧃",unit:"ליטר" },
+    { name:"מיץ טרופיקנה 1L",icon:"🧃",unit:"ליטר" },
+    { name:"קולה",icon:"🥤",unit:"ליטר" },
+    { name:"קוקה קולה 1.5L",icon:"🥤",unit:"בקבוק" },
+    { name:"פפסי 1.5L",icon:"🥤",unit:"בקבוק" },
+    { name:"פחית קולה",icon:"🥤",unit:"יח'" },
+    { name:"בירה",icon:"🍺",unit:"בקבוק" },
+    { name:"בירה גולדסטאר",icon:"🍺",unit:"בקבוק" },
+    { name:"בירה קרלסברג",icon:"🍺",unit:"בקבוק" },
+    { name:"יין",icon:"🍷",unit:"בקבוק" },
+    { name:"יין ברקן",icon:"🍷",unit:"בקבוק" },
+    { name:"יין כרמל",icon:"🍷",unit:"בקבוק" },
+    { name:"יין גולן",icon:"🍷",unit:"בקבוק" },
+    { name:"אלכוהול",icon:"🥃",unit:"בקבוק" }
+  ],
+  'חטיפים וממתקים': [
+    { name:"שוקולד",icon:"🍫",unit:"יח'" },
+    { name:"שוקולד מילקה",icon:"🍫",unit:"יח'" },
+    { name:"שוקולד קינדר",icon:"🍫",unit:"יח'" },
+    { name:"ביסלי",icon:"🥨",unit:"שקית" },
+    { name:"במבה",icon:"🥜",unit:"שקית" },
+    { name:"במבה אסם",icon:"🥜",unit:"שקית" },
+    { name:"דובונים",icon:"🍬",unit:"שקית" },
+    { name:"סוכריות",icon:"🍬",unit:"שקית" },
+    { name:"גלידה",icon:"🍦",unit:"יח'" },
+    { name:"גלידה בן אנד ג'ריס",icon:"🍦",unit:"יח'" },
+    { name:"גלידה שטראוס",icon:"🍦",unit:"יח'" },
+    { name:"עוגיות",icon:"🍪",unit:"אריזה" },
+    { name:"עוגיות לוטוס",icon:"🍪",unit:"אריזה" },
+    { name:"פופקורן",icon:"🍿",unit:"אריזה" },
+    { name:"חטיף אנרגיה",icon:"🍫",unit:"יח'" },
+    { name:"אגוזים",icon:"🥜",unit:"שקית" }
+  ],
+  'מוצרי ניקיון': [
+    { name:"נייר טואלט",icon:"🧻",unit:"אריזה" },
+    { name:"מגבות נייר",icon:"🧻",unit:"אריזה" },
+    { name:"סבון כלים",icon:"🧴",unit:"בקבוק" },
+    { name:"אבקת כביסה",icon:"🧴",unit:"אריזה" },
+    { name:"מרכך כביסה",icon:"🧴",unit:"בקבוק" },
+    { name:"אקונומיקה",icon:"🧴",unit:"בקבוק" },
+    { name:"שקיות זבל",icon:"🗑️",unit:"אריזה" },
+    { name:"ספוג",icon:"🧽",unit:"אריזה" },
+    { name:"מטליות",icon:"🧽",unit:"אריזה" },
+    { name:"סבון רצפה",icon:"🧴",unit:"בקבוק" },
+    { name:"מגבונים",icon:"🧻",unit:"אריזה" },
+    { name:"תרסיס לניקוי וחיטוי",icon:"🧴",unit:"בקבוק" },
+    { name:"נוזל רצפות",icon:"🧴",unit:"בקבוק" },
+    { name:"גל לכביסה",icon:"🧴",unit:"בקבוק" },
+    { name:"חומר למדיח כלים",icon:"📦",unit:"אריזה" },
+    { name:"סמרטוט רצפה",icon:"🧽",unit:"יח'" },
+    { name:"מטליות ניקוי",icon:"🧽",unit:"אריזה" },
+    { name:"אלכוג'ל",icon:"🧴",unit:"בקבוק" }
+  ],
+  'מוצרי טיפוח': [
+    { name:"סבון רחצה",icon:"🧼",unit:"יח'" },
+    { name:"שמפו",icon:"🧴",unit:"בקבוק" },
+    { name:"מרכך שיער",icon:"🧴",unit:"בקבוק" },
+    { name:"משחת שיניים",icon:"🪥",unit:"יח'" },
+    { name:"מברשת שיניים",icon:"🪥",unit:"יח'" },
+    { name:"דאודורנט",icon:"🧴",unit:"יח'" },
+    { name:"תער",icon:"🪒",unit:"אריזה" },
+    { name:"קרם לחות",icon:"🧴",unit:"יח'" },
+    { name:"טישו",icon:"🧻",unit:"אריזה" },
+    { name:"פדים וטמפונים",icon:"🧻",unit:"אריזה" },
+    { name:"סכיני גילוח",icon:"🪒",unit:"אריזה" },
+    { name:"רצועות שעווה",icon:"🧴",unit:"אריזה" },
+    { name:"גל וקצף גילוח",icon:"🧴",unit:"בקבוק" },
+    { name:"קיסמי שיניים",icon:"🪥",unit:"אריזה" },
+    { name:"קיסמי אוזניים",icon:"🧻",unit:"אריזה" },
+    { name:"חוט דנטלי",icon:"🪥",unit:"יח'" }
+  ],
+  'מוצרי תינוק': [
+    { name:"חיתולים",icon:"👶",unit:"אריזה" },
+    { name:"חיתולי האגיס 4-9 ק\"ג",icon:"👶",unit:"אריזה" },
+    { name:"חיתולי האגיס פרידום דריי מידה 5+",icon:"👶",unit:"אריזה" },
+    { name:"חיתולי כיפי מידה 4",icon:"👶",unit:"אריזה" },
+    { name:"חיתולי פרה מגה פק",icon:"👶",unit:"אריזה" },
+    { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
+    { name:"מטליות לחות",icon:"🧻",unit:"אריזה" },
+    { name:"מטליות האגיס",icon:"🧻",unit:"אריזה" },
+    { name:"קרם לתינוק",icon:"🧴",unit:"יח'" },
+    { name:"שמפו לתינוק",icon:"🧴",unit:"בקבוק" }
+  ],
+  'קפואים': [
+    { name:"גלידה",icon:"🍦",unit:"יח'" },
+    { name:"ירקות קפואים",icon:"🧊",unit:"אריזה" },
+    { name:"פיצה קפואה",icon:"🍕",unit:"יח'" },
+    { name:"שניצל קפוא",icon:"🧊",unit:"אריזה" },
+    { name:"דגים קפואים",icon:"🧊",unit:"אריזה" },
+    { name:"בצק עלים",icon:"🧊",unit:"אריזה" },
+    { name:"מוצרי סויה",icon:"🧊",unit:"אריזה" },
+    { name:"אוכל מוכן קפוא",icon:"🧊",unit:"יח'" },
+    { name:"לקט ירקות מוקפא",icon:"🧊",unit:"אריזה" },
+    { name:"תבלינים מוקפאים",icon:"🧊",unit:"אריזה" },
+    { name:"סלט חצילים",icon:"🍆",unit:"אריזה" },
+    { name:"סלט פלפלים",icon:"🫑",unit:"אריזה" },
+    { name:"סלט כרוב",icon:"🥬",unit:"אריזה" }
+  ]
+};
+
 /* ====== store map דמה ====== */
 const storeMap = {
   yohananof: [
@@ -700,7 +764,7 @@ function getPriceForItem(name) {
 
 /* ====== fetch prices for branch (saves apiPrices + normalized cache) ====== */
 // Configuration: Use Cloudflare Worker or local JSON files
-const USE_CLOUDFLARE_WORKER = true; // Set to true when Worker is deployed
+const USE_CLOUDFLARE_WORKER = false; // Set to true when Worker is deployed
 const WORKER_URL = 'https://shopping-list-prices.hamalci.workers.dev'; // Replace with your Worker URL
 
 async function fetchPricesForBranch(network, branchId) {
@@ -921,6 +985,183 @@ function debugCustomItems() {
   }
 }
 
+/* ====== Get default emoji for item ====== */
+function getDefaultEmojiForItem(itemName) {
+  const name = itemName.toLowerCase().trim();
+  
+  // Exact matches first for items with images
+  const exactMatches = {
+    'מלפפונים': '🥒',
+    'עגבניות': '🍅',
+    'תפוחי אדמה': '🥔',
+    'תפוחים': '🍎',
+    'בננות': '🍌',
+    'תפוזים': '🍊',
+    'לימונים': '🍋',
+    'אבוקדו': '🥑',
+    'פלפלים': '🫑',
+    'ברוקולי': '🥦',
+    'תותים': '🍓',
+    'חלב': '🥛',
+    'גבינה צהובה': '🧀',
+    'גבינה לבנה': '🧀',
+    'יוגורט': '🥛',
+    'יוגרט': '🥛',
+    'חמאה': '🧈',
+    'ביצים': '🥚',
+    'לחם': '🍞',
+    'חלה': '🍞',
+    'לחמניות': '🍞',
+    'פיתות': '🫓',
+    'בייגל': '🥯',
+    'קרואסון': '🥐',
+    'עוגיות': '🍪',
+    'חזה עוף': '🍗',
+    'שניצל': '🍗',
+    'כרעיים עוף': '🍗',
+    'עוף שלם': '🍗',
+    'בשר טחון': '🥩',
+    'אנטריקוט': '🥩',
+    'סטייק': '🥩',
+    'נקניקיות': '🌭',
+    'סלמון': '🐟',
+    'טונה': '🐟',
+    'דניס': '🐟',
+    'בורי': '🐟',
+    'פילה דג': '🐟',
+    'שרימפס': '🦐',
+    'אורז': '🍚',
+    'אורז מלא': '🍚',
+    'אורז בסמטי': '🍚',
+    'אורז יסמין': '🍚',
+    'פסטה': '🍝',
+    'קוסקוס': '🍚',
+    'קמח': '🌾',
+    'סוכר': '🧂',
+    'מלח': '🧂',
+    'שמן': '🫗',
+    'שמן זית': '🫗',
+    'קטשופ': '🍅',
+    'חומוס': '🫘',
+    'ריבה': '🍯',
+    'דבש': '🍯',
+    'שוקולד ממרח': '🍫',
+    'קפה': '☕',
+    'תה': '🍵',
+    'קוואקר': '🥣',
+    'תבלינים': '🧂',
+    'גרנולה': '🥣',
+    'מים': '💧',
+    'מים נביעות הגולן 1.5l': '💧',
+    'מים עין גדי 1.5l': '💧',
+    'מיץ': '🥤',
+    'מיץ פרימור 1l': '🥤',
+    'קוקה קולה': '🥤',
+    'ספרייט': '🥤',
+    'פנטה': '🥤',
+    'בירה': '🍺',
+    'יין': '🍷',
+    'גלידה': '🍦',
+    'פיצה': '🍕',
+    'חטיפים': '🥨',
+    'צ\'יפס': '🥨',
+    'במבה': '🥨',
+    'במבה אוסם': '🥨',
+    'ביסלי': '🥨',
+    'שוקולד': '🍫',
+    'סוכריות': '🍬',
+    'מסטיק': '🍬',
+    'קליק': '🍭',
+    'נייר טואלט': '🧻',
+    'מגבות נייר': '🧻',
+    'סבון כלים': '🧼',
+    'סבון רחצה': '🧼',
+    'שמפו': '🧴',
+    'מרכך': '🧴',
+    'משחת שיניים': '🪥',
+    'אבקת כביסה': '🧺',
+    'מסיר כתמים': '🧴'
+  };
+  
+  // Check exact match
+  if (exactMatches[name]) {
+    return exactMatches[name];
+  }
+  
+  // Partial matches (fallback for variations)
+  if (name.includes('תפוח') && name.includes('אדמה')) return '🥔';
+  if (name.includes('פלפל') && name.includes('חריף')) return '🌶️';
+  if (name.includes('מלפפון') || name.includes('קישוא') || name.includes('זוקיני')) return '🥒';
+  if (name.includes('עגבני')) return '🍅';
+  if (name.includes('גזר') || name.includes('סלק')) return '🥕';
+  if (name.includes('חסה') || name.includes('כרוב') || name.includes('שומר')) return '🥬';
+  if (name.includes('בצל')) return '🧅';
+  if (name.includes('שום')) return '🧄';
+  if (name.includes('פלפל')) return '🫑';
+  if (name.includes('ברוקולי') || name.includes('כרובית')) return '🥦';
+  if (name.includes('תירס')) return '🌽';
+  if (name.includes('חציל')) return '🍆';
+  if (name.includes('דלעת') || name.includes('קבק')) return '🎃';
+  if (name.includes('בטטה')) return '🍠';
+  if (name.includes('תפוח')) return '🍎';
+  if (name.includes('בננ')) return '🍌';
+  if (name.includes('תפוז') || name.includes('קלמנטינ')) return '🍊';
+  if (name.includes('לימון')) return '🍋';
+  if (name.includes('אבוקדו')) return '🥑';
+  if (name.includes('תות')) return '🍓';
+  if (name.includes('ענב')) return '🍇';
+  if (name.includes('אבטיח')) return '🍉';
+  if (name.includes('מלון')) return '🍈';
+  if (name.includes('אשכולית') || name.includes('גרייפפרוט')) return '🍊';
+  if (name.includes('אננס')) return '🍍';
+  if (name.includes('אפרסק') || name.includes('נקטרינה')) return '🍑';
+  if (name.includes('שזיף')) return '🍇';
+  if (name.includes('קיוי') || name.includes('קיווי')) return '🥝';
+  if (name.includes('מנגו')) return '🥭';
+  if (name.includes('אגס')) return '🍐';
+  if (name.includes('רימון')) return '🍎';
+  if (name.includes('חלב')) return '🥛';
+  if (name.includes('גבינ')) return '🧀';
+  if (name.includes('קוטג')) return '🧀';
+  if (name.includes('יוגורט') || name.includes('יוגרט')) return '🥛';
+  if (name.includes('חמאה')) return '🧈';
+  if (name.includes('ביצ')) return '🥚';
+  if (name.includes('לחם')) return '🍞';
+  if (name.includes('חלה')) return '🍞';
+  if (name.includes('פיתה')) return '🫓';
+  if (name.includes('בגט') || name.includes('באגט')) return '🥖';
+  if (name.includes('עוגה')) return '🍰';
+  if (name.includes('עוגי')) return '🍪';
+  if (name.includes('בשר') || name.includes('עוף') || name.includes('שניצל')) return '🍗';
+  if (name.includes('נקניק')) return '🌭';
+  if (name.includes('דג') || name.includes('טונה') || name.includes('סלמון')) return '🐟';
+  if (name.includes('שרימפס')) return '🦐';
+  if (name.includes('אורז')) return '🍚';
+  if (name.includes('פסטה') || name.includes('נודלס') || name.includes('שפגטי')) return '🍝';
+  if (name.includes('קמח')) return '🌾';
+  if (name.includes('סוכר')) return '🧂';
+  if (name.includes('מלח')) return '🧂';
+  if (name.includes('שמן')) return '🫗';
+  if (name.includes('שוקולד')) return '🍫';
+  if (name.includes('דבש')) return '🍯';
+  if (name.includes('ריבה')) return '🍯';
+  if (name.includes('קפה')) return '☕';
+  if (name.includes('תה')) return '🍵';
+  if (name.includes('מים')) return '💧';
+  if (name.includes('מיץ') || name.includes('קולה') || name.includes('ספרייט')) return '🥤';
+  if (name.includes('בירה')) return '🍺';
+  if (name.includes('יין')) return '🍷';
+  if (name.includes('גלידה')) return '🍦';
+  if (name.includes('פיצה')) return '🍕';
+  if (name.includes('חטיף') || name.includes('צ\'יפס') || name.includes('במבה') || name.includes('ביסלי')) return '🥨';
+  if (name.includes('נייר')) return '🧻';
+  if (name.includes('סבון')) return '🧼';
+  if (name.includes('שמפו')) return '🧴';
+  if (name.includes('משחת שיניים')) return '🪥';
+  
+  return '🛒'; // Default
+}
+
 /* ====== UI helpers: create choose button ====== */
 function makeChooseButton(item) {
   const btn = document.createElement("div");
@@ -928,12 +1169,27 @@ function makeChooseButton(item) {
   btn.setAttribute('data-icon', item.icon);
   btn.setAttribute('data-unit', item.unit);
   
+  // Store emoji separately - get default emoji for items with image URLs
+  const fallbackEmoji = getDefaultEmojiForItem(item.name);
+  btn.setAttribute('data-emoji', fallbackEmoji);
+  
+  // Check for synced PhotoPrism image
+  let itemIcon = item.icon;
+  try {
+    const imageCache = JSON.parse(localStorage.getItem('photoprismImageCache') || '{}');
+    if (imageCache[item.name]) {
+      itemIcon = imageCache[item.name];
+    }
+  } catch (e) {
+    console.warn('Failed to load image cache:', e);
+  }
+  
   // Create icon container
   const iconContainer = document.createElement("div");
+  iconContainer.className = "choose-icon-container";
   iconContainer.style.cssText = `
     width: 45px;
     height: 45px;
-    display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
@@ -941,16 +1197,17 @@ function makeChooseButton(item) {
   `;
   
   // Check if icon is an image (base64 or URL)
-  if (item.icon && (item.icon.startsWith('data:image/') || item.icon.startsWith('http://') || item.icon.startsWith('https://'))) {
+  if (itemIcon && (itemIcon.startsWith('data:image/') || itemIcon.startsWith('http://') || itemIcon.startsWith('https://'))) {
     // For images, use the whole button as background with lazy loading
-    btn.style.backgroundImage = `url(${item.icon})`;
+    btn.style.backgroundImage = `url(${itemIcon})`;
     btn.style.backgroundSize = 'cover';
     btn.style.backgroundPosition = 'center';
     btn.style.backgroundRepeat = 'no-repeat';
     btn.classList.add('has-image-background');
     
-    // Hide the icon container since we're using background
-    iconContainer.style.display = 'none';
+    // Set the fallback emoji
+    iconContainer.style.fontSize = '56px';
+    iconContainer.textContent = fallbackEmoji;
     
     // Test if image loads, fallback to emoji if not (with timeout)
     const testImg = new Image();
@@ -965,9 +1222,16 @@ function makeChooseButton(item) {
         btn.style.backgroundPosition = '';
         btn.style.backgroundRepeat = '';
         btn.classList.remove('has-image-background');
-        iconContainer.style.display = 'flex';
-        iconContainer.style.fontSize = '34px';
-        iconContainer.textContent = '🛒';
+        iconContainer.style.fontSize = '56px';
+        iconContainer.textContent = fallbackEmoji;
+        // Reset text styling
+        textSpan.style.color = '';
+        textSpan.style.textShadow = '';
+        textSpan.style.fontWeight = '600';
+        textSpan.style.padding = '0.2rem 0';
+        textSpan.style.backgroundColor = '';
+        textSpan.style.borderRadius = '';
+        textSpan.style.backdropFilter = '';
       }
     }, 5000); // 5 second timeout
     
@@ -985,27 +1249,34 @@ function makeChooseButton(item) {
       btn.style.backgroundPosition = '';
       btn.style.backgroundRepeat = '';
       btn.classList.remove('has-image-background');
-      iconContainer.style.display = 'flex';
-      iconContainer.style.fontSize = '34px';
-      iconContainer.textContent = '🛒';
+      iconContainer.style.fontSize = '56px';
+      iconContainer.textContent = fallbackEmoji;
+      // Reset text styling
+      textSpan.style.color = '';
+      textSpan.style.textShadow = '';
+      textSpan.style.fontWeight = '600';
+      textSpan.style.padding = '0.2rem 0';
+      textSpan.style.backgroundColor = '';
+      textSpan.style.borderRadius = '';
+      textSpan.style.backdropFilter = '';
     };
     
-    testImg.src = item.icon;
-  } else if (item.icon && (
-    item.icon.length > 10 && 
-    !item.icon.startsWith('data:image/') && 
+    testImg.src = itemIcon;
+  } else if (itemIcon && (
+    itemIcon.length > 10 && 
+    !itemIcon.startsWith('data:image/') && 
     !/^[\u{1F300}-\u{1F9FF}]$/u.test(item.icon) &&
     !/^[\u{2600}-\u{26FF}]$/u.test(item.icon) &&
     !/^[\u{1F600}-\u{1F64F}]$/u.test(item.icon) &&
     !/^[\u{1F680}-\u{1F6FF}]$/u.test(item.icon)
   )) {
     // This looks like corrupted data - use default emoji
-    iconContainer.style.fontSize = '34px';
+    iconContainer.style.fontSize = '56px';
     iconContainer.textContent = '🛒';
   } else {
     // Regular emoji icon
-    iconContainer.style.fontSize = '34px';
-    iconContainer.textContent = item.icon || '🛒';
+    iconContainer.style.fontSize = '56px';
+    iconContainer.textContent = itemIcon || '🛒';
   }
   
   // Add text label
@@ -1108,8 +1379,19 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
   
+  // Get the appropriate emoji for this item
+  const fallbackEmoji = getDefaultEmojiForItem(cleanName);
+  
   // Check if icon is an image (base64 or URL)
   if (cleanIcon.startsWith('data:image/') || cleanIcon.startsWith('http://') || cleanIcon.startsWith('https://')) {
+    // Create both image and emoji icon container
+    const iconContainer = document.createElement('span');
+    iconContainer.className = 'item-icon';
+    iconContainer.style.fontSize = '1.5em';
+    iconContainer.style.marginLeft = '0.3em';
+    iconContainer.style.display = 'none'; // Hidden by default when image is shown
+    iconContainer.textContent = fallbackEmoji;
+    
     const imgElement = document.createElement('img');
     imgElement.src = cleanIcon;
     imgElement.className = 'item-image-icon';
@@ -1122,15 +1404,16 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     
     // Handle image loading errors
     imgElement.onerror = () => {
-      // If image fails to load, replace with default emoji
+      // If image fails to load, show emoji instead
       imgElement.style.display = 'none';
-      const fallbackSpan = document.createElement('span');
-      fallbackSpan.textContent = '🛒 ';
-      fallbackSpan.style.marginLeft = '0.3em';
-      nameSpan.insertBefore(fallbackSpan, nameSpan.firstChild);
+      iconContainer.style.display = 'inline';
     };
     
+    // Add image background class for CSS targeting
+    row.classList.add('has-image-background');
+    
     nameSpan.appendChild(imgElement);
+    nameSpan.appendChild(iconContainer);
     nameSpan.appendChild(document.createTextNode(` ${cleanName}`));
   } else {
     // Regular emoji icon
@@ -1349,267 +1632,8 @@ function loadDefaultChooseItems() {
   if (!DOM.chooseGrid) return;
   DOM.chooseGrid.innerHTML = "";
 
-  // Organized items by categories
-  const categorizedItems = {
-    'פירות וירקות': [
-      { name:"גזר",icon:"🥕",unit:"ק\"ג" },
-      { name:"מלפפונים",icon:"https://images.unsplash.com/photo-1449300079323-02e209d9d3a6?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"עגבניות",icon:"https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"חסה",icon:"🥬",unit:"יח'" },
-      { name:"בצל",icon:"🧅",unit:"ק\"ג" },
-      { name:"שום",icon:"🧄",unit:"אריזה" },
-      { name:"תפוחי אדמה",icon:"https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"תפוחים",icon:"https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"בננות",icon:"https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"תפוזים",icon:"https://images.unsplash.com/photo-1557800636-894a64c1696f?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"לימונים",icon:"https://images.unsplash.com/photo-1587486913049-53fc88980cfc?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"אבוקדו",icon:"https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"פלפלים",icon:"https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"ברוקולי",icon:"https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"כרובית",icon:"🥦",unit:"יח'" },
-      { name:"תירס",icon:"🌽",unit:"יח'" },
-      { name:"חציל",icon:"🍆",unit:"ק\"ג" },
-      { name:"דלעת",icon:"🎃",unit:"ק\"ג" },
-      { name:"תותים",icon:"https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"ענבים",icon:"🍇",unit:"ק\"ג" },
-      { name:"אבטיח",icon:"🍉",unit:"יח'" },
-      { name:"מלון",icon:"🍈",unit:"יח'" },
-      { name:"בטטה",icon:"🍠",unit:"ק\"ג" },
-      { name:"זוקיני",icon:"🥒",unit:"ק\"ג" },
-      { name:"כרוב",icon:"🥬",unit:"יח'" },
-      { name:"סלק",icon:"🥕",unit:"ק\"ג" },
-      { name:"פלפל חריף",icon:"🌶️",unit:"יח'" },
-      { name:"קישואים",icon:"🥒",unit:"ק\"ג" },
-      { name:"שומר",icon:"🥬",unit:"יח'" },
-      { name:"קלמנטינה",icon:"🍊",unit:"ק\"ג" },
-      { name:"אשכולית",icon:"🍊",unit:"יח'" },
-      { name:"אפרסק",icon:"🍑",unit:"ק\"ג" },
-      { name:"נקטרינה",icon:"🍑",unit:"ק\"ג" },
-      { name:"מנגו",icon:"🥭",unit:"יח'" },
-      { name:"שזיף",icon:"🍇",unit:"ק\"ג" },
-      { name:"אגסים",icon:"🍐",unit:"ק\"ג" },
-      { name:"קיווי",icon:"🥝",unit:"יח'" },
-      { name:"רימון",icon:"🍎",unit:"יח'" },
-      { name:"אננס",icon:"🍍",unit:"יח'" },
-      { name:"אוכמניות",icon:"🫐",unit:"אריזה" },
-      { name:"תאנים",icon:"🍇",unit:"ק\"ג" },
-      { name:"לימון ליים",icon:"🍋",unit:"יח'" },
-      { name:"תמרים",icon:"🌰",unit:"אריזה" },
-      { name:"בצל ירוק",icon:"🧅",unit:"אגד" },
-      { name:"פטרוזיליה",icon:"🌿",unit:"אגד" },
-      { name:"כוסברה",icon:"🌿",unit:"אגד" },
-      { name:"עירית",icon:"🌿",unit:"אגד" },
-      { name:"סלרי",icon:"🥬",unit:"אגד" },
-      { name:"פטריות",icon:"🍄",unit:"אריזה" },
-      { name:"תרד",icon:"🥬",unit:"אריזה" },
-      { name:"נבטים",icon:"🌱",unit:"אריזה" },
-      { name:"קייל",icon:"🥬",unit:"אריזה" },
-      { name:"ג'ינג'ר",icon:"🫚",unit:"ק\"ג" },
-      { name:"נענע",icon:"🌿",unit:"אגד" },
-      { name:"בזיליקום",icon:"🌿",unit:"אגד" },
-      { name:"לוף",icon:"🥒",unit:"יח'" }
-    ],
-    'מוצרי חלב': [
-      { name:"חלב",icon:"https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"גבינה צהובה",icon:"https://images.unsplash.com/photo-1552767059-ce182ead6c1b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"גבינה לבנה",icon:"https://images.unsplash.com/photo-1571068316344-75bc76f77890?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"קוטג'",icon:"https://images.unsplash.com/photo-1628088062854-d1870b4553da?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"יוגורט",icon:"https://images.unsplash.com/photo-1571212515416-fca4cf74065c?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"שמנת",icon:"🥛",unit:"אריזה" },
-      { name:"חמאה",icon:"https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"ביצים",icon:"https://images.unsplash.com/photo-1518569656558-1f25e69d93d7?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"חלב שקדים",icon:"🥛",unit:"ליטר" },
-      { name:"חלב סויה",icon:"🥛",unit:"ליטר" },
-      { name:"משקה יוגורט",icon:"🥛",unit:"יח'" },
-      { name:"מעדני חלב",icon:"🍮",unit:"יח'" },
-      { name:"גבינת שמנת",icon:"🧀",unit:"אריזה" },
-      { name:"גבינה קשה",icon:"🧀",unit:"ק\"ג" },
-      { name:"מרגרינה",icon:"🧈",unit:"אריזה" }
-    ],
-    'מאפים ולחמים': [
-      { name:"לחם",icon:"https://images.unsplash.com/photo-1509440159596-0249088772ff?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"חלה",icon:"https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"לחמניות",icon:"https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"פיתות",icon:"https://images.unsplash.com/photo-1506084868230-bb9d95c24759?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"טורטייה",icon:"🌯",unit:"אריזה" },
-      { name:"בייגל",icon:"https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"קרואסון",icon:"https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"עוגיות",icon:"https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"עוגה",icon:"🎂",unit:"יח'" },
-      { name:"בורקס",icon:"🥐",unit:"אריזה" },
-      { name:"פריכיות",icon:"🍪",unit:"אריזה" }
-    ],
-    'בשר ועופות': [
-      { name:"חזה עוף",icon:"https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"שניצל",icon:"https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"כרעיים עוף",icon:"https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"עוף שלם",icon:"https://images.unsplash.com/photo-1548940740-204726a19be3?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"בשר טחון",icon:"https://images.unsplash.com/photo-1603048588665-791ca8aea617?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"אנטריקוט",icon:"https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"סטייק",icon:"https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"נקניקיות",icon:"https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"נקניק",icon:"🌭",unit:"ק\"ג" },
-      { name:"קבב",icon:"🥩",unit:"ק\"ג" }
-    ],
-    'דגים': [
-      { name:"סלמון",icon:"https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"טונה",icon:"https://images.unsplash.com/photo-1579952363873-27d3bfad9c0d?w=400&h=400&fit=scale-down",unit:"קופסא" },
-      { name:"דניס",icon:"https://images.unsplash.com/photo-1535591273668-578e31182c4f?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"בורי",icon:"https://images.unsplash.com/photo-1544943910-4c1dc44aab44?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"פילה דג",icon:"https://images.unsplash.com/photo-1535591273668-578e31182c4f?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"שרימפס",icon:"https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=400&h=400&fit=scale-down",unit:"ק\"ג" }
-    ],
-    'מזווה ויבשים': [
-      { name:"אורז",icon:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"אורז מלא",icon:"https://images.unsplash.com/photo-1588164505175-ed40d0e1fad5?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"אורז בסמטי",icon:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"אורז יסמין",icon:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"פסטה",icon:"https://images.unsplash.com/photo-1621996346565-e3dbc6d2c5f7?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"קוסקוס",icon:"https://images.unsplash.com/photo-1586201375761-83865001e31c?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"בורגול",icon:"🍚",unit:"ק\"ג" },
-      { name:"קמח",icon:"https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"סוכר",icon:"https://images.unsplash.com/photo-1587735243615-c03f25aaff15?w=400&h=400&fit=scale-down",unit:"ק\"ג" },
-      { name:"מלח",icon:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"שמן",icon:"https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"שמן זית",icon:"https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"קטשופ",icon:"https://images.unsplash.com/photo-1571104508999-893933ded431?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מיונז",icon:"🥚",unit:"צנצנת" },
-      { name:"חומוס",icon:"https://images.unsplash.com/photo-1571197119864-3b45d1ae2ab6?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"טחינה",icon:"🥫",unit:"צנצנת" },
-      { name:"ריבה",icon:"https://images.unsplash.com/photo-1573774254737-6fc2181b2e26?w=400&h=400&fit=scale-down",unit:"צנצנת" },
-      { name:"דבש",icon:"https://images.unsplash.com/photo-1587049016823-d69e4bd3ba16?w=400&h=400&fit=scale-down",unit:"צנצנת" },
-      { name:"שוקולד ממרח",icon:"https://images.unsplash.com/photo-1481391319762-47dff72954d9?w=400&h=400&fit=scale-down",unit:"צנצנת" },
-      { name:"קפה",icon:"https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"תה",icon:"https://images.unsplash.com/photo-1551024506-0bccd828d307?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"אבקת קקאו",icon:"☕",unit:"אריזה" },
-      { name:"רוטב סויה",icon:"🥫",unit:"בקבוק" },
-      { name:"רוטב צ'ילי",icon:"🌶️",unit:"בקבוק" },
-      { name:"רוטב טריאקי",icon:"🥫",unit:"בקבוק" },
-      { name:"רטבים לסלט",icon:"🥗",unit:"בקבוק" },
-      { name:"חרדל",icon:"🥫",unit:"צנצנת" },
-      { name:"חומץ",icon:"🫒",unit:"בקבוק" },
-      { name:"קוואקר",icon:"https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"תבלינים",icon:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=scale-down",unit:"צנצנת" },
-      { name:"סילאן",icon:"🍯",unit:"בקבוק" },
-      { name:"מוזלי",icon:"🥣",unit:"אריזה" },
-      { name:"גרנולה",icon:"https://images.unsplash.com/photo-1571197119864-3b45d1ae2ab6?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"שוקולית",icon:"🍫",unit:"בקבוק" },
-      { name:"קקאו",icon:"☕",unit:"אריזה" },
-      { name:"אבקת אפייה",icon:"🧂",unit:"אריזה" },
-      { name:"סודה לשתייה",icon:"🧂",unit:"אריזה" },
-      { name:"שמרים",icon:"🍞",unit:"אריזה" },
-      { name:"תחליף סוכר",icon:"🧂",unit:"אריזה" },
-      { name:"פצפוצי אורז",icon:"🍚",unit:"אריזה" },
-      { name:"נייר אפייה",icon:"📄",unit:"גליל" },
-      { name:"שקיות זילוף",icon:"📦",unit:"אריזה" },
-      { name:"סוכריות צבעוניות",icon:"🍭",unit:"אריזה" },
-      { name:"קוקוס",icon:"🥥",unit:"אריזה" },
-      { name:"אינסטנט פודינג",icon:"🍮",unit:"אריזה" }
-    ],
-    'משקאות': [
-      { name:"מים",icon:"https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מים נביעות הגולן 1.5L",icon:"https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מים עין גדי 1.5L",icon:"https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מיץ",icon:"https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"מיץ פרימור 1L",icon:"https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"מיץ טרופיקנה 1L",icon:"https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"קולה",icon:"https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=scale-down",unit:"ליטר" },
-      { name:"קוקה קולה 1.5L",icon:"https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"פפסי 1.5L",icon:"https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"פחית קולה",icon:"https://images.unsplash.com/photo-1581636625402-29b2a704ef13?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"בירה",icon:"https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"בירה גולדסטאר",icon:"https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"בירה קרלסברג",icon:"https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"יין",icon:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"יין ברקן",icon:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"יין כרמל",icon:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"יין גולן",icon:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"אלכוהול",icon:"🥃",unit:"בקבוק" }
-    ],
-    'חטיפים וממתקים': [
-      { name:"שוקולד",icon:"https://images.unsplash.com/photo-1511381939415-e44015466834?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"שוקולד מילקה",icon:"https://images.unsplash.com/photo-1511381939415-e44015466834?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"שוקולד קינדר",icon:"https://images.unsplash.com/photo-1511381939415-e44015466834?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"ביסלי",icon:"https://images.unsplash.com/photo-1567427017947-545c5f8d16ad?w=400&h=400&fit=scale-down",unit:"שקית" },
-      { name:"במבה",icon:"https://images.unsplash.com/photo-1613759547017-89ef4a6cf70e?w=400&h=400&fit=scale-down",unit:"שקית" },
-      { name:"במבה אסם",icon:"https://images.unsplash.com/photo-1613759547017-89ef4a6cf70e?w=400&h=400&fit=scale-down",unit:"שקית" },
-      { name:"דובונים",icon:"https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=400&h=400&fit=scale-down",unit:"שקית" },
-      { name:"סוכריות",icon:"https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=400&h=400&fit=scale-down",unit:"שקית" },
-      { name:"גלידה",icon:"https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"גלידה בן אנד ג'ריס",icon:"https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"גלידה שטראוס",icon:"https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"עוגיות",icon:"https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"עוגיות לוטוס",icon:"https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"פופקורן",icon:"https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"חטיף אנרגיה",icon:"🍫",unit:"יח'" },
-      { name:"אגוזים",icon:"https://images.unsplash.com/photo-1582058091505-f87a2e55a40f?w=400&h=400&fit=scale-down",unit:"שקית" }
-    ],
-    'מוצרי ניקיון': [
-      { name:"נייר טואלט",icon:"https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"מגבות נייר",icon:"https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"סבון כלים",icon:"https://images.unsplash.com/photo-1563453392212-326f5e854473?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"אבקת כביסה",icon:"https://images.unsplash.com/photo-1582719471137-c3967ffb5de8?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"מרכך כביסה",icon:"https://images.unsplash.com/photo-1563453392212-326f5e854473?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"אקונומיקה",icon:"🧴",unit:"בקבוק" },
-      { name:"שקיות זבל",icon:"🗑️",unit:"אריזה" },
-      { name:"ספוג",icon:"https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"מטליות",icon:"🧽",unit:"אריזה" },
-      { name:"סבון רצפה",icon:"https://images.unsplash.com/photo-1563453392212-326f5e854473?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מגבונים",icon:"🧻",unit:"אריזה" },
-      { name:"תרסיס לניקוי וחיטוי",icon:"🧴",unit:"בקבוק" },
-      { name:"נוזל רצפות",icon:"🧴",unit:"בקבוק" },
-      { name:"גל לכביסה",icon:"🧴",unit:"בקבוק" },
-      { name:"חומר למדיח כלים",icon:"📦",unit:"אריזה" },
-      { name:"סמרטוט רצפה",icon:"🧽",unit:"יח'" },
-      { name:"מטליות ניקוי",icon:"🧽",unit:"אריזה" },
-      { name:"אלכוג'ל",icon:"🧴",unit:"בקבוק" }
-    ],
-    'מוצרי טיפוח': [
-      { name:"סבון רחצה",icon:"https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"שמפו",icon:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"מרכך שיער",icon:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=scale-down",unit:"בקבוק" },
-      { name:"משחת שיניים",icon:"https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"מברשת שיניים",icon:"https://images.unsplash.com/photo-1609137144813-7d9921338f24?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"דאודורנט",icon:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"תער",icon:"🪒",unit:"אריזה" },
-      { name:"קרם לחות",icon:"https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=400&fit=scale-down",unit:"יח'" },
-      { name:"טישו",icon:"https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?w=400&h=400&fit=scale-down",unit:"אריזה" },
-      { name:"פדים וטמפונים",icon:"🧻",unit:"אריזה" },
-      { name:"סכיני גילוח",icon:"🪒",unit:"אריזה" },
-      { name:"רצועות שעווה",icon:"🧴",unit:"אריזה" },
-      { name:"גל וקצף גילוח",icon:"🧴",unit:"בקבוק" },
-      { name:"קיסמי שיניים",icon:"🪥",unit:"אריזה" },
-      { name:"קיסמי אוזניים",icon:"🧻",unit:"אריזה" },
-      { name:"חוט דנטלי",icon:"🪥",unit:"יח'" }
-    ],
-    'מוצרי תינוק': [
-      { name:"חיתולים",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי האגיס 4-9 ק\"ג",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי האגיס פרידום דריי מידה 5+",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי כיפי מידה 4",icon:"👶",unit:"אריזה" },
-      { name:"חיתולי פרה מגה פק",icon:"👶",unit:"אריזה" },
-      { name:"מזון תינוקות",icon:"🍼",unit:"יח'" },
-      { name:"מטליות לחות",icon:"🧻",unit:"אריזה" },
-      { name:"מטליות האגיס",icon:"🧻",unit:"אריזה" },
-      { name:"קרם לתינוק",icon:"🧴",unit:"יח'" },
-      { name:"שמפו לתינוק",icon:"🧴",unit:"בקבוק" }
-    ],
-    'קפואים': [
-      { name:"גלידה",icon:"🍦",unit:"יח'" },
-      { name:"ירקות קפואים",icon:"🧊",unit:"אריזה" },
-      { name:"פיצה קפואה",icon:"🍕",unit:"יח'" },
-      { name:"שניצל קפוא",icon:"🧊",unit:"אריזה" },
-      { name:"דגים קפואים",icon:"🧊",unit:"אריזה" },
-      { name:"בצק עלים",icon:"🧊",unit:"אריזה" },
-      { name:"מוצרי סויה",icon:"🧊",unit:"אריזה" },
-      { name:"אוכל מוכן קפוא",icon:"🧊",unit:"יח'" },
-      { name:"לקט ירקות מוקפא",icon:"🧊",unit:"אריזה" },
-      { name:"תבלינים מוקפאים",icon:"🧊",unit:"אריזה" },
-      { name:"סלט חצילים",icon:"🍆",unit:"אריזה" },
-      { name:"סלט פלפלים",icon:"🫑",unit:"אריזה" },
-      { name:"סלט כרוב",icon:"🥬",unit:"אריזה" }
-    ]
-  };
+  // Use global CATEGORIZED_ITEMS instead of local definition
+  const categorizedItems = CATEGORIZED_ITEMS;
 
   // Populate categoriesOrder and categories from categorizedItems
   categoriesOrder.length = 0; // Clear array
@@ -1676,6 +1700,10 @@ function loadDefaultChooseItems() {
       if (shouldCollapse && index >= MOBILE_VISIBLE_ITEMS) {
         itemElement.setAttribute('data-mobile-hidden', 'true');
         itemElement.classList.add('mobile-hidden', 'mobile-hidden-active');
+        // Force hide with inline style for mobile
+        if (window.innerWidth <= 768) {
+          itemElement.style.display = 'none';
+        }
       }
       
       fragment.appendChild(itemElement);
@@ -1693,6 +1721,10 @@ function loadDefaultChooseItems() {
         if (shouldCollapse && totalIndex >= MOBILE_VISIBLE_ITEMS) {
           customElement.setAttribute('data-mobile-hidden', 'true');
           customElement.classList.add('mobile-hidden', 'mobile-hidden-active');
+          // Force hide with inline style for mobile
+          if (window.innerWidth <= 768) {
+            customElement.style.display = 'none';
+          }
         }
         
         fragment.appendChild(customElement);
@@ -1734,8 +1766,17 @@ function loadDefaultChooseItems() {
         showMoreBtn.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
       });
       
-      showMoreBtn.addEventListener('click', () => {
+      showMoreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('עוד button clicked for category:', categoryName);
         const hiddenItems = Array.from(document.querySelectorAll(`[data-category="${categoryName}"][data-mobile-hidden="true"]`));
+        console.log('Found hidden items:', hiddenItems.length);
+        console.log('Hidden items:', hiddenItems);
+        
+        hiddenItems.forEach((item, idx) => {
+          console.log(`Item ${idx}:`, item.textContent.trim(), 'has mobile-hidden-active:', item.classList.contains('mobile-hidden-active'));
+        });
         const currentlyVisible = hiddenItems.filter(item => !item.classList.contains('mobile-hidden-active')).length;
         const totalHidden = hiddenItems.length;
         const showText = showMoreBtn.querySelector('.show-text');
@@ -1752,6 +1793,7 @@ function loadDefaultChooseItems() {
           nextBatch.forEach(item => {
             item.classList.remove('mobile-hidden-active');
             item.classList.add('mobile-visible');
+            item.style.display = ''; // Remove inline style to show
           });
           
           // Check if there are more items to show
@@ -1771,6 +1813,9 @@ function loadDefaultChooseItems() {
           hiddenItems.forEach(item => {
             item.classList.add('mobile-hidden-active');
             item.classList.remove('mobile-visible');
+            if (window.innerWidth <= 768) {
+              item.style.display = 'none'; // Hide with inline style
+            }
           });
           showText.style.display = 'inline';
           hideText.style.display = 'none';
@@ -2851,76 +2896,61 @@ function startVoiceInput() {
 function findProductByVoice(voiceText) {
   // Normalize: remove ALL types of whitespace AND directional marks (RTL/LTR)
   const searchText = voiceText
-    .replace(/[\u200E\u200F]/g, '') // Remove LTR/RTL marks (8206, 8207)
+    .replace(/[\u200E\u200F]/g, '') // Remove LTR/RTL marks
     .toLowerCase()
     .trim()
     .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
   
   if (DEBUG_MODE) console.log('🔍 Searching for:', `"${searchText}"`);
-  if (DEBUG_MODE) console.log('📚 Categories available:', Object.keys(categories));
   
   let exactMatch = null;
   let partialMatch = null;
   
-  // FIRST PASS: Search for EXACT match in ALL categories
-  for (const [categoryName, categoryProducts] of Object.entries(categories)) {
-    for (const productName of categoryProducts) {
-      // Normalize product name - remove directional marks and whitespace
-      const productLower = productName
+  // OPTIMIZED: Search directly in CATEGORIZED_ITEMS (faster than DOM)
+  for (const [categoryName, items] of Object.entries(CATEGORIZED_ITEMS)) {
+    for (const item of items) {
+      const productLower = item.name
         .replace(/[\u200E\u200F]/g, '')
         .toLowerCase()
         .trim()
         .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
       
+      // EXACT match
       if (productLower === searchText) {
-        if (DEBUG_MODE) console.log(`  ✅ EXACT MATCH FOUND: "${productName}" in "${categoryName}"`);
-        exactMatch = productName;
-        break;
+        if (DEBUG_MODE) console.log(`  ✅ EXACT MATCH: "${item.name}" in "${categoryName}"`);
+        return { name: item.name, icon: item.icon, unit: item.unit };
+      }
+      
+      // PARTIAL match (save for later if no exact match)
+      if (!partialMatch && productLower.includes(searchText)) {
+        if (DEBUG_MODE) console.log(`  ⚠️ Partial match: "${item.name}" in "${categoryName}"`);
+        partialMatch = { name: item.name, icon: item.icon, unit: item.unit };
       }
     }
-    if (exactMatch) break;
   }
   
-  // SECOND PASS: If no exact match, search for partial match
-  if (!exactMatch) {
-    for (const [categoryName, categoryProducts] of Object.entries(categories)) {
-      for (const productName of categoryProducts) {
-        const productLower = productName
-          .replace(/[\u200E\u200F]/g, '')
-          .toLowerCase()
-          .trim()
-          .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
-        
-        // Partial match: product contains search text (not vice versa!)
-        if (productLower.includes(searchText)) {
-          if (DEBUG_MODE) console.log(`  ⚠️ Partial match found: "${productName}" in "${categoryName}"`);
-          partialMatch = productName;
-          break;
-        }
-      }
-      if (partialMatch) break;
+  // Also search in custom items
+  const savedCustom = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
+  for (const item of savedCustom) {
+    const productLower = item.name
+      .replace(/[\u200E\u200F]/g, '')
+      .toLowerCase()
+      .trim()
+      .replace(/[\s\u00A0\u200B\u200C\u200D\uFEFF]+/g, ' ');
+    
+    if (productLower === searchText) {
+      if (DEBUG_MODE) console.log(`  ✅ EXACT MATCH in custom: "${item.name}"`);
+      return { name: item.name, icon: item.icon, unit: item.unit };
+    }
+    
+    if (!partialMatch && productLower.includes(searchText)) {
+      if (DEBUG_MODE) console.log(`  ⚠️ Partial match in custom: "${item.name}"`);
+      partialMatch = { name: item.name, icon: item.icon, unit: item.unit };
     }
   }
   
-  const foundProduct = exactMatch || partialMatch;
-  if (DEBUG_MODE) console.log('🎯 Final result:', foundProduct ? `"${foundProduct}"` : 'NOT FOUND');
-  
-  if (!foundProduct) return null;
-  
-  // Find the product details from chooseGrid
-  const chooseItem = Array.from(document.querySelectorAll('.choose-item')).find(
-    btn => btn.textContent.trim() === foundProduct || btn.textContent.includes(foundProduct)
-  );
-  
-  if (chooseItem) {
-    // Extract icon and unit from data attributes
-    const icon = chooseItem.getAttribute('data-icon') || '🛒';
-    const unit = chooseItem.getAttribute('data-unit') || 'יח\'';
-    if (DEBUG_MODE) console.log(`  📦 Product details: icon="${icon}", unit="${unit}"`);
-    return { name: foundProduct, icon, unit };
-  }
-  
-  return null;
+  if (DEBUG_MODE) console.log('🎯 Final result:', partialMatch ? `"${partialMatch.name}"` : 'NOT FOUND');
+  return partialMatch;
 }
 
 function detectIconByName(name) {
@@ -3160,6 +3190,31 @@ document.addEventListener("DOMContentLoaded", () => {
     localStorage.setItem("rootFontPx", rootFontPx);
     closeMainMenu();
   });
+
+  // Toggle images visibility
+  document.getElementById('toggleImages')?.addEventListener('change', (e) => {
+    const showImages = e.target.checked;
+    localStorage.setItem('showImages', showImages ? '1' : '0');
+    
+    if (showImages) {
+      document.body.classList.remove('hide-images');
+    } else {
+      document.body.classList.add('hide-images');
+    }
+  });
+  
+  // Load saved images preference
+  const showImages = localStorage.getItem('showImages') !== '0'; // Default to show
+  const toggleImagesCheckbox = document.getElementById('toggleImages');
+  if (toggleImagesCheckbox) {
+    toggleImagesCheckbox.checked = showImages;
+    if (!showImages) {
+      document.body.classList.add('hide-images');
+    }
+  }
+
+  // Sync images from PhotoPrism server
+  // PhotoPrism sync removed - using emojis only
 
   // Categories settings
   document.getElementById('btnCategoriesSettings')?.addEventListener('click', () => {
@@ -3441,7 +3496,7 @@ if ('serviceWorker' in navigator) {
       newWorker.addEventListener('statechange', () => {
         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
           // New service worker available - show update notification
-          showToast('עדכון זמין! רענן את הדף לגרסה החדשה 🔄', 'info', 8000);
+          showToast('עדכון זמין! 🔄\nרענן את הדף', 'info', 8000);
           
           // Auto-reload after 3 seconds
           setTimeout(() => {
@@ -4446,7 +4501,7 @@ function selectIcon(icon) {
         // It's an emoji - use icon container
         iconContainer.style.display = 'flex';
         iconContainer.innerHTML = '';
-        iconContainer.style.fontSize = '34px';
+        iconContainer.style.fontSize = '56px';
         iconContainer.textContent = icon;
       }
       

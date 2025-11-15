@@ -1,0 +1,9 @@
+# Docker
+ssl/
+.env
+
+# Development
+node_modules/
+.vscode/cert.pem
+.vscode/key.pem
+.vscode/cert.pfx

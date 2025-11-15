@@ -11,8 +11,8 @@
     default-src 'self';
     script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com;
     style-src 'self' 'unsafe-inline';
-    img-src 'self' data: https://images.unsplash.com https://unsplash.com;
-    connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com;
+    img-src 'self' data: https://images.unsplash.com https://unsplash.com http://192.168.1.180:2342;
+    connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com http://192.168.1.180:2342;
     font-src 'self';
     object-src 'none';
     base-uri 'self';
@@ -91,10 +91,12 @@
       <span class="close-modal" id="closeShareModal" style="position:absolute;top:0.3em;right:0.3em;font-size:1.5em;cursor:pointer;z-index:10;background:rgba(255,255,255,0.7);border-radius:50%;width:1.4em;height:1.4em;line-height:1.4em;box-shadow:0 1px 4px rgba(0,0,0,0.08);padding:0;text-align:center;">&times;</span>
       <h2 style="margin-top:1.2em;">קישור לשיתוף הרשימה</h2>
       <input id="shareLinkInput" type="text" readonly style="width:90%;font-size:1.1em;padding:0.4em;margin:1em 0;direction:ltr;" aria-label="קישור לשיתוף הרשימה" />
-  <button id="copyShareLinkBtn" class="btn-action" aria-label="העתק את הקישור ללוח">📋 העתק קישור</button>
-  <button id="smsShareBtn" class="btn-action" style="margin-right:0.5em;" aria-label="שלח את הקישור ב-SMS">📱 שלח ב-SMS</button>
-  <button id="waShareBtn" class="btn-action" style="margin-right:0.5em;background:#25d366;color:#fff;" aria-label="שתף את הקישור ב-WhatsApp">🟢 שתף ב-WhatsApp</button>
-  <div id="copyStatus" style="margin-top:0.5em;color:green;font-size:0.95em;"></div>
+      <div style="display:flex;flex-direction:column;gap:0.8em;margin-top:1em;">
+        <button id="copyShareLinkBtn" class="btn-action share-modal-btn" aria-label="העתק את הקישור ללוח">📋 העתק קישור</button>
+        <button id="smsShareBtn" class="btn-action share-modal-btn" aria-label="שלח את הקישור ב-SMS">📱 שלח ב-SMS</button>
+        <button id="waShareBtn" class="btn-action share-modal-btn" style="background:#25d366;color:#fff;" aria-label="שתף את הקישור ב-WhatsApp">🟢 שתף ב-WhatsApp</button>
+      </div>
+      <div id="copyStatus" style="margin-top:0.5em;color:green;font-size:0.95em;"></div>
     </div>
   </div>
   <header class="app-header">
@@ -112,6 +114,11 @@
           <button id="btnFontIncrease" class="menu-item">🔼 הגדל פונט</button>
           <button id="btnFontDecrease" class="menu-item">🔽 הקטן פונט</button>
           <button id="btnFontReset" class="menu-item">↩️ פונט ברירת מחדל</button>
+          <label class="menu-item toggle-item" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+            <span>🖼️ הצג תמונות</span>
+            <input type="checkbox" id="toggleImages" checked style="width:auto;">
+          </label>
+          <!-- PhotoPrism sync buttons removed - using emojis only -->
         </div>
 
         <!-- קטגוריה: ניהול פריטים -->
@@ -120,14 +127,7 @@
         <!-- קטגוריה: פעולות על הרשימה -->
         <!-- Removed: Actions moved to list menu next to "הרשימה שלי" -->
 
-        <!-- קטגוריה: גיבוי ונתונים -->
-        <div class="menu-section">
-          <div class="menu-section-title">💾 גיבוי ונתונים</div>
-          <button id="btnExportData" class="menu-item">📤 ייצא נתונים</button>
-          <button id="btnImportData" class="menu-item">📥 ייבא נתונים</button>
-          <button id="btnBackupData" class="menu-item">🔄 גבה אוטומטית</button>
-          <button id="btnClearData" class="menu-item">🗑️ נקה כל הנתונים</button>
-        </div>
+
 
         <!-- קטגוריה: הגדרות מתקדמות -->
         <div class="menu-section">
@@ -296,8 +296,7 @@
       </div>
     </div>
 
-    <!-- Hidden file input for data import -->
-    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
 
     <!-- Choose Items Modal -->
     <div id="chooseItemsModal" class="modal" style="display:none;">

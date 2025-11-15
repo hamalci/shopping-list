@@ -1,0 +1,10 @@
+{
+  "liveServer.settings.port": 5500,
+  "liveServer.settings.https": {
+    "enable": true,
+    "cert": "E:\\deploy-shopl\\.vscode\\cert.pem",
+    "key": "E:\\deploy-shopl\\.vscode\\key.pem",
+    "passphrase": ""
+  },
+  "liveServer.settings.host": "0.0.0.0"
+}

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  shopping-list:
+    build: .
+    container_name: shopping-list-app
+    restart: unless-stopped
+    ports:
+      - "8443:443"   # HTTPS
+      - "8080:80"    # HTTP (redirects to HTTPS)
+    volumes:
+      # Mount SSL certificates (create these first or use self-signed)
+      - ./ssl:/etc/nginx/ssl:ro
+      # Optional: persist data if needed
+      - ./data:/usr/share/nginx/html/data
+    networks:
+      - web
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+networks:
+  web:
+    external: false

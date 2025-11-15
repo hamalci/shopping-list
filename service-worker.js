@@ -32,6 +32,11 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  // Don't intercept PhotoPrism requests
+  if (e.request.url.includes('192.168.1.180:2342')) {
+    return;
+  }
+  
   e.respondWith(
     caches.match(e.request).then(response => response || fetch(e.request))
   );
