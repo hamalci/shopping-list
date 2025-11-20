@@ -143,6 +143,106 @@ function showToast(message, type = 'info', duration = 3000) {
   }, duration);
 }
 
+// --- NFC Auto Check-in Function ---
+function performNFCCheckin() {
+  try {
+    // Get current timestamp
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const dateString = now.toLocaleDateString('he-IL');
+    
+    // Check if user is already checked in
+    const lastCheckin = localStorage.getItem('nfc_last_checkin');
+    const lastStatus = localStorage.getItem('nfc_status'); // 'in' or 'out'
+    
+    let newStatus = 'in';
+    let message = '';
+    let emoji = '👋';
+    
+    if (lastStatus === 'in') {
+      // User is checking out
+      newStatus = 'out';
+      message = `יציאה נרשמה בהצלחה! 🚪\n${timeString}`;
+      emoji = '👋';
+    } else {
+      // User is checking in
+      newStatus = 'in';
+      message = `כניסה נרשמה בהצלחה! 🎉\n${timeString}`;
+      emoji = '✅';
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('nfc_last_checkin', now.toISOString());
+    localStorage.setItem('nfc_status', newStatus);
+    
+    // Save to attendance records
+    const records = JSON.parse(localStorage.getItem('nfc_attendance_records') || '[]');
+    records.push({
+      timestamp: now.toISOString(),
+      date: dateString,
+      time: timeString,
+      type: newStatus,
+      method: 'nfc'
+    });
+    localStorage.setItem('nfc_attendance_records', JSON.stringify(records));
+    
+    // Display full-screen notification
+    document.body.innerHTML = `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: linear-gradient(135deg, ${newStatus === 'in' ? '#667eea 0%, #764ba2' : '#eb3349 0%, #f45c43'} 100%);
+        color: white;
+        text-align: center;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      ">
+        <div style="font-size: 120px; margin-bottom: 30px;">${emoji}</div>
+        <h1 style="font-size: 42px; margin-bottom: 20px; font-weight: bold;">
+          ${newStatus === 'in' ? 'כניסה נרשמה!' : 'יציאה נרשמה!'}
+        </h1>
+        <div style="font-size: 32px; margin-bottom: 40px; opacity: 0.95;">
+          ${timeString}
+        </div>
+        <div style="font-size: 18px; opacity: 0.8; margin-bottom: 40px;">
+          ${dateString}
+        </div>
+        <button onclick="window.close()" style="
+          padding: 15px 40px;
+          font-size: 20px;
+          background: rgba(255,255,255,0.2);
+          border: 2px solid white;
+          border-radius: 12px;
+          color: white;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.3s;
+        " onmouseover="this.style.background='rgba(255,255,255,0.3)'" 
+           onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+          סגור
+        </button>
+      </div>
+    `;
+    
+    // Auto-close after 5 seconds on mobile
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      setTimeout(() => {
+        window.close();
+      }, 5000);
+    }
+    
+    // Clean URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+  } catch (error) {
+    console.error('NFC Check-in error:', error);
+    showToast('שגיאה בדיקור NFC', 'error');
+  }
+}
+
 // --- Helper functions for localStorage ---
 const STORAGE_KEY = "shoppingList";
 const getShoppingList = () => {
@@ -3026,6 +3126,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Check for shared Firebase list in URL (?list=xxxxx)
   const params = new URLSearchParams(window.location.search);
   const listId = params.get('list');
+  const nfcMode = params.get('nfc');
+  
   if (listId && listId.trim() !== '') {
     // Load from Firebase
     loadListFromFirebase(listId).then(() => {
@@ -3035,6 +3137,14 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     // Load local list if no shared list
     loadListFromStorage();
+  }
+  
+  // Handle NFC mode (?nfc=true) - Auto check-in
+  if (nfcMode === 'true') {
+    // Wait for DOM to be ready and perform auto check-in
+    setTimeout(() => {
+      performNFCCheckin();
+    }, 500);
   }
 
   // Dark mode toggle button
