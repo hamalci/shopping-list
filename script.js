@@ -2548,169 +2548,6 @@ function finishAddingCustomItem(icon) {
   renderTotal();
 }
 
-/* ====== Barcode Scanner ====== */
-let barcodeScanner = null;
-
-function startBarcodeScanner() {
-  const modal = document.getElementById('barcodeScannerModal');
-  const viewport = document.getElementById('barcodeScannerViewport');
-  
-  if (!modal || !viewport) {
-    alert('שגיאה: לא נמצא אלמנט הסורק');
-    return;
-  }
-  
-  // בדיקה אם הספרייה נטענה
-  if (typeof Quagga === 'undefined') {
-    alert('שגיאה: ספריית הסריקה לא נטענה. נסה לרענן את הדף.');
-    return;
-  }
-  
-  // בדיקת HTTPS (נדרש ב-iOS)
-  const isSecure = window.location.protocol === 'https:' || 
-                   window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
-  
-  if (!isSecure) {
-    alert('⚠️ דרושה גישה מאובטחת!\n\nסורק הברקודים דורש HTTPS.\n\nפתרונות:\n1. העלה לשרת עם HTTPS\n2. השתמש ב-localhost\n3. השתמש ב-ngrok או Cloudflare Tunnel');
-    return;
-  }
-  
-  // בדיקה אם יש תמיכה במצלמה
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('⚠️ הדפדפן לא תומך בגישה למצלמה.\n\nוודא שאתה משתמש בדפדפן מעודכן (Safari, Chrome).');
-    return;
-  }
-  
-  modal.style.display = 'flex';
-  viewport.innerHTML = ''; // נקה תוכן קודם
-  
-  Quagga.init({
-    inputStream: {
-      name: "Live",
-      type: "LiveStream",
-      target: viewport,
-      constraints: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: "environment" // מצלמה אחורית
-      }
-    },
-    decoder: {
-      readers: [
-        "ean_reader",      // EAN-13 (הכי נפוץ בישראל)
-        "ean_8_reader",    // EAN-8
-        "code_128_reader", // Code 128
-        "code_39_reader",  // Code 39
-        "upc_reader"       // UPC
-      ],
-      debug: {
-        drawBoundingBox: true,
-        showFrequency: false,
-        drawScanline: true,
-        showPattern: false
-      }
-    },
-    locate: true,
-    numOfWorkers: navigator.hardwareConcurrency || 4,
-    frequency: 10
-  }, function(err) {
-    if (err) {
-      console.error("Barcode scanner initialization error:", err);
-      modal.style.display = 'none';
-      
-      // הודעת שגיאה מפורטת
-      let errorMsg = '❌ לא ניתן לפתוח מצלמה\n\n';
-      
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMsg += 'הרשאת מצלמה נדחתה.\n\nפתרון:\n';
-        errorMsg += '1. הגדרות Safari → מצלמה → אפשר\n';
-        errorMsg += '2. רענן את הדף\n';
-        errorMsg += '3. נסה שוב';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        errorMsg += 'לא נמצאה מצלמה במכשיר.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
-        errorMsg += 'המצלמה בשימוש על ידי אפליקציה אחרת.\n\nסגור אפליקציות אחרות ונסה שוב.';
-      } else if (err.name === 'OverconstrainedError' || err.name === 'ConstraintNotSatisfiedError') {
-        errorMsg += 'הגדרות המצלמה אינן נתמכות.\n\nנסה דפדפן אחר.';
-      } else {
-        errorMsg += 'שגיאה: ' + (err.message || err.name || 'לא ידועה');
-        errorMsg += '\n\nוודא:\n';
-        errorMsg += '• האתר ב-HTTPS\n';
-        errorMsg += '• נתת הרשאת מצלמה\n';
-        errorMsg += '• המצלמה לא בשימוש';
-      }
-      
-      alert(errorMsg);
-      return;
-    }
-    
-    if (DEBUG_MODE) console.log("Barcode scanner initialized successfully");
-    Quagga.start();
-  });
-
-  // כשברקוד מזוהה:
-  Quagga.onDetected(handleBarcodeDetected);
-  
-  barcodeScanner = true;
-}
-
-function stopBarcodeScanner() {
-  if (barcodeScanner && typeof Quagga !== 'undefined') {
-    Quagga.offDetected(handleBarcodeDetected);
-    Quagga.stop();
-    barcodeScanner = null;
-  }
-  const modal = document.getElementById('barcodeScannerModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function handleBarcodeDetected(result) {
-  if (!result || !result.codeResult) return;
-  
-  const barcode = result.codeResult.code;
-  if (DEBUG_MODE) console.log("Barcode detected:", barcode);
-  
-  // עצור סריקה
-  stopBarcodeScanner();
-  
-  // חפש מוצר לפי ברקוד
-  fetchProductByBarcode(barcode)
-    .then(product => {
-      if (product) {
-        // הוסף לרשימה
-        createListItem(product.name, product.icon, 1, product.unit);
-        saveListToStorage();
-        renderAllPrices();
-        renderTotal();
-        showToast(`✅ נוסף: ${product.name}` + (product.price ? ` - ${product.price}₪` : ''), 'success');
-      } else {
-        showToast(`ברקוד ${barcode} לא נמצא במערכת`, 'warning', 4000);
-      }
-    })
-    .catch(err => {
-      console.error("Error fetching product:", err);
-      showToast(`שגיאה בחיפוש מוצר`, 'error');
-    });
-}
-
-async function fetchProductByBarcode(barcode) {
-  const network = localStorage.getItem('selectedNetwork') || 'shufersal';
-  const url = `${WORKER_URL}/product/${encodeURIComponent(network)}/${encodeURIComponent(barcode)}`;
-  
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      if (DEBUG_MODE) console.log(`Product not found for barcode: ${barcode}`);
-      return null;
-    }
-    return await res.json();
-  } catch (err) {
-    console.error("Failed to fetch product by barcode:", err);
-    return null;
-  }
-}
-
 /* ====== Voice Input ====== */
 let recognition = null;
 let isListening = false;
@@ -3182,11 +3019,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Open choose modal button
   document.getElementById("btnOpenChooseModal")?.addEventListener("click", openChooseModal);
 
-  // Barcode scanner button
-  document.getElementById("btnScanBarcode")?.addEventListener("click", startBarcodeScanner);
-  document.getElementById("closeBarcodeScanner")?.addEventListener("click", stopBarcodeScanner);
-  document.getElementById("btnCancelScan")?.addEventListener("click", stopBarcodeScanner);
-
   // Voice input button
   document.getElementById("btnVoiceInput")?.addEventListener("click", startVoiceInput);
 
@@ -3442,41 +3274,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ===== List Menu (next to "הרשימה שלי") =====
-  function closeListMenu() {
-    const menu = document.getElementById('listMenuDropdown');
-    if (menu) menu.style.display = 'none';
-  }
-
-  document.getElementById("listMenuButton")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const menu = document.getElementById("listMenuDropdown");
-    if (!menu) return;
-    menu.style.display = menu.style.display === "block" ? "none" : "block";
-  });
-  
-  // Close button inside list menu
-  document.querySelector('#listMenuDropdown .dropdown-close')?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeListMenu();
-  });
-  
-  // Close list menu on outside click
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest(".list-header") && !e.target.closest("#listMenuDropdown")) {
-      closeListMenu();
-    }
-  });
-
-  // List menu actions
+  // List clear button action
   document.getElementById('btnListClear')?.addEventListener('click', () => {
     if (confirm('האם למחוק את כל הרשימה?')) clearList();
-    closeListMenu();
   });
   
   document.getElementById('btnListClearChecked')?.addEventListener('click', () => {
     clearChecked();
-    closeListMenu();
   });
   
   document.getElementById('btnClearCart')?.addEventListener('click', () => {
@@ -3493,31 +3297,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (cartSection) cartSection.style.display = 'none';
       saveListToStorage();
     }
-  });
-  
-  document.getElementById('btnListShare')?.addEventListener('click', () => {
-    shareCurrentList();
-    closeListMenu();
-  });
-  
-  document.getElementById('btnListShareWA')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
-    window.open(waUrl, '_blank');
-    closeListMenu();
-  });
-  
-  document.getElementById('btnListShareSMS')?.addEventListener('click', () => {
-    const data = localStorage.getItem("shoppingList") || "";
-    if (!data) { showToast("הרשימה ריקה", 'warning'); return; }
-    const encoded = encodeURIComponent(data);
-    const url = `${location.origin}${location.pathname}?list=${encoded}`;
-    const smsUrl = `sms:?body=${encodeURIComponent(url)}`;
-    window.open(smsUrl, '_blank');
-    closeListMenu();
   });
 
   // Initial UI render calls if functions exist
