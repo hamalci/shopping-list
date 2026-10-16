@@ -160,7 +160,7 @@ body {
 }
 
 .app-header h1::before {
-  content: '🛒';
+  content: '';
   font-size: 1.6rem;
   margin-left: 0.4rem;
   display: inline-block;
