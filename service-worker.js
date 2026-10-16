@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopping-app-v7.2.0'; // Hebrew-only version
+const CACHE_NAME = 'shopping-app-v7.3.0'; // Hebrew-only version - fixed mobile cache
 
 self.addEventListener('install', e => {
   console.log('[SW] Installing new service worker...');

@@ -352,7 +352,7 @@ async function saveListToFirebase(silent) {
       ...item,
       name: sanitizeInput(item.name || ''),
       note: sanitizeInput(item.note || ''),
-      icon: sanitizeInput(item.icon || '🛒'),
+      icon: sanitizeInput(item.icon || ''),
       qty: sanitizeInput(item.qty || '1 יח\''),
       price: sanitizeInput(item.price || ''),
     }));
@@ -776,21 +776,6 @@ const storeMap = {
   ]
 };
 
-/* ====== price maps (api/manual) ====== */
-function saveApiPrices(map) { localStorage.setItem('apiPrices', JSON.stringify(map || {})); }
-function loadApiPrices() { return JSON.parse(localStorage.getItem('apiPrices') || '{}'); }
-function saveManualPrices(map) { localStorage.setItem('manualPrices', JSON.stringify(map || {})); }
-function loadManualPrices() { return JSON.parse(localStorage.getItem('manualPrices') || '{}'); }
-
-/* Migrate legacy itemPrices -> manualPrices once */
-(function migrateOldItemPrices() {
-  const old = JSON.parse(localStorage.getItem('itemPrices') || 'null');
-  if (old && !localStorage.getItem('manualPrices')) {
-    saveManualPrices(old);
-    localStorage.removeItem('itemPrices');
-  }
-})();
-
 /* ====== Normalization (Hebrew) + fuzzy helper ====== */
 // Character replacement map for better performance
 const HEBREW_FINAL_TO_NORMAL = {
@@ -808,14 +793,6 @@ function normalizeName(s) {
   s = s.replace(/ות$|ים$|יות$/,"");
   s = s.replace(/^ה\s*/,"");
   return s;
-}
-function buildNormalizedPriceMap(apiPrices) {
-  const map = {};
-  Object.keys(apiPrices || {}).forEach(orig => {
-    const key = normalizeName(orig);
-    map[key] = apiPrices[orig];
-  });
-  return map;
 }
 function levenshtein(a,b){
   const m=a.length, n=b.length;
@@ -840,67 +817,6 @@ function findClosestNormalized(target, candidates, maxDist){
     if (d < bestD) { bestD = d; best = c; }
   });
   return bestD <= maxDist ? best : null;
-}
-
-/* ====== price resolution (manual priority) ====== */
-function getPriceForItem(name) {
-  const manual = loadManualPrices();
-  const api = loadApiPrices();
-
-  const manualNorm = {};
-  Object.keys(manual || {}).forEach(k => manualNorm[normalizeName(k)] = manual[k]);
-
-  const apiNorm = buildNormalizedPriceMap(api);
-
-  const n = normalizeName(name);
-  if (manualNorm[n] !== undefined) return manualNorm[n];
-  if (apiNorm[n] !== undefined) return apiNorm[n];
-
-  const candidate = findClosestNormalized(n, Object.keys(apiNorm), 2);
-  if (candidate) return apiNorm[candidate];
-
-  return null;
-}
-
-/* ====== fetch prices for branch (saves apiPrices + normalized cache) ====== */
-// Configuration: Use Cloudflare Worker or local JSON files
-const USE_CLOUDFLARE_WORKER = false; // Set to true when Worker is deployed
-const WORKER_URL = 'https://shopping-list-prices.hamalci.workers.dev'; // Replace with your Worker URL
-
-async function fetchPricesForBranch(network, branchId) {
-  if (!network || !branchId) return null;
-  
-  // Choose data source
-  const url = USE_CLOUDFLARE_WORKER 
-    ? `${WORKER_URL}/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}`
-    : `/data/prices/${encodeURIComponent(network)}/${encodeURIComponent(branchId)}.json`;
-  
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    
-    // Handle both formats: Worker format and local JSON format
-    const prices = json.prices || json;
-    if (!prices || typeof prices !== 'object') throw new Error("Invalid price data");
-
-    saveApiPrices(prices);
-    const normMap = buildNormalizedPriceMap(prices);
-    localStorage.setItem('apiPricesNormalized', JSON.stringify(normMap));
-    localStorage.setItem('lastFetchedPrices', JSON.stringify({ 
-      network, 
-      branchId, 
-      updated: json.updated || new Date().toISOString(),
-      source: USE_CLOUDFLARE_WORKER ? 'cloudflare-worker' : 'local-json',
-      cached: json.cached || false
-    }));
-    renderAllPrices();
-    renderTotal();
-    return prices;
-  } catch (err) {
-    console.error("Failed to fetch prices for branch:", err);
-    return null;
-  }
 }
 
 // Utility function to clean corrupted icon data
@@ -932,9 +848,9 @@ function cleanCorruptedIcons() {
           return null; // Skip this item entirely
         }
         
-        return { 
-          name: cleanName, 
-          icon: '🛒', 
+        return {
+          name: cleanName,
+          icon: '',
           unit: item.unit || 'יח\'',
           category: item.category || 'פריטים מותאמים אישית'
         };
@@ -1003,7 +919,7 @@ function deepCleanCorruptedData() {
         console.log(`Fixing item ${index}: missing icon`);
         validItems.push({
           name: name.trim(),
-          icon: '🛒',
+          icon: '',
           unit: item.unit || 'יח\'',
           category: item.category || 'פריטים מותאמים אישית'
         });
@@ -1031,7 +947,7 @@ function deepCleanCorruptedData() {
         });
         validItems.push({
           name: name.trim(),
-          icon: '🛒',
+          icon: '',
           unit: item.unit || 'יח\'',
           category: item.category || 'פריטים מותאמים אישית'
         });
@@ -1258,8 +1174,8 @@ function getDefaultEmojiForItem(itemName) {
   if (name.includes('סבון')) return '🧼';
   if (name.includes('שמפו')) return '🧴';
   if (name.includes('משחת שיניים')) return '🪥';
-  
-  return '🛒'; // Default
+
+  return ''; // Default
 }
 
 /* ====== UI helpers: create choose button ====== */
@@ -1372,11 +1288,11 @@ function makeChooseButton(item) {
   )) {
     // This looks like corrupted data - use default emoji
     iconContainer.style.fontSize = '56px';
-    iconContainer.textContent = '🛒';
+    iconContainer.textContent = '';
   } else {
     // Regular emoji icon
     iconContainer.style.fontSize = '56px';
-    iconContainer.textContent = itemIcon || '🛒';
+    iconContainer.textContent = itemIcon || '';
   }
   
   // Add text label
@@ -1440,11 +1356,11 @@ function makeChooseButton(item) {
           !iconToUse.startsWith('data:image/') && 
           !iconToUse.startsWith('http://') && 
           !iconToUse.startsWith('https://') &&
-          !/^[\u{1F300}-\u{1F9FF}]$/u.test(iconToUse) && 
+          !/^[\u{1F300}-\u{1F9FF}]$/u.test(iconToUse) &&
           !/^[\u{2600}-\u{26FF}]$/u.test(iconToUse)) {
-        iconToUse = '🛒'; // Use default icon for corrupted data
+        iconToUse = ''; // Use default icon for corrupted data
       }
-      createListItem(item.name, iconToUse, 1, item.unit);
+      createListItem(item.name, iconToUse);
       badge.textContent = "1";
       badge.style.display = "inline-flex";
     }
@@ -1465,12 +1381,10 @@ function makeChooseButton(item) {
   return btn;
 }
 
-/* ====== createListItem (price as currency left, amount right inside fixed column) ====== */
-function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipSave = false, price = null, note = "") {
+/* ====== createListItem (simplified without quantity, unit, and price) ====== */
+function createListItem(name, icon = "", skipSave = false, note = "") {
   const cleanName = String(name || "").trim();
-  const cleanIcon = String(icon || "🛒").trim();
-  const num = parseFloat(quantity) || 1;
-  const cleanUnit = String(unit || "יח'").trim();
+  const cleanIcon = String(icon || "").trim();
 
   const row = document.createElement("div");
   row.className = "item fade-in";
@@ -1478,10 +1392,10 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "name";
-  
+
   // Get the appropriate emoji for this item
   const fallbackEmoji = getDefaultEmojiForItem(cleanName);
-  
+
   // Check if icon is an image (base64 or URL)
   if (cleanIcon.startsWith('data:image/') || cleanIcon.startsWith('http://') || cleanIcon.startsWith('https://')) {
     // Create both image and emoji icon container
@@ -1491,7 +1405,7 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     iconContainer.style.marginLeft = '0.3em';
     iconContainer.style.display = 'none'; // Hidden by default when image is shown
     iconContainer.textContent = fallbackEmoji;
-    
+
     const imgElement = document.createElement('img');
     imgElement.src = cleanIcon;
     imgElement.className = 'item-image-icon';
@@ -1501,29 +1415,24 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     imgElement.style.borderRadius = '4px';
     imgElement.style.marginLeft = '0.3em';
     imgElement.style.verticalAlign = 'middle';
-    
+
     // Handle image loading errors
     imgElement.onerror = () => {
       // If image fails to load, show emoji instead
       imgElement.style.display = 'none';
       iconContainer.style.display = 'inline';
     };
-    
+
     // Add image background class for CSS targeting
     row.classList.add('has-image-background');
-    
+
     nameSpan.appendChild(imgElement);
     nameSpan.appendChild(iconContainer);
-    nameSpan.appendChild(document.createTextNode(` ${cleanName}`));
+    nameSpan.appendChild(document.createTextNode(cleanIcon ? ` ${cleanName}` : cleanName));
   } else {
     // Regular emoji icon
-    nameSpan.textContent = `${cleanIcon} ${cleanName}`.trim();
+    nameSpan.textContent = cleanIcon ? `${cleanIcon} ${cleanName}` : cleanName;
   }
-
-  // qty+unit as a single span for compactness
-  const qty = document.createElement("span");
-  qty.className = "qty";
-  qty.textContent = `${num} ${cleanUnit}`.trim();
 
   // Note icon button
   const noteIcon = document.createElement("span");
@@ -1531,21 +1440,21 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   noteIcon.textContent = "📝";
   noteIcon.title = "הוסף הערה";
   noteIcon.style.cursor = "pointer";
-  
+
   // הערה קצרה - מוסתרת כברירת מחדל
   const noteDiv = document.createElement("div");
   noteDiv.className = "item-note-row";
   if (!note || note.trim() === "") {
     noteDiv.style.display = "none"; // מוסתר אם אין הערה
   }
-  
+
   const noteInput = document.createElement("input");
   noteInput.className = "item-note";
   noteInput.type = "text";
   noteInput.placeholder = "הוסף הערה...";
   noteInput.value = note || "";
   noteInput.setAttribute("aria-label", "הערה לפריט");
-  
+
   noteInput.addEventListener("change", () => {
     // אם ההערה ריקה, הסתר את השדה
     if (noteInput.value.trim() === "") {
@@ -1556,7 +1465,7 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
     }
     saveListToStorage();
   });
-  
+
   noteInput.addEventListener("blur", () => {
     // אם ההערה ריקה בעת איבוד פוקוס, הסתר
     if (noteInput.value.trim() === "") {
@@ -1564,9 +1473,9 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
       noteIcon.textContent = "📝";
     }
   });
-  
+
   noteDiv.appendChild(noteInput);
-  
+
   // Toggle note visibility on icon click
   noteIcon.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -1579,42 +1488,14 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
       }
     }
   });
-  
+
   // Update icon if note exists
   if (note && note.trim() !== "") {
     noteIcon.textContent = "📝✓";
   }
 
-  // price element: amount and currency, compact
-  const priceSpan = document.createElement("span");
-  priceSpan.className = "price";
-  const amountSpan = document.createElement("span");
-  amountSpan.className = "amount";
-  amountSpan.textContent = (price != null && price !== "") ? String(price) : "";
-  const currencySpan = document.createElement("span");
-  currencySpan.className = "currency";
-  currencySpan.textContent = "₪";
-  priceSpan.appendChild(amountSpan);
-  priceSpan.appendChild(currencySpan);
-
-  // edit on click for amount
-  priceSpan.style.cursor = "pointer";
-  priceSpan.addEventListener("click", (e) => {
-    e.stopPropagation();
-    const current = amountSpan.textContent || "";
-    const p = prompt("הכנס מחיר בפריטים בשקלים (ללא סימן):", current);
-    if (p === null) return;
-  const cleaned = (p === "") ? "" : String(p).replace(/[^\d.]/g,'');
-    amountSpan.textContent = cleaned;
-    savePriceForItem(cleanName, cleaned);
-    renderAllPrices();
-    renderTotal();
-  });
-
-  // מבנה חדש: שם, כמות, מחיר, אייקון הערה בשורה אחת - הערה בשורה נפרדת
+  // מבנה חדש: שם ואייקון הערה בשורה אחת - הערה בשורה נפרדת
   row.appendChild(nameSpan);
-  row.appendChild(qty);
-  row.appendChild(priceSpan);
   row.appendChild(noteIcon);
   row.appendChild(noteDiv);
 
@@ -1622,9 +1503,9 @@ function createListItem(name, icon = "🛒", quantity = 1, unit = "יח'", skipS
   row.addEventListener("click", (e) => {
     // אם אנחנו במצב בחירה, אל תבצע את הפעולה הרגילה
     if (selectionMode || row.dataset.selectionMode) return;
-    
-    // אם לחצת על ה priceSpan או על כפתורי qty או note-icon, אל תטפל ב־toggle של השורה
-    if (e.target.closest('.price') || e.target.closest('.qty') || e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
+
+    // אם לחצת על ה note-icon או item-note, אל תטפל ב־toggle של השורה
+    if (e.target.closest('.item-note') || e.target.closest('.note-icon')) return;
     
     row.classList.toggle("checked");
     
@@ -1812,7 +1693,7 @@ function loadDefaultChooseItems() {
     // Add custom items that belong to this category
     if (customByCategory[categoryName]) {
       customByCategory[categoryName].forEach((c, customIndex) => {
-        const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
+        const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "").trim(), unit: String(c.unit || "יח'").trim() };
         const customElement = makeChooseButton(safe);
         customElement.setAttribute('data-category', categoryName);
         
@@ -1961,7 +1842,7 @@ function loadDefaultChooseItems() {
     fragment.appendChild(customHeader);
     
     customByCategory['פריטים מותאמים אישית'].forEach(c => {
-      const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "🛒").trim(), unit: String(c.unit || "יח'").trim() };
+      const safe = { name: String(c.name || "").trim(), icon: String(c.icon || "").trim(), unit: String(c.unit || "יח'").trim() };
       fragment.appendChild(makeChooseButton(safe));
     });
   }
@@ -1987,7 +1868,7 @@ function saveListToStorage() {
         // Old method - parse from text
         const rawName = (el.querySelector(".name")?.textContent || "").trim();
         const nameParts = rawName.split(" ").map(p => p.trim()).filter(p => p !== "");
-        icon = nameParts.length > 0 ? nameParts[0] : "🛒";
+        icon = nameParts.length > 0 ? nameParts[0] : "";
         pureName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
       } else {
         // Get name from textContent, removing icon
@@ -2038,7 +1919,7 @@ function saveListToStorage() {
     // Try to save a simplified version
     try {
       const simpleItems = Array.from(DOM.listGrid.querySelectorAll(".item")).map(el => ({
-        icon: el.dataset.icon || '🛒',
+        icon: el.dataset.icon || '',
         name: el.querySelector(".name")?.textContent?.trim() || 'Unknown',
         qty: el.querySelector(".qty")?.textContent?.trim() || '1',
         checked: el.classList.contains("checked")
@@ -2068,7 +1949,7 @@ function loadListFromStorage(){
     const unit = rest.join(" ");
     const priceMatch = (item.price || "").replace(/[^\d.]/g,'');
     const note = item.note || "";
-    const row = createListItem(item.name, item.icon || "🛒", parseInt(num) || 1, unit || "יח'", true, priceMatch || null, note);
+    const row = createListItem(item.name, item.icon || "", true, note);
     
     if (item.checked) {
       row.classList.add("checked");
@@ -2172,7 +2053,7 @@ function saveStoreSelection() {
 
   // fetch prices for branch (saves to apiPrices only)
   fetchPricesForBranch(network, branch).then(map => {
-    if (map) showToast('בחירת חנות נשמרה ומחירים נטענו 🛒', 'success');
+    if (map) showToast('בחירת חנות נשמרה ומחירים נטענו', 'success');
     else showToast('בחירת חנות נשמרה אך לא נמצאו מחירים לסניף זה', 'info');
   });
   renderAllPrices();
@@ -2433,7 +2314,7 @@ function detectIcon(itemName) {
     'קפואים': '🧊'
   };
   
-  return category ? categoryDefaultIcons[category] || '🛒' : '🛒';
+  return category ? categoryDefaultIcons[category] || '' : '';
 }
 
 // Global variable to store pending custom item data
@@ -2525,7 +2406,7 @@ function finishAddingCustomItem(icon) {
   if (DEBUG_MODE) console.log('Finishing custom item with icon:', icon, 'category:', category);
   
   // Add to list
-  createListItem(name, icon, 1, unit);
+  createListItem(name, icon);
   
   // Save to appropriate category
   const saved = JSON.parse(localStorage.getItem('customChooseItems') || '[]');
@@ -2698,7 +2579,7 @@ function startVoiceInput() {
       voiceBtn.classList.remove('listening');
       
       // Create the item
-      createListItem(product.name, product.icon, 1, product.unit);
+      createListItem(product.name, product.icon);
       
       // Reset button after delay
       setTimeout(() => {
@@ -2736,7 +2617,7 @@ function startVoiceInput() {
           }
           
           // Add to shopping list
-          createListItem(transcript, icon, 1, 'יח\'');
+          createListItem(transcript, icon);
         }
         voiceBtn.textContent = '🎤';
       }, 100);
@@ -2914,7 +2795,7 @@ function detectIconByName(name) {
     }
   }
   
-  return '🛒'; // Default icon
+  return ''; // Default icon
 }
 
 /* ====== Selection Mode & Context Menu ====== */
@@ -3425,7 +3306,7 @@ document.addEventListener('contextmenu', (e) => {
     // For choose items, trigger our context menu
     const itemData = {
       name: chooseItem.textContent.replace(/\d+$/, '').trim(),
-      icon: chooseItem.getAttribute('data-icon') || '🛒',
+      icon: chooseItem.getAttribute('data-icon') || '',
       unit: chooseItem.getAttribute('data-unit') || "יח'"
     };
     showContextMenuForChooseItem(e.clientX, e.clientY, chooseItem, itemData);
@@ -3716,11 +3597,11 @@ document.getElementById('contextEdit').addEventListener('click', () => {
   const currentText = nameSpan.textContent.trim();
   // Remove emoji icon if exists
   const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
-  
+
   const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
   if (newName && newName.trim() !== '') {
     // Keep the icon, update the name
-    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
+    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '';
     nameSpan.textContent = `${icon} ${newName.trim()}`;
     saveListToStorage();
   }
@@ -3915,10 +3796,10 @@ document.getElementById('contextEdit').addEventListener('click', () => {
   
   const currentText = nameSpan.textContent.trim();
   const textWithoutIcon = currentText.replace(/^[\u{1F300}-\u{1F9FF}]\s*/u, '');
-  
+
   const newName = prompt('ערוך שם הפריט:', textWithoutIcon);
   if (newName && newName.trim() !== '') {
-    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '🛒';
+    const icon = currentText.match(/^[\u{1F300}-\u{1F9FF}]/u)?.[0] || '';
     nameSpan.textContent = `${icon} ${newName.trim()}`;
     saveListToStorage();
   }
@@ -4000,7 +3881,7 @@ function saveChooseItemsToStorage() {
     }
     
     return {
-      icon: '🛒',
+      icon: '',
       name: text,
       unit: dataUnit
     };
@@ -4018,7 +3899,7 @@ if (addItemChooseInput) {
       const itemName = addItemChooseInput.value.trim();
       const newItem = {
         name: itemName,
-        icon: '🛒',
+        icon: '',
         unit: 'יח\''
       };
       
@@ -4058,7 +3939,7 @@ if (addItemListInput) {
       const itemName = addItemListInput.value.trim();
       
       // Add to list
-      createListItem(itemName, '🛒', 1, 'יח\'');
+      createListItem(itemName, '');
       
       // Clear input
       addItemListInput.value = '';
@@ -4069,15 +3950,6 @@ if (addItemListInput) {
       setTimeout(() => {
         listGrid.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }, 100);
-    }
-  });
-  
-  // Also allow blur to add (optional)
-  addItemListInput.addEventListener('blur', () => {
-    if (addItemListInput.value.trim() !== '') {
-      // Trigger enter
-      const event = new KeyboardEvent('keydown', { key: 'Enter' });
-      addItemListInput.dispatchEvent(event);
     }
   });
 }
