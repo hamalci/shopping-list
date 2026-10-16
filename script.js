@@ -3937,14 +3937,16 @@ if (addItemListInput) {
   addItemListInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && addItemListInput.value.trim() !== '') {
       const itemName = addItemListInput.value.trim();
-      
+
+      // Clear input immediately
+      addItemListInput.value = '';
+
       // Add to list
       createListItem(itemName, '');
-      
-      // Clear input
-      addItemListInput.value = '';
-      addItemListInput.blur();
-      
+
+      // Keep focus on input for faster entry
+      addItemListInput.focus();
+
       // Scroll to see the new item
       const listGrid = document.getElementById('listGrid');
       setTimeout(() => {
