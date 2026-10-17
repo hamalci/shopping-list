@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopping-app-v7.3.3'; // Hebrew-only version - removed all cart icons
+const CACHE_NAME = 'shopping-app-v7.4.0'; // Hebrew-only version - UI improvements
 
 self.addEventListener('install', e => {
   console.log('[SW] Installing new service worker...');

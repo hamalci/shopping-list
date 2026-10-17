@@ -1366,7 +1366,9 @@ function makeChooseButton(item) {
     }
 
     btn.classList.add("selected", "pulse");
-    setTimeout(() => btn.classList.remove("pulse"), 420);
+    // Force reflow to ensure animation plays
+    void btn.offsetWidth;
+    setTimeout(() => btn.classList.remove("pulse"), 600);
     saveListToStorage();
     
     // Don't close the modal - allow multiple selections
