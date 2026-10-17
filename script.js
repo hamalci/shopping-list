@@ -143,6 +143,24 @@ function showToast(message, type = 'info', duration = 3000) {
   }, duration);
 }
 
+// --- Price Functions (dummy functions for compatibility) ---
+function getPriceForItem(name) {
+  // Price functionality removed - return null
+  return null;
+}
+
+function renderAllPrices() {
+  // Price functionality removed - do nothing
+}
+
+function renderTotal() {
+  // Price functionality removed - do nothing
+}
+
+function savePriceForItem(name, price) {
+  // Price functionality removed - do nothing
+}
+
 // --- NFC Auto Check-in Function ---
 function performNFCCheckin() {
   try {
@@ -1337,33 +1355,20 @@ function makeChooseButton(item) {
 
   btn.addEventListener("click", () => {
     if (!DOM.listGrid) return;
-    
-    const existing = Array.from(DOM.listGrid.querySelectorAll(".item"))
-      .find(el => el.querySelector(".name")?.textContent.includes(item.name));
 
-    if (existing) {
-      const qtyEl = existing.querySelector(".qty");
-      let [num, ...rest] = qtyEl.textContent.split(" ").map(s => s.trim()).filter(s => s !== "");
-      num = parseInt(num || "0", 10) + 1;
-      const unitText = rest.join(" ") || item.unit || "";
-      qtyEl.textContent = `${num} ${unitText}`.trim();
-      badge.textContent = String(num);
-      badge.style.display = "inline-flex";
-    } else {
-      // Get the current icon from data-icon attribute (most up-to-date)
-      let iconToUse = btn.getAttribute('data-icon') || item.icon;
-      if (iconToUse && iconToUse.length > 10 && 
-          !iconToUse.startsWith('data:image/') && 
-          !iconToUse.startsWith('http://') && 
-          !iconToUse.startsWith('https://') &&
-          !/^[\u{1F300}-\u{1F9FF}]$/u.test(iconToUse) &&
-          !/^[\u{2600}-\u{26FF}]$/u.test(iconToUse)) {
-        iconToUse = ''; // Use default icon for corrupted data
-      }
-      createListItem(item.name, iconToUse);
-      badge.textContent = "1";
-      badge.style.display = "inline-flex";
+    // Get the current icon from data-icon attribute (most up-to-date)
+    let iconToUse = btn.getAttribute('data-icon') || item.icon;
+    if (iconToUse && iconToUse.length > 10 &&
+        !iconToUse.startsWith('data:image/') &&
+        !iconToUse.startsWith('http://') &&
+        !iconToUse.startsWith('https://') &&
+        !/^[\u{1F300}-\u{1F9FF}]$/u.test(iconToUse) &&
+        !/^[\u{2600}-\u{26FF}]$/u.test(iconToUse)) {
+      iconToUse = ''; // Use default icon for corrupted data
     }
+    createListItem(item.name, iconToUse);
+    badge.textContent = "1";
+    badge.style.display = "inline-flex";
 
     btn.classList.add("selected");
     // Use different animation for mobile
@@ -1382,7 +1387,7 @@ function makeChooseButton(item) {
     
     // Don't close the modal - allow multiple selections
     // closeChooseModal();
-    renderAllPrices();
+
     renderTotal();
   });
 
@@ -1551,72 +1556,19 @@ function createListItem(name, icon = "", skipSave = false, note = "") {
   });
 
   if (DOM.listGrid) DOM.listGrid.appendChild(row);
-  
+
   // Attach long press handler for context menu
   attachLongPressToItem(row);
-  
+
   if (!skipSave) {
     saveListToStorage();
   }
-  renderAllPrices();
-  renderTotal();
   return row;
 }
 
-// ===== compute total (now price * quantity) =====
-function computeTotalFromDOM() {
-  let total = 0;
-  const items = DOM.listGrid?.querySelectorAll('.item') || [];
-  
-  for (const el of items) {
-    const amtText = el.querySelector('.price .amount')?.textContent || "";
-    const price = parseFloat((amtText + "").replace(/[^\d.]/g,'')) || 0;
 
-    // quantity from .q-amount or fallback to .qty text
-    let qty = 1;
-    const qEl = el.querySelector('.qty .q-amount');
-    if (qEl) qty = parseFloat((qEl.textContent + "").replace(/[^\d.]/g,'')) || 1;
-    else {
-      const rawQty = el.querySelector('.qty')?.textContent || "1";
-      qty = parseFloat((rawQty + "").replace(/[^\d.]/g,'')) || 1;
-    }
 
-    total += price * qty;
-  }
-  return total;
-}
 
-// renderTotal unchanged except it calls computeTotalFromDOM
-function renderTotal() {
-  if (!DOM.totalAmount) return;
-  const total = computeTotalFromDOM();
-  const display = Number.isInteger(total) ? `${total} ₪` : `${total.toFixed(2)} ₪`;
-  DOM.totalAmount.textContent = display;
-  
-  // Calculate cart total
-  renderCartTotal();
-}
-
-function renderCartTotal() {
-  const cartTotalEl = document.getElementById('cartTotalAmount');
-  if (!cartTotalEl) return;
-  
-  const cartGrid = document.getElementById('cartGrid');
-  if (!cartGrid) return;
-  
-  let cartTotal = 0;
-  const cartItems = cartGrid.querySelectorAll('.item');
-  cartItems.forEach(el => {
-    const name = el.querySelector('.name')?.textContent.split(' ').slice(1).join(' ') || '';
-    const price = getPriceForItem(name);
-    const qtyText = el.querySelector('.qty')?.textContent || '1';
-    const qty = parseFloat(qtyText.split(' ')[0]) || 1;
-    if (price) cartTotal += parseFloat(price) * qty;
-  });
-  
-  const display = Number.isInteger(cartTotal) ? `${cartTotal} ₪` : `${cartTotal.toFixed(2)} ₪`;
-  cartTotalEl.textContent = display;
-}
 
 
 /* ====== load choose items ====== */
@@ -1980,35 +1932,6 @@ function loadListFromStorage(){
   if (typeof sortListByCategories === "function") sortListByCategories();
   renderAllPrices();
   renderTotal();
-}
-
-/* ====== save manual price override ====== */
-function savePriceForItem(name, price) {
-  const manual = loadManualPrices();
-  if (!price || price === "") delete manual[name];
-  else manual[name] = String(price);
-  saveManualPrices(manual);
-}
-
-/* ====== render prices per item (show/hide) ====== */
-function renderAllPrices() {
-  const show = localStorage.getItem('showPrices') === '1';
-  const branchLabel = localStorage.getItem('selectedBranchLabel') || '';
-  document.querySelectorAll('#listGrid .item').forEach(el => {
-    const name = el.querySelector('.name')?.textContent.split(' ').slice(1).join(' ') || '';
-    const priceSpan = el.querySelector('.price');
-    const stored = getPriceForItem(name);
-    const amountEl = priceSpan?.querySelector('.amount');
-    if (stored !== null && stored !== undefined) {
-      amountEl.textContent = String(stored);
-    }
-    if (show && (stored || branchLabel)) {
-      priceSpan.style.display = 'inline-flex';
-      priceSpan.querySelector('.currency').style.display = 'inline';
-    } else {
-      priceSpan.style.display = 'none';
-    }
-  });
 }
 
 /* ====== sorting by categories ====== */
@@ -3129,7 +3052,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const show = localStorage.getItem('showPrices') === '1';
     const toggle = document.getElementById('togglePrices');
     if (toggle) toggle.checked = show;
-    renderAllPrices();
+
     renderTotal();
   })();
 
@@ -3593,7 +3516,7 @@ function deleteSelectedItems() {
     });
     saveListToStorage();
     exitSelectionMode();
-    renderAllPrices();
+
     renderTotal();
   }
 }
