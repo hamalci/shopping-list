@@ -33,7 +33,7 @@
   <link rel="preconnect" href="https://images.unsplash.com" crossorigin>
   <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   
-  <link rel="stylesheet" href="style.css?v=7.4.0" />
+  <link rel="stylesheet" href="style.css?v=7.4.1" />
   <link rel="stylesheet" href="icons.css" />
 
 
@@ -56,7 +56,7 @@
     firebase.initializeApp(firebaseConfig);
     window.db = firebase.firestore(); // Make db globally accessible
   </script>
-  <script src="script.js?v=7.4.0" defer></script>
+  <script src="script.js?v=7.4.1" defer></script>
   
   <!-- PWA & SEO Meta Tags -->
   <link rel="icon" type="image/png" href="icons/favicon.png">
@@ -181,11 +181,13 @@
     <section id="listSection">
       <div class="list-header">
   <h2>📃 הרשימה שלי</h2>
-  <button id="btnShareList" class="btn-action" title="שתף רשימה בענן" aria-label="שתף את הרשימה דרך Firebase">
-  <img src="icons/share_icon2.png" alt="שתף רשימה" style="width:3.2em;height:3.2em;filter:drop-shadow(0 0 2px #fff);transition:transform 0.12s;">
+      </div>
+      <div class="list-actions">
+  <button id="btnShareList" class="btn-action list-action-btn" title="שתף רשימה בענן" aria-label="שתף את הרשימה דרך Firebase">
+  <img src="icons/share_icon2.png" alt="שתף רשימה" style="width:2.5em;height:2.5em;filter:drop-shadow(0 0 2px #fff);transition:transform 0.12s;">
   <span class="btn-text">שתף</span>
   </button>
-  <button id="btnListClear" class="header-btn" style="background:#ff6b6b;color:white;padding:0.5em 1em;border-radius:8px;border:none;cursor:pointer;margin-left:0.5rem;" title="נקה רשימה" aria-label="נקה רשימה">🗑️<span class="btn-text">מחק</span></button>
+  <button id="btnListClear" class="header-btn list-action-btn" style="background:#ff6b6b;color:white;padding:0.5em 1em;border-radius:8px;border:none;cursor:pointer;" title="נקה רשימה" aria-label="נקה רשימה">🗑️<span class="btn-text">מחק</span></button>
       </div>
       
       <div class="add-item-inline" id="addItemList">

@@ -1368,6 +1368,8 @@ function makeChooseButton(item) {
     btn.classList.add("selected", "pulse");
     // Force reflow to ensure animation plays
     void btn.offsetWidth;
+    // Scroll into view to ensure animation is visible
+    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(() => btn.classList.remove("pulse"), 600);
     saveListToStorage();
     

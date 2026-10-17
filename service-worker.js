@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopping-app-v7.4.0'; // Hebrew-only version - UI improvements
+const CACHE_NAME = 'shopping-app-v7.4.1'; // Hebrew-only version - button layout fix
 
 self.addEventListener('install', e => {
   console.log('[SW] Installing new service worker...');

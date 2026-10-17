@@ -561,14 +561,40 @@ body.dark-mode .close-modal:hover {
 .app-content h2 { font-size: 1.125rem; font-weight:700; margin:0.5rem 0; }
 
 /* List header */
-.list-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 0.5rem 0; 
-  flex-wrap: wrap; 
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  flex-wrap: wrap;
   gap: 0.25rem;
   position: relative;
+}
+
+/* List actions row - below header */
+.list-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  padding: 0.3rem 0;
+  margin-bottom: 0.2rem;
+}
+
+.list-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  transition: transform 0.18s;
+}
+
+.list-action-btn:hover {
+  transform: translateY(-2px);
+}
+
+.list-action-btn:active {
+  transform: translateY(0);
 }
 
 .list-header h2 {
@@ -679,16 +705,16 @@ body.dark-mode #listMenuDropdown .menu-section-title {
   gap: 0.3rem;
 }
 
-/* טקסט בכפתורים - מוסתר במובייל, מופיע במסכים גדולים */
+/* טקסט בכפתורים - גלוי תמיד */
 .btn-text {
-  display: none;
-  font-size: 0.85rem;
+  display: inline;
+  font-size: 0.9rem;
   font-weight: 600;
 }
 
-@media (min-width: 600px) {
+@media (max-width: 420px) {
   .btn-text {
-    display: inline;
+    font-size: 0.85rem;
   }
 }
 
