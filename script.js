@@ -1365,12 +1365,19 @@ function makeChooseButton(item) {
       badge.style.display = "inline-flex";
     }
 
-    btn.classList.add("selected", "pulse");
-    // Force reflow to ensure animation plays
-    void btn.offsetWidth;
-    // Scroll into view to ensure animation is visible
-    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => btn.classList.remove("pulse"), 600);
+    btn.classList.add("selected");
+    // Use different animation for mobile
+    if (window.innerWidth <= 600) {
+      btn.classList.add("pulse-mobile");
+      setTimeout(() => btn.classList.remove("pulse-mobile"), 500);
+    } else {
+      btn.classList.add("pulse");
+      // Force reflow to ensure animation plays
+      void btn.offsetWidth;
+      // Scroll into view to ensure animation is visible
+      btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => btn.classList.remove("pulse"), 800);
+    }
     saveListToStorage();
     
     // Don't close the modal - allow multiple selections

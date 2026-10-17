@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopping-app-v7.4.3'; // Hebrew-only version - enhanced selection animation
+const CACHE_NAME = 'shopping-app-v7.4.4'; // Hebrew-only version - mobile flash animation
 
 self.addEventListener('install', e => {
   console.log('[SW] Installing new service worker...');
