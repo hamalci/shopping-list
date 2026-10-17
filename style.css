@@ -926,7 +926,7 @@ body.dark-mode #toggleChoose.active {
   75%{transform:scale(1.12);box-shadow:0 12px 32px rgba(34,139,95,0.4);background:#c8f0dc;border-color:#22c55e;}
   100%{transform:scale(1);box-shadow:none;border-color:#9fe0c9;}
 }
-.choose-item.pulse { animation:choosePulse 800ms ease !important; }
+.choose-item.pulse { animation:choosePulse 800ms ease; }
 
 /* Add a checkmark overlay when selected */
 .choose-item.selected::after {
@@ -939,7 +939,7 @@ body.dark-mode #toggleChoose.active {
   color: #22c55e;
   font-weight: bold;
   text-shadow: 0 2px 8px rgba(255,255,255,0.9);
-  animation: checkmarkFade 800ms ease forwards !important;
+  animation: checkmarkFade 800ms ease forwards;
   pointer-events: none;
   z-index: 10;
 }
@@ -953,7 +953,7 @@ body.dark-mode #toggleChoose.active {
 
 /* Alternative: flash effect for mobile */
 .choose-item.pulse-mobile {
-  animation: flashHighlight 500ms ease !important;
+  animation: flashHighlight 500ms ease;
 }
 
 @keyframes flashHighlight {

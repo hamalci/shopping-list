@@ -1,4 +1,4 @@
-const CACHE_NAME = 'shopping-app-v7.4.7'; // Hebrew-only version - fixed animation and removed prices
+const CACHE_NAME = 'shopping-app-v7.4.8'; // Hebrew-only version - removed !important
 
 self.addEventListener('install', e => {
   console.log('[SW] Installing new service worker...');
