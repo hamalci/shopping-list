@@ -920,13 +920,36 @@ body.dark-mode #toggleChoose.active {
 /* בחירה חזותית לפריטי 'בחר פריטים' */
 .choose-item.selected { background:#eaf7f1; border-color:#9fe0c9; transition:background 0.25s, transform 0.18s; }
 @keyframes choosePulse {
-  0%{transform:scale(1);box-shadow:none;}
-  25%{transform:scale(1.08);box-shadow:0 8px 24px rgba(34,139,95,0.25);background:#d4f1e5;}
-  50%{transform:scale(1.05);box-shadow:0 6px 18px rgba(34,139,95,0.2);background:#d4f1e5;}
-  75%{transform:scale(1.08);box-shadow:0 8px 24px rgba(34,139,95,0.25);background:#d4f1e5;}
-  100%{transform:scale(1);box-shadow:none;}
+  0%{transform:scale(1);box-shadow:none;border-color:#9fe0c9;}
+  25%{transform:scale(1.12);box-shadow:0 12px 32px rgba(34,139,95,0.4);background:#c8f0dc;border-color:#22c55e;}
+  50%{transform:scale(1.08);box-shadow:0 8px 24px rgba(34,139,95,0.35);background:#c8f0dc;border-color:#22c55e;}
+  75%{transform:scale(1.12);box-shadow:0 12px 32px rgba(34,139,95,0.4);background:#c8f0dc;border-color:#22c55e;}
+  100%{transform:scale(1);box-shadow:none;border-color:#9fe0c9;}
 }
-.choose-item.pulse { animation:choosePulse 600ms ease; }
+.choose-item.pulse { animation:choosePulse 800ms ease; }
+
+/* Add a checkmark overlay when selected */
+.choose-item.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+  color: #22c55e;
+  font-weight: bold;
+  text-shadow: 0 2px 8px rgba(255,255,255,0.9);
+  animation: checkmarkFade 800ms ease forwards;
+  pointer-events: none;
+  z-index: 10;
+}
+
+@keyframes checkmarkFade {
+  0%{opacity:0;transform:translate(-50%, -50%) scale(0.5);}
+  30%{opacity:1;transform:translate(-50%, -50%) scale(1.2);}
+  70%{opacity:1;transform:translate(-50%, -50%) scale(1);}
+  100%{opacity:0;transform:translate(-50%, -50%) scale(1.5);}
+}
 .choose-item.resetting { transition: background 0.22s, opacity 0.18s; opacity:0.9; }
 
 .choose-item { position: relative; }
